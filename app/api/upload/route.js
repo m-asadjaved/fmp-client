@@ -81,9 +81,12 @@ export async function POST(request) {
 
     // 3. Generate secure filename using UUID
     const fileExtension = filename.split('.').pop();
-    const uniqueFilename = `${uuidv4()}.${fileExtension}`;
+    const uniqueFilename = `raw_videos/${uuidv4()}.${fileExtension}`;
 
-    // 4. Save metadata record to Supabase
+    // 4. Construct Public Storage URL Address destination path
+    const videoUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${uniqueFilename}`;
+
+    // 5. Save metadata record + constructed direct URL to Supabase
     const { data: dbRecord, error: dbError } = await supabase
       .from("videos")
       .insert([
@@ -94,6 +97,7 @@ export async function POST(request) {
           content_type: contentType,
           file_size: fileSize,
           duration: duration,
+          video_url: videoUrl, // Appended to store the raw asset location address
         },
       ])
       .select()
@@ -101,7 +105,7 @@ export async function POST(request) {
 
     if (dbError) throw dbError;
 
-    // 5. Build S3 Target upload signature
+    // 6. Build S3 Target upload signature
     const command = new PutObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME,
       Key: uniqueFilename,
