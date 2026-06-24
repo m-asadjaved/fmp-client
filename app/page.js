@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { SignInButton, UserButton, useAuth } from '@clerk/nextjs';
+import { SignInButton, UserButton, useAuth, PricingTable } from '@clerk/nextjs';
 
 const SAMPLES = [
   { cat: 'Podcast', title: 'Weekly creator roundup — Episode 42', user: '@alexmakes', views: '14k', color: '#2563eb', span: 'span 7' },
@@ -423,6 +423,11 @@ export default function StreamCutLanding() {
           ))}
         </div>
       </section>
+
+      <PricingTable 
+        checkoutSuccessUrl="/purchase-success" 
+        checkoutCancelUrl="/#pricing"
+      />
 
       {/* FAQ SECTION */}
       <section id="faq" style={s.faqWrap}>

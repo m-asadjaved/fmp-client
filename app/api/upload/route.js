@@ -1,7 +1,7 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
 
@@ -36,9 +36,16 @@ export async function GET() {
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
+    // Fetch existing user record
+    const { data: user } = await supabase
+      .from("user_credits")
+      .select("balance, plan, plan_credits")
+      .eq("user_id", userId)
+      .single();
+
     if (error) throw error;
 
-    return NextResponse.json({ history: data });
+    return NextResponse.json({ history: data, credits: user.balance });
   } catch (error) {
     console.error("Supabase Fetch Error:", error);
     return NextResponse.json({ error: "Failed to fetch history" }, { status: 500 });
@@ -70,42 +77,50 @@ export async function POST(request) {
       return NextResponse.json({ error: "File size exceeds the 500MB limit for users." }, { status: 403 });
     }
 
-    const { count, error: countError } = await supabase
-      .from("videos")
-      .select("*", { count: "exact", head: true })
-      .eq("user_id", userId);
+    // 3. Calculate Credit Cost
+    const credits_cost = Number((duration / 1200).toFixed(4));
 
-    if (!countError && count >= 3) {
-      return NextResponse.json({ error: "You have reached your maximum limit of 3 video uploads." }, { status: 403 });
+    // 4. Deduct Credits First (Fails early if user has insufficient credits)
+    try {
+      const { data: deductionData, error: deductionError } = await supabase.rpc('deduct_credits', {
+        p_user_id: userId,
+        p_amount: credits_cost,
+        p_description: `Uploaded video: ${filename} (${duration}s)`
+      });
+
+      if (deductionError) throw new Error(deductionError.message);
+    } catch (err) {
+      return NextResponse.json({ error: `Credit deduction failed: ${err.message}` }, { status: 400 });
     }
 
-    // 3. Generate secure filename using UUID
+    // 5. Generate secure filename using UUID
     const fileExtension = filename.split('.').pop();
     const uniqueFilename = `raw_videos/${uuidv4()}.${fileExtension}`;
 
-    // 4. Construct Public Storage URL Address destination path
+    // 6. Construct Public Storage URL Address destination path
     const videoUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${uniqueFilename}`;
 
-    // 5. Save metadata record + constructed direct URL to Supabase
+    // 7. Save metadata record + constructed direct URL to Supabase
     const { data: dbRecord, error: dbError } = await supabase
-      .from("videos")
-      .insert([
-        {
-          user_id: userId,
-          file_key: uniqueFilename,
-          original_name: filename,
-          content_type: contentType,
-          file_size: fileSize,
-          duration: duration,
-          video_url: videoUrl, // Appended to store the raw asset location address
-        },
-      ])
-      .select()
-      .single();
+    .from("videos")
+    .insert([
+      {
+        user_id: userId,
+        file_key: uniqueFilename,
+        original_name: filename,
+        content_type: contentType,
+        file_size: fileSize,
+        duration: duration,
+        video_url: videoUrl,
+        credits_used: credits_cost // Save the calculated cost
+      },
+    ])
+    .select()
+    .single();
 
     if (dbError) throw dbError;
 
-    // 6. Build S3 Target upload signature
+    // 8. Build S3 Target upload signature
     const command = new PutObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME,
       Key: uniqueFilename,
@@ -114,10 +129,27 @@ export async function POST(request) {
 
     const uploadUrl = await getSignedUrl(s3Client, command, { expiresIn: 60 });
 
-    return NextResponse.json({ 
-      uploadUrl, 
-      dbRecord 
-    });
+    try {
+      // Call the PostgreSQL RPC we made in Step 2
+      const { data, error } = await supabase.rpc('deduct_credits', {
+        p_user_id: userId,
+        p_amount: credits_cost,
+        p_description: 'Generation of Premium Asset'
+      });
+  
+      if (error) throw new Error(error.message);
+  
+      // --- EXECUTE THE ACTUAL PAID APP LOGIC HERE ---
+      // (e.g., Call OpenAI, midjourney, render video, etc.)
+  
+      return NextResponse.json({ 
+        uploadUrl, 
+        dbRecord 
+      });
+
+    } catch (err) {
+      return new Response(JSON.stringify({ error: err.message }), { status: 400 });
+    }
 
   } catch (error) {
     console.error("Pipeline Exception:", error);
