@@ -85,9 +85,9 @@ export async function POST(request) {
   try {
     const body = await request.json();
 
-    // Extract your identifier. Adapt depending on what your external program sends.
     const reqId = body.req_id || body.ref;
-    const status = body.status; // e.g. "COMPLETED" or "FAILED"
+    // Normalize status to uppercase to handle 'completed' or 'COMPLETED'
+    const status = body.status?.toUpperCase(); 
 
     if (!reqId || !status) {
       return NextResponse.json(
@@ -106,14 +106,16 @@ export async function POST(request) {
     }
 
     const encoder = new TextEncoder();
-    const dataPayload = encoder.encode(`data: ${JSON.stringify({ status })}\n\n`);
+    
+    // FIX: Forward the entire body (including video_url) so the frontend can use it
+    const dataPayload = encoder.encode(`data: ${JSON.stringify(body)}\n\n`);
 
     // Write to every connected tab; skip any whose stream already closed
-    const writeResults = await Promise.allSettled(
+    await Promise.allSettled(
       listeners.map((client) => {
         try {
           client.write(dataPayload);
-          // After a terminal status, close the stream from the server side
+          // Safely catches 'COMPLETED' now
           if (status === 'COMPLETED' || status === 'FAILED') {
             client.close();
           }

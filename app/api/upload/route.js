@@ -1,9 +1,10 @@
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { NextResponse } from "next/server";
-import { auth, clerkClient } from "@clerk/nextjs/server";
+import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
 import { v4 as uuidv4 } from "uuid";
+
 
 const s3Client = new S3Client({
   region: process.env.AWS_REGION,
@@ -22,6 +23,7 @@ const supabase = createClient(
 // GET: Fetch History (Authenticated Only)
 // ----------------------------------------------------
 export async function GET() {
+
   try {
     const { userId } = await auth();
     
@@ -93,9 +95,10 @@ export async function POST(request) {
       return NextResponse.json({ error: `Credit deduction failed: ${err.message}` }, { status: 400 });
     }
 
+    const videoId = uuidv4();
     // 5. Generate secure filename using UUID
     const fileExtension = filename.split('.').pop();
-    const uniqueFilename = `raw_videos/${uuidv4()}.${fileExtension}`;
+    const uniqueFilename = `raw_videos/${videoId}.${fileExtension}`;
 
     // 6. Construct Public Storage URL Address destination path
     const videoUrl = `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${uniqueFilename}`;
@@ -112,7 +115,8 @@ export async function POST(request) {
         file_size: fileSize,
         duration: duration,
         video_url: videoUrl,
-        credits_used: credits_cost // Save the calculated cost
+        credits_used: credits_cost, // Save the calculated cost
+        video_id: videoId // Save the calculated cost
       },
     ])
     .select()

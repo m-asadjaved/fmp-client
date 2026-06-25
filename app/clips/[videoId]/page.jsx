@@ -4,7 +4,7 @@ import React, { use, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function AIClipsPage({ params }) {
-  const { id } = use(params);
+  const { videoId } = use(params);
   const router = useRouter();
 
   // ─── Phase control ───────────────────────────────────────────────────────────
@@ -36,11 +36,7 @@ export default function AIClipsPage({ params }) {
   const startProcessing = async () => {
     setLambdaLoading(true);
     try {
-      const response = await fetch('YOUR_LAMBDA_URL', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ req_id: id }),
-      });
+      const response = await fetch(`/api/video_processing/${videoId}`);
 
       if (response.ok) {
         // Show toast, then transition to processing phase
@@ -48,7 +44,7 @@ export default function AIClipsPage({ params }) {
         setTimeout(() => setAlertVisible(false), 4000);
         setTimeout(() => setPhase('processing'), 800); // small delay so user sees toast first
       } else {
-        console.error('Lambda returned non-200:', response.status);
+        console.error('function returned non-200:', response.status);
       }
     } catch (err) {
       console.error('Lambda call failed:', err);
@@ -59,16 +55,16 @@ export default function AIClipsPage({ params }) {
 
   // ─── SSE webhook listener (only active while processing) ─────────────────────
   useEffect(() => {
-    if (!id || phase !== 'processing') return;
+    if (!videoId || phase !== 'processing') return;
 
     intentionallyClosed.current = false;
-    const eventSource = new EventSource(`/api/webhook/clips?id=${id}`);
+    const eventSource = new EventSource(`/api/webhook/clips?id=${videoId}`);
 
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
 
-        if (data.status === 'COMPLETED') {
+        if (data.status === 'completed') {
           setCurrentStep(pipelineSteps.length - 1);
           setPhase('done');
           setLogs((prev) => [...prev, 'SUCCESS: Webhook broadcast matched! Processing finalized externally. Canvas ready.']);
@@ -95,7 +91,7 @@ export default function AIClipsPage({ params }) {
       intentionallyClosed.current = true;
       eventSource.close();
     };
-  }, [id, phase]);
+  }, [videoId, phase]);
 
   // ─── Step animation (passive visual while processing) ────────────────────────
   useEffect(() => {
@@ -117,7 +113,7 @@ export default function AIClipsPage({ params }) {
 
     const mockSystemLogs = [
       'SYS: Initializing link node correlation matrix...',
-      `SYS: Source media established payload hash lookup for asset [${id}]`,
+      `SYS: Source media established payload hash lookup for asset [${videoId}]`,
       'AUDIO: Extracting payload frequency spectrum channels...',
       'WHISPER: Processing voice audio waveforms via deep layer matrices...',
       'VISION: High-density focal vectors matched between timestamp 0:12 - 0:45.',
@@ -134,7 +130,11 @@ export default function AIClipsPage({ params }) {
     }, 2000);
 
     return () => clearInterval(logIntervalRef.current);
-  }, [isProcessing, id]);
+  }, [isProcessing, videoId]);
+
+  function handleViewGeneratedVideo(){
+    router.push(`/clips/output/${videoId}`);
+  }
 
   // ─── Render ───────────────────────────────────────────────────────────────────
   return (
@@ -193,7 +193,7 @@ export default function AIClipsPage({ params }) {
             <div>
               <h1 className="text-2xl font-bold text-white mb-1">Review Your Video</h1>
               <p className="text-xs text-neutral-400 font-mono">
-                Asset Ref: <span className="text-neutral-300">{id}</span>
+                Asset Ref: <span className="text-neutral-300">{videoId}</span>
               </p>
             </div>
 
@@ -207,10 +207,10 @@ export default function AIClipsPage({ params }) {
                   className="w-full h-full object-contain"
                   controls
                   preload="metadata"
-                  poster={`/api/thumbnail/${id}`}   /* swap for your actual thumbnail URL */
+                  poster={`/api/thumbnail/${videoId}`}   /* swap for your actual thumbnail URL */
                 >
                   {/* Swap src for your actual signed S3 / CDN URL */}
-                  <source src={`/api/video/${id}`} type="video/mp4" />
+                  <source src={`/api/video/${videoId}`} type="video/mp4" />
                   Your browser does not support the video tag.
                 </video>
               </div>
@@ -284,7 +284,7 @@ export default function AIClipsPage({ params }) {
                       {isProcessing ? 'AI Production Engine Active' : '✨ Clip Generation Finalized'}
                     </h1>
                     <p className="text-xs text-neutral-400">
-                      Asset Ref: <span className="font-mono text-neutral-300">{id}</span>
+                      Asset Ref: <span className="font-mono text-neutral-300">{videoId}</span>
                     </p>
                   </div>
                   <span className="text-[11px] bg-neutral-950 border border-neutral-800 px-2.5 py-1 rounded-md text-lime-400 font-mono">
@@ -383,6 +383,7 @@ export default function AIClipsPage({ params }) {
               <div className="mt-4 pt-3 border-t border-neutral-800/60">
                 <button
                   disabled={isProcessing}
+                  onClick={handleViewGeneratedVideo}
                   className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs font-mono tracking-wide transition-all duration-300 ${
                     isProcessing
                       ? 'bg-neutral-950 border border-neutral-800 text-neutral-600 cursor-not-allowed'

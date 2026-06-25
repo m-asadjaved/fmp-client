@@ -200,7 +200,7 @@ export default function VideoUploader() {
   };
 
   const handleMakeClips = (videoItem) => {
-    router.push(`/clips/${videoItem.id}`);
+    router.push(`/clips/${videoItem.video_id}`);
   };
 
   return (
@@ -342,7 +342,7 @@ export default function VideoUploader() {
                         className="relative w-20 h-14 bg-neutral-900 rounded-lg overflow-hidden border border-neutral-800 cursor-pointer flex-shrink-0 group/thumb hover:border-lime-500/50 transition-colors"
                       >
                         <video 
-                          src={item.video_url} 
+                          src={item.video_id} 
                           preload="metadata" 
                           muted 
                           className="w-full h-full object-cover pointer-events-none"
