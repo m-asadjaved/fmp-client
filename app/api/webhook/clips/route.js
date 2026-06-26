@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
+import { createClient } from "@supabase/supabase-js";
 
 // Global memory-store to track connected listeners by their processing ID
 // Note: In production environments (like Vercel), serverless functions reset their state.
 // For distributed scaling, switch this out for a Redis Pub/Sub client.
 global.clipListeners = global.clipListeners || {};
+
+const supabase = createClient(
+  process.env.SUPABASE_URL || "",
+  process.env.SUPABASE_SERVICE_ROLE_KEY || ""
+);
 
 // 1. THE FRONTEND SEES THIS (GET Request to listen for real-time changes)
 export async function GET(request) {
@@ -95,6 +101,23 @@ export async function POST(request) {
         { status: 400 }
       );
     }
+
+    const { data, error } = await supabase
+      .from('video_processing_req')
+      .update({ status: 'completed' })
+      .eq('id', reqId) // Target the specific record
+
+    await supabase
+      .from("video_processing_logs")
+      .insert([
+        {
+          current_process: 'Video Edited Successfully',
+          status: 'completed'
+        },
+      ])
+      .select()
+      .single();
+
 
     const listeners = global.clipListeners[reqId];
 

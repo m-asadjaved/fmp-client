@@ -35,21 +35,42 @@ export default function AIClipsPage({ params }) {
   // ─── Lambda call ─────────────────────────────────────────────────────────────
   const startProcessing = async () => {
     setLambdaLoading(true);
+    let targetPhase = null; // track intended phase
+  
     try {
-      const response = await fetch(`/api/video_processing/${videoId}`);
-
-      if (response.ok) {
-        // Show toast, then transition to processing phase
+      const response = await fetch(`/api/video_processing/${videoId}`, {
+        method: "POST",
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok) {
+        throw new Error(data.error || "Something went wrong");
+      }
+  
+      if (data.videoStatus === "exist") {
+        setCurrentStep(pipelineSteps.length - 1);
+        setLogs([
+          "SUCCESS: Video has already been processed.",
+          "SUCCESS: Opening completed project.",
+        ]);
+        targetPhase = "done";
+      } else {
         setAlertVisible(true);
         setTimeout(() => setAlertVisible(false), 4000);
-        setTimeout(() => setPhase('processing'), 800); // small delay so user sees toast first
-      } else {
-        console.error('function returned non-200:', response.status);
+        targetPhase = "processing";
       }
+  
     } catch (err) {
-      console.error('Lambda call failed:', err);
+      console.error("Lambda call failed:", err);
     } finally {
       setLambdaLoading(false);
+      // Set phase AFTER lambdaLoading is cleared, outside the batch ambiguity
+      if (targetPhase === "done") {
+        setPhase("done");
+      } else if (targetPhase === "processing") {
+        setTimeout(() => setPhase("processing"), 800);
+      }
     }
   };
 
@@ -66,8 +87,16 @@ export default function AIClipsPage({ params }) {
 
         if (data.status === 'completed') {
           setCurrentStep(pipelineSteps.length - 1);
+        
+          setLogs((prev) => [
+            ...prev,
+            'SUCCESS: Webhook broadcast matched!',
+            'SUCCESS: Processing finalized.',
+            'SUCCESS: Canvas ready.'
+          ]);
+        
           setPhase('done');
-          setLogs((prev) => [...prev, 'SUCCESS: Webhook broadcast matched! Processing finalized externally. Canvas ready.']);
+        
           intentionallyClosed.current = true;
           eventSource.close();
         } else if (data.status === 'FAILED') {
@@ -306,7 +335,7 @@ export default function AIClipsPage({ params }) {
                     />
                   )}
 
-                  {phase === 'done' && currentStep === pipelineSteps.length - 1 ? (
+                  {phase === 'done' ? (
                     <div className="text-center p-6 animate-fadeIn">
                       <div className="w-16 h-16 rounded-full bg-lime-500/10 border border-lime-500 text-lime-400 flex items-center justify-center mx-auto mb-4 text-2xl">
                         ✓

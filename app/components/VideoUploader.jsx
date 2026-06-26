@@ -4,9 +4,46 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuth, SignInButton } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 
+// Helper function to extract a frame from the video file at 1 second
+const generateThumbnail = (videoFile, seekTime = 1) => {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.src = URL.createObjectURL(videoFile);
+    video.preload = 'auto';
+    video.muted = true;
+    video.playsInline = true;
+
+    video.onloadeddata = () => {
+      // Seek to 1 second (or halfway if the video is shorter)
+      video.currentTime = Math.min(seekTime, video.duration / 2);
+    };
+
+    video.onseeked = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => {
+          URL.revokeObjectURL(video.src);
+          resolve(blob);
+        }, 'image/jpeg', 0.85); // 85% quality compressed JPEG
+      } else {
+        reject(new Error('Canvas context unavailable'));
+      }
+    };
+
+    video.onerror = (err) => {
+      reject(err);
+    };
+  });
+};
+
 export default function VideoUploader() {
   const { isSignedIn, isLoaded } = useAuth();
-  const router = useRouter(); // Add this line
+  const router = useRouter();
   
   const [isDragActive, setIsDragActive] = useState(false);
   const [file, setFile] = useState(null);
@@ -130,8 +167,19 @@ export default function VideoUploader() {
     try {
       setUploading(true);
       setProgress(0);
+      setUploadSpeed('Generating thumbnail...');
+
+      // 1. Generate the Client-side Thumbnail Image Blob
+      let thumbnailBlob = null;
+      try {
+        thumbnailBlob = await generateThumbnail(file, 1);
+      } catch (thumbErr) {
+        console.error("Failed to extract thumbnail frame:", thumbErr);
+      }
+
       setUploadSpeed('Calculating...');
 
+      // 2. Request presigned upload keys from backend API route
       const response = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -140,14 +188,25 @@ export default function VideoUploader() {
           contentType: file.type,
           fileSize: file.size,
           duration: videoDuration,
+          hasThumbnail: !!thumbnailBlob, // Let backend know whether to expect a thumbnail
         }),
       });
 
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Upload error');
 
-      const { uploadUrl, dbRecord } = data;
+      const { uploadUrl, thumbnailUploadUrl, dbRecord } = data;
 
+      // 3. Process the Thumbnail binary upload to S3 concurrently if URL exists
+      if (thumbnailBlob && thumbnailUploadUrl) {
+        fetch(thumbnailUploadUrl, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'image/jpeg' },
+          body: thumbnailBlob,
+        }).catch((err) => console.error("Async S3 Thumbnail upload execution error:", err));
+      }
+
+      // 4. Instantiate Main Production Video transmission pipeline via XHR
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', uploadUrl, true);
       xhr.setRequestHeader('Content-Type', file.type);
@@ -176,7 +235,7 @@ export default function VideoUploader() {
           alert('Asset parsed and recorded successfully!');
           setFile(null);
           setHistory((prev) => [dbRecord, ...prev]);
-          fetchUploadHistory(); // Refresh to make sure video_url or properties match
+          fetchUploadHistory();
         } else {
           alert('Target storage bucket error.');
         }
@@ -319,7 +378,7 @@ export default function VideoUploader() {
             )}
           </div>
 
-          {/* RIGHT SECTION: DOCK LOG LABELS (WITH VIDEO PREVIEW/THUMBNAILS) */}
+          {/* RIGHT SECTION: DOCK LOG LABELS */}
           <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-xl flex flex-col">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-white">Uploaded History</h2>
@@ -336,17 +395,25 @@ export default function VideoUploader() {
                     
                     {/* Visual Media Thumbnail + Information Block */}
                     <div className="flex gap-3 items-start">
-                      {/* Video Container acting as Thumbnail */}
+                      {/* Video Container rendering true fallback preview image if generated */}
                       <div 
                         onClick={() => setActiveVideoUrl(item.video_url)} 
-                        className="relative w-20 h-14 bg-neutral-900 rounded-lg overflow-hidden border border-neutral-800 cursor-pointer flex-shrink-0 group/thumb hover:border-lime-500/50 transition-colors"
+                        className="relative w-20 h-14 bg-neutral-900 rounded-lg overflow-hidden border border-neutral-800 cursor-pointer flex-shrink-0 group/thumb hover:border-lime-500/50 transition-colors flex items-center justify-center"
                       >
-                        <video 
-                          src={item.video_id} 
-                          preload="metadata" 
-                          muted 
-                          className="w-full h-full object-cover pointer-events-none"
-                        />
+                        {item.thumbnail_url ? (
+                          <img 
+                            src={item.thumbnail_url} 
+                            alt="extracted frame content" 
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <video 
+                            src={item.video_url} 
+                            preload="metadata" 
+                            muted 
+                            className="w-full h-full object-cover pointer-events-none"
+                          />
+                        )}
                         {/* Play overlay button on hover */}
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity">
                           <svg className="w-5 h-5 text-lime-400 drop-shadow" fill="currentColor" viewBox="0 0 24 24">
