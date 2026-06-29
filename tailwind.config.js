@@ -2,15 +2,26 @@
 module.exports = {
   theme: {
     extend: {
-      keyframes: {
-        'slide-up': {
-          '0%': { opacity: '0', transform: 'translateX(-50%) translateY(20px)' },
-          '100%': { opacity: '1', transform: 'translateX(-50%) translateY(0)' },
-        },
-      },
-      animation: {
-        'slide-up': 'slide-up 0.35s ease-out forwards',
+      colors: {
+        brand: {
+          // Switch light backgrounds to rich, deep space shades
+          background: '#0b0f19',       // Deepest dark slate
+          surfaceBg: '#131b2e',        // Container background
+          surface: '#1e293b',          // Card backgrounds
+          
+          // Keep or amplify your core functional colors
+          primary: '#3b82f6',          // Electric blue
+          primaryHover: '#60a5fa',
+          secondary: '#605691',
+          'neon-purple': '#A855F7',
+          'vibrant-teal': '#14B8A6',
+          
+          // Inverse text behaviors
+          'on-surface': '#f8fafc',      // Bright white/slate text
+          'on-surface-variant': '#94a3b8', // Muted silver text
+          'border-subtle': '#334155',  // Dark slate borders
+        }
       },
     },
   },
-  }
+}
