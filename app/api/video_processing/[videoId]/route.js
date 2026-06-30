@@ -185,7 +185,7 @@ export async function POST(request, context) {
 					s3_output_key: `processed_videos/output-${videoId}.mp4`,
 					webhook_url: WEBHOOK_URL_VIDEO_STATUS,
 					clip_info,
-					full_subtitles: raw_data.full_subtitles,
+					full_subtitles: '',
 				}),
 			}
 		);
@@ -255,7 +255,7 @@ const summaryJsonSchema = {
 		full_subtitles: {
 			type: "string",
 			description:
-				"[00:00:00] subtitle text here [00:00:05] next line of subtitle text...",
+				"[00:00:00.000] subtitle text here [00:00:05.456] next line of subtitle text...",
 		},
 	},
 	required: ["recommended_shorts", "full_subtitles"],
@@ -268,21 +268,161 @@ export async function SummarizeUsingAI(videoUrl) {
 		}
 
 		const prompt = `
-        You are an expert AI video editor and short-form content strategist. Analyze the provided video transcript and metadata to identify exactly ONE highly engaging, high-retention segment optimized for TikTok, YouTube Shorts, or Instagram Reels.
+		
+You are a world-class AI video editor, viral content strategist, and audience retention expert specializing in TikTok, YouTube Shorts, and Instagram Reels.
 
-		Your output must be a single, valid JSON object. Do not include conversational filler, introductory text, markdown code block wrappers (unless explicitly requested by the parser), or post-processing explanations.
+Your task is to analyze the complete video transcript and metadata, then select EXACTLY ONE clip that has the highest probability of maximizing audience retention, watch time, engagement, and shareability.
 
-		### Performance Requirements:
-		1. Selection Rigor: Identify exactly ONE clip that contains a strong hook within the first 3 seconds and a cohesive narrative arc or punchline.
-		2. Transcription Scope & Pacing: Extract and transcribe ONLY the spoken dialogue occurring between the clip's start and end boundaries. 
-		- Chunking Limit: Each individual subtitle line/segment MUST contain a maximum of 5 words to ensure high-impact, rapid-fire readability.
-		3. Micro-Accurate Timing: Timestamps must be hyper-precise, capturing the exact second a phrase begins. Do not average out timings across long sentences; synchronize each 1-5 word chunk perfectly with the audio baseline.
-		4. Timestamp Normalization (Zero-Indexing): Normalize the subtitle timeline so that the clip functions as a standalone video. 
-		- The first spoken word of the chosen clip must start precisely at [00:00:00].
-		- All subsequent timestamps within the clip must be offset relative to this new zero baseline (i.e., New Timestamp = Original Timestamp - Clip Start Time).`;
+The selected clip MUST work as a standalone short-form video without requiring additional context.
+
+The final clip duration MUST be between 45 and 57 seconds.
+
+--------------------------------------------------
+OBJECTIVE
+--------------------------------------------------
+
+Identify the single strongest section of the video based on storytelling quality, emotional impact, curiosity, entertainment value, educational value, or surprise.
+
+Prioritize clips that naturally encourage viewers to keep watching until the end.
+
+Do NOT simply choose the first interesting section. Search the entire transcript before making a decision.
+
+--------------------------------------------------
+SELECTION CRITERIA (Highest Priority First)
+--------------------------------------------------
+
+The chosen clip should satisfy as many of these criteria as possible:
+
+1. Opens with a compelling hook within the first 3 seconds.
+   The hook should immediately create curiosity, surprise, emotion, controversy, urgency, or a strong promise.
+
+2. Contains a complete narrative.
+   The clip should have:
+   - Hook
+   - Build-up
+   - Payoff or conclusion
+
+3. Requires little or no external context.
+
+4. Maintains consistent engagement throughout.
+
+5. Contains no unnecessary filler, greetings, pauses, repetitions, or off-topic discussion.
+
+6. Ends on a satisfying payoff, revelation, punchline, or actionable insight.
+
+7. Is highly suitable for vertical short-form platforms.
+
+Avoid selecting clips that:
+
+- start slowly
+- require previous context
+- contain long introductions
+- include sponsor messages
+- include housekeeping
+- contain dead air
+- include repeated information
+- end abruptly without payoff
+
+--------------------------------------------------
+TRANSCRIPT EXTRACTION
+--------------------------------------------------
+
+Extract ONLY the spoken dialogue contained inside the selected clip.
+
+Do NOT include dialogue before or after the selected boundaries.
+
+Subtitle requirements:
+
+• Maximum 5 words per subtitle segment
+• Split naturally at speech pauses
+• Never split words
+• Never merge unrelated phrases
+• Preserve the speaker's original wording
+• Do not paraphrase
+• Do not summarize
+• Do not censor unless explicitly instructed
+
+Each subtitle should be easy to read in under one second whenever possible.
+
+--------------------------------------------------
+TIMESTAMP REQUIREMENTS
+--------------------------------------------------
+
+Subtitle timestamps must be extremely accurate.
+
+Every subtitle segment should begin exactly when the first spoken word starts.
+
+Do NOT estimate timings using sentence averages.
+
+Synchronize each subtitle segment precisely with the spoken audio.
+
+--------------------------------------------------
+TIMESTAMP NORMALIZATION
+--------------------------------------------------
+
+Treat the selected clip as an independent video.
+
+Normalize timestamps so the first spoken word begins at:
+
+00:00:00.000
+
+All remaining timestamps must be relative to this new timeline.
+
+Example:
+
+Original clip:
+01:12:18.250 → 01:13:05.800
+
+Output:
+
+00:00:00.000 → 00:00:47.550
+--------------------------------------------------
+OUTPUT REQUIREMENTS
+--------------------------------------------------
+
+Your response MUST strictly conform to the provided response schema.
+
+Do NOT generate any fields that are not defined in the schema.
+
+Populate every required field.
+
+Requirements:
+
+• recommended_shorts MUST contain EXACTLY ONE object.
+• That object must represent the single highest-scoring short-form clip in the entire video.
+• The selected clip duration MUST be between 45 and 57 seconds.
+• start_time and end_time MUST use MM:SS format and refer to the timestamps in the ORIGINAL video.
+• duration_seconds MUST equal the actual clip length.
+• title_or_hook should be a concise, attention-grabbing headline suitable for TikTok, YouTube Shorts, or Instagram Reels.
+• rationale should explain why this segment was selected, referencing factors such as hook strength, audience retention, narrative completeness, emotional impact, educational value, surprise, shareability, or viral potential.
+
+--------------------------------------------------
+FULL_SUBTITLES REQUIREMENTS
+--------------------------------------------------
+
+The full_subtitles field must contain ONLY the subtitles for the selected clip.
+
+Requirements:
+
+• Normalize timestamps so the selected clip starts at [00:00:00.000].
+• Every timestamp must use the format [HH:MM:SS.mmm].
+• Include ONLY dialogue spoken inside the selected clip.
+• Do NOT include dialogue before or after the clip.
+• Preserve the original wording exactly.
+• Do NOT paraphrase.
+• Do NOT summarize.
+• Split subtitles into natural speech segments.
+• Each subtitle segment MUST contain no more than 5 spoken words.
+• Each timestamp must begin exactly when the first spoken word starts.
+• Synchronize timestamps as accurately as possible with the spoken audio.
+
+Return ONLY the structured response defined by the provided schema.
+
+`;
 
 		const interaction = await ai.interactions.create({
 			model: "gemini-3.1-flash-lite",
+			// model: "gemini-2.5-pro",
 			input: [
 				{
 					type: "video",
@@ -291,17 +431,19 @@ export async function SummarizeUsingAI(videoUrl) {
 				},
 				{
 					type: "text",
-					text: prompt,
+					text: "You are an expert AI video editor and short-form content strategist.",
 				},
 			],
 			system_instruction:
-				"You are an expert AI video editor and short-form content strategist.",
+				prompt,
 			response_format: {
 				type: "text",
 				mime_type: "application/json",
 				schema: summaryJsonSchema,
 			},
 		});
+
+		console.log(interaction.output_text);
 
 		return interaction.output_text;
 	} catch (error) {
