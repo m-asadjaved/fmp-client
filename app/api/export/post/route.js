@@ -37,6 +37,7 @@ export async function POST(req) {
       theme,
       targetPlatforms,
       scheduledFor,
+      downloadOnly,
     } = body;
 
     const region = process.env.REMOTION_AWS_REGION || "us-east-1";
@@ -61,6 +62,18 @@ export async function POST(req) {
         ? targetPlatforms
         : [PLATFORMS[0]];
 
+    // Transform local API proxy URLs to public S3 URLs for Lambda to access
+    let resolvedVideoUrl = videoUrl;
+    if (resolvedVideoUrl && resolvedVideoUrl.startsWith("/api/video/output/")) {
+      const bucketNameForUrl = process.env.AWS_BUCKET_NAME;
+      const regionForUrl = process.env.AWS_REGION || "us-east-1";
+      if (bucketNameForUrl) {
+        resolvedVideoUrl = `https://${bucketNameForUrl}.s3.${regionForUrl}.amazonaws.com/processed_videos/output-${videoId}.mp4`;
+      } else if (process.env.AWS_BUCKET_URL) {
+        resolvedVideoUrl = `${process.env.AWS_BUCKET_URL}/processed_videos/output-${videoId}.mp4`;
+      }
+    }
+
     // 1. Start Remotion Lambda render
     const { renderId, bucketName } = await renderMediaOnLambda({
       region,
@@ -68,7 +81,7 @@ export async function POST(req) {
       serveUrl,
       composition: "CaptionComposition",
       inputProps: {
-        videoUrl,
+        videoUrl: resolvedVideoUrl,
         captions,
         words,
         overlays,
@@ -87,53 +100,55 @@ export async function POST(req) {
       privacy: "public",
     });
 
-    // 2. Save or update job record to Supabase
+    // 2. Save or update job record to Supabase (ONLY if not downloadOnly)
     let job = null;
     let dbError = null;
 
-    if (jobId) {
-      const { data, error } = await supabase
-        .from("post_jobs")
-        .update({
-          render_id: renderId,
-          bucket_name: bucketName,
-          region,
-          function_name: functionName,
-          platforms, // JSONB
-          scheduled_for: scheduledFor ? new Date(scheduledFor).toISOString() : null,
-          status: "processing", // Always processing initially for Remotion
-          output_url: null,
-          video_id: videoId,
-        })
-        .eq("id", jobId)
-        .select()
-        .single();
-      job = data;
-      dbError = error;
-    } else {
-      const { data, error } = await supabase
-        .from("post_jobs")
-        .insert({
-          user_id: userId,
-          render_id: renderId,
-          bucket_name: bucketName,
-          region,
-          function_name: functionName,
-          platforms, // JSONB
-          scheduled_for: scheduledFor ? new Date(scheduledFor).toISOString() : null,
-          status: "processing", // Always processing initially for Remotion
-          output_url: null,
-          video_id: videoId,
-        })
-        .select()
-        .single();
-      job = data;
-      dbError = error;
-    }
+    if (!downloadOnly) {
+      if (jobId) {
+        const { data, error } = await supabase
+          .from("post_jobs")
+          .update({
+            render_id: renderId,
+            bucket_name: bucketName,
+            region,
+            function_name: functionName,
+            platforms, // JSONB
+            scheduled_for: scheduledFor ? new Date(scheduledFor).toISOString() : null,
+            status: "processing", // Always processing initially for Remotion
+            output_url: null,
+            video_id: videoId,
+          })
+          .eq("id", jobId)
+          .select()
+          .single();
+        job = data;
+        dbError = error;
+      } else {
+        const { data, error } = await supabase
+          .from("post_jobs")
+          .insert({
+            user_id: userId,
+            render_id: renderId,
+            bucket_name: bucketName,
+            region,
+            function_name: functionName,
+            platforms, // JSONB
+            scheduled_for: scheduledFor ? new Date(scheduledFor).toISOString() : null,
+            status: "processing", // Always processing initially for Remotion
+            output_url: null,
+            video_id: videoId,
+          })
+          .select()
+          .single();
+        job = data;
+        dbError = error;
+      }
 
-    if (dbError) {
-      console.error("[POST /api/export/post] DB error:", dbError);
-      // Non-fatal — render is still running, just won't track it
+      if (dbError) {
+        console.error("[POST /api/export/post] DB error:", dbError);
+        // Non-fatal — render is still running, just won't track it
+      }
     }
 
     return NextResponse.json({
@@ -143,6 +158,7 @@ export async function POST(req) {
       bucketName,
       platforms,
       scheduledFor,
+      downloadOnly,
     });
   } catch (error) {
     console.error("[POST /api/export/post]", error);

@@ -38,6 +38,56 @@ async function insertLog(videoId, current_process, status) {
 	}
 }
 
+// ─── GET handler (Fetch status and cost) ──────────────────────────────────
+export async function GET(request, context) {
+	try {
+		const params = await context.params;
+		const { videoId } = params;
+
+		if (!videoId) {
+			return NextResponse.json({ error: "Missing videoId" }, { status: 400 });
+		}
+
+		const { userId } = await auth();
+		if (!userId) {
+			return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+		}
+
+		// Fetch processing status
+		const { data: reqData } = await supabase
+			.from("video_processing_req")
+			.select("status")
+			.eq("video_id", videoId)
+			.maybeSingle();
+
+		// Fetch video duration
+		const { data: videoData, error: videoError } = await supabase
+			.from("videos")
+			.select("duration, credits_used")
+			.eq("video_id", videoId)
+			.eq("user_id", userId)
+			.single();
+
+		if (videoError || !videoData) {
+			return NextResponse.json({ error: "Video not found or unauthorized" }, { status: 404 });
+		}
+
+		const durationSeconds = parseFloat(videoData.duration);
+		// Cost: 1 credit per 60 seconds (rounded up), minimum 1 credit
+		const creditsCost = Math.max(1, Math.ceil(durationSeconds / 60));
+
+		return NextResponse.json({
+			status: reqData?.status || "none",
+			duration: durationSeconds,
+			creditsCost,
+			creditsUsed: videoData.credits_used || 0
+		});
+	} catch (error) {
+		console.error("[GET /api/video_processing/:videoId]", error);
+		return NextResponse.json({ error: error.message }, { status: 500 });
+	}
+}
+
 // ─── POST handler ─────────────────────────────────────────────────────────
 export async function POST(request, context) {
 	try {
@@ -95,7 +145,60 @@ export async function POST(request, context) {
 			);
 		}
 
-		// ── 4. Get or generate AI analysis ────────────────────────────────────
+		// ── 4. Calculate Credits Cost ───────────────────────────────────────────
+		const { data: videoRow, error: videoError } = await supabase
+			.from("videos")
+			.select("duration")
+			.eq("video_id", videoId)
+			.eq("user_id", userId)
+			.single();
+
+		if (videoError || !videoRow) {
+			return NextResponse.json({ error: "Video not found" }, { status: 404 });
+		}
+
+		const durationSeconds = parseFloat(videoRow.duration);
+		const creditsCost = Math.max(1, Math.ceil(durationSeconds / 60));
+
+		// Check user balance
+		const { data: userCredits, error: creditsError } = await supabase
+			.from("user_credits")
+			.select("balance")
+			.eq("user_id", userId)
+			.single();
+
+		if (creditsError || !userCredits) {
+			return NextResponse.json({ error: "Could not retrieve user credits" }, { status: 500 });
+		}
+
+		if (userCredits.balance < creditsCost) {
+			return NextResponse.json(
+				{ error: `Insufficient credits. This video requires ${creditsCost} credits, but you only have ${userCredits.balance} available.` },
+				{ status: 402 }
+			);
+		}
+
+		// ── 5. Deduct Credits ──────────────────────────────────────────────────
+		const newBalance = userCredits.balance - creditsCost;
+		
+		const { error: updateError } = await supabase
+			.from("user_credits")
+			.update({ balance: newBalance })
+			.eq("user_id", userId);
+
+		if (updateError) {
+			throw new Error("Failed to deduct credits");
+		}
+
+		await supabase.from("credit_transactions").insert({
+			user_id: userId,
+			amount: -creditsCost,
+			description: `Processed AI clips for video (${Math.round(durationSeconds)}s)`
+		});
+
+		await supabase.from("videos").update({ credits_used: creditsCost }).eq("video_id", videoId);
+
+		// ── 6. Get or generate AI analysis ────────────────────────────────────
 		await insertLog(
 			videoId,
 			"Send the req to AI for analysis",
@@ -128,7 +231,7 @@ export async function POST(request, context) {
 			throw new Error("AI response is missing full_subtitles.");
 		}
 
-		// ── 5. Upsert the video_processing_req row (INSERT or UPDATE) ─────────
+		// ── 7. Upsert the video_processing_req row (INSERT or UPDATE) ─────────
 		const { data: videoReqData, error: upsertError } = await supabase
 			.from("video_processing_req")
 			.insert({
@@ -147,7 +250,7 @@ export async function POST(request, context) {
 			);
 		}
 
-		// ── 6. Build clip payload ─────────────────────────────────────────────
+		// ── 8. Build clip payload ─────────────────────────────────────────────
 		const firstClip = raw_data.recommended_shorts[0];
 
 		if (!firstClip.start_time || !firstClip.duration_seconds) {
@@ -161,7 +264,7 @@ export async function POST(request, context) {
 			duration_seconds: firstClip.duration_seconds,
 		};
 
-		// ── 7. Trigger Lambda ─────────────────────────────────────────────────
+		// ── 9. Trigger Lambda ─────────────────────────────────────────────────
 		await insertLog(
 			videoId,
 			"Send the video to edit engine for video editing",

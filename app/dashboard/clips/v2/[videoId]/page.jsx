@@ -35,6 +35,47 @@ export default function AIClipsPage({ params }) {
 	const [alertVisible, setAlertVisible] = useState(false);
 	const [lambdaLoading, setLambdaLoading] = useState(false);
 
+	// ─── Credits & Preload State ────────────────────────────────────────────────
+	const [creditsCost, setCreditsCost] = useState(null);
+	const [userBalance, setUserBalance] = useState(null);
+	const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+	useEffect(() => {
+		let isMounted = true;
+		async function loadInitialData() {
+			try {
+				const [videoRes, creditsRes] = await Promise.all([
+					fetch(`/api/video_processing/${videoId}`),
+					fetch(`/api/credits`)
+				]);
+
+				if (!videoRes.ok) throw new Error("Failed to load video status");
+				if (!creditsRes.ok) throw new Error("Failed to load user credits");
+
+				const videoData = await videoRes.json();
+				const creditsData = await creditsRes.json();
+
+				if (!isMounted) return;
+
+				setCreditsCost(videoData.creditsCost || 1);
+				setUserBalance(creditsData.balance || 0);
+
+				if (videoData.status === 'completed') {
+					setPhase('done');
+				} else if (videoData.status === 'processing') {
+					setPhase('processing');
+				}
+			} catch (err) {
+				console.error("Initial load error:", err);
+			} finally {
+				if (isMounted) setIsInitialLoading(false);
+			}
+		}
+
+		loadInitialData();
+		return () => { isMounted = false; };
+	}, [videoId]);
+
 	// ─── Features Configuration State ───────────────────────────────────────────
 	const [preferences, setPreferences] = useState({
 		faceDetection: true,
@@ -131,6 +172,12 @@ export default function AIClipsPage({ params }) {
 				body: JSON.stringify({ preferences }),
 			});
 			
+			if (response.status === 402) {
+				const data = await response.json();
+				alert(data.error || "Insufficient credits.");
+				return;
+			}
+			
 			if (!response.ok) {
 				throw new Error(response.error || "Something went wrong");
 			}
@@ -144,10 +191,18 @@ export default function AIClipsPage({ params }) {
 					"SUCCESS: Opening completed project.",
 				]);
 				targetPhase = "done";
+				
+				// Re-fetch balance just in case it was a UI mismatch
+				fetch(`/api/credits`).then(res => res.json()).then(d => setUserBalance(d.balance)).catch(console.error);
 			} else {
 				setAlertVisible(true);
 				setTimeout(() => setAlertVisible(false), 4000);
 				targetPhase = "processing";
+				
+				// Optimistically deduct balance
+				if (userBalance !== null && creditsCost !== null) {
+					setUserBalance(userBalance - creditsCost);
+				}
 			}
 		} catch (err) {
 			console.error("Lambda call failed:", err);
@@ -255,6 +310,19 @@ export default function AIClipsPage({ params }) {
 
 	function handleViewGeneratedVideo() {
 		window.location.href = `${EDITOR_URL}/editor/${videoId}`;
+	}
+
+	if (isInitialLoading) {
+		return (
+			<div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", height: "100%", minHeight: "80vh" }}>
+				<div className="flex flex-col items-center gap-4">
+					<Loader2 className="w-10 h-10 animate-spin text-[#7c3aed]" />
+					<p className="text-[#a1a1aa] font-medium tracking-wide animate-pulse">
+						Initializing AI Workspace...
+					</p>
+				</div>
+			</div>
+		);
 	}
 
 	return (
@@ -478,29 +546,52 @@ export default function AIClipsPage({ params }) {
 									))}
 								</div>
 
-								{/* Start Processing Button (Matches Primary Dashboard Buttons) */}
+								{/* Cost Display & Start Processing Button */}
+								<div className="flex items-center justify-between mt-2 mb-3 px-1">
+									<div className="flex items-center gap-2">
+										<span className="text-[#a1a1aa] text-xs font-medium">Credits Required:</span>
+										<span className="text-white text-sm font-bold bg-[#27272a] px-2 py-0.5 rounded border border-[#3f3f46]">
+											{creditsCost !== null ? creditsCost : "-"}
+										</span>
+									</div>
+									<div className="flex items-center gap-2">
+										<span className="text-[#a1a1aa] text-xs font-medium">Your Balance:</span>
+										<span className={`text-sm font-bold px-2 py-0.5 rounded border ${
+											userBalance !== null && creditsCost !== null && userBalance < creditsCost
+												? "text-red-400 bg-red-400/10 border-red-400/20"
+												: "text-[#4ade80] bg-[#4ade80]/10 border-[#4ade80]/20"
+										}`}>
+											{userBalance !== null ? userBalance : "-"}
+										</span>
+									</div>
+								</div>
+
 								<button
 									onClick={startProcessing}
-									disabled={lambdaLoading}
+									disabled={lambdaLoading || isInitialLoading || (userBalance !== null && creditsCost !== null && userBalance < creditsCost)}
 									className={`w-full py-3 px-4 rounded font-bold text-sm tracking-wide transition-colors flex items-center justify-center gap-2 ${
-										lambdaLoading
+										lambdaLoading || isInitialLoading || (userBalance !== null && creditsCost !== null && userBalance < creditsCost)
 											? "bg-[var(--surface-bg)] text-[#a1a1aa] cursor-not-allowed border border-[#27272a]"
 											: "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-lg"
 									}`}
 								>
-									{lambdaLoading ? (
+									{lambdaLoading || isInitialLoading ? (
 										<>
 											<Loader2
 												size={16}
 												className="animate-spin text-[#a78bfa]"
 											/>
-											Submitting Pipeline Workspace
-											Task...
+											{isInitialLoading ? "Verifying Video..." : "Submitting Pipeline Workspace Task..."}
+										</>
+									) : (userBalance !== null && creditsCost !== null && userBalance < creditsCost) ? (
+										<>
+											<AlertCircle size={16} className="text-red-400" />
+											Insufficient Credits
 										</>
 									) : (
 										<>
 											<Sparkles size={16} />
-											   Confirm & Start AI Processing
+											Confirm & Start AI Processing
 										</>
 									)}
 								</button>

@@ -1,4 +1,4 @@
-import { getRenderProgress } from "@remotion/lambda/client";
+import { getRenderProgress, presignUrl } from "@remotion/lambda/client";
 import { NextResponse } from "next/server";
 
 export async function GET(req) {
@@ -20,6 +20,17 @@ export async function GET(req) {
       functionName,
       region,
     });
+
+    // If the render is complete, generate a presigned URL to bypass any S3 public access blocks
+    if (progress.done) {
+      const presigned = await presignUrl({
+        region,
+        bucketName,
+        objectKey: `renders/${renderId}/out.mp4`,
+        expiresInSeconds: 3600,
+      });
+      progress.outUrl = presigned;
+    }
 
     return NextResponse.json(progress);
   } catch (error) {

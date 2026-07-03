@@ -39,7 +39,7 @@ export default function GeneratedClipPreview({ videoId }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [videoMeta, setVideoMeta] = useState(null);
 
-  const videoSrc = `https://fmp-641079926683-us-east-1-an.s3.us-east-1.amazonaws.com/processed_videos/output-${videoId}.mp4`;
+  const videoSrc = `/api/video/output/${videoId}`;
 
   useEffect(() => {
     parseMedia({
@@ -148,6 +148,9 @@ export default function GeneratedClipPreview({ videoId }) {
   const [postProgress, setPostProgress] = useState(0);
   const [postError, setPostError] = useState(null);
 
+  const [downloadStage, setDownloadStage] = useState(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
   const togglePlatform = (platform) => {
     setSelectedPlatforms(prev => {
       if (prev.some(p => p.id === platform.id)) {
@@ -243,8 +246,8 @@ export default function GeneratedClipPreview({ videoId }) {
         />
       </div>
 
-      {/* POST BUTTON */}
-      <div className="max-w-md mx-auto w-full">
+      {/* ACTIONS CONTAINER */}
+      <div className="max-w-md mx-auto w-full flex flex-col gap-3">
         <button
           onClick={() => { setPostError(null); setShowPlatformModal(true); }}
           disabled={!!postStage}
@@ -269,6 +272,120 @@ export default function GeneratedClipPreview({ videoId }) {
           </svg>
           Post Video Now
         </button>
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={async () => {
+              setPostError(null);
+              setDownloadStage('rendering');
+              setDownloadProgress(0);
+
+              try {
+                // Start render job
+                const response = await fetch("/api/export/post", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    ...inputProps,
+                    videoId,
+                    durationInFrames,
+                    fps,
+                    downloadOnly: true,
+                  }),
+                });
+                
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || "Failed to start download render");
+                
+                const { renderId, bucketName } = data;
+                
+                // Poll for progress
+                const pollInterval = setInterval(async () => {
+                  try {
+                    const progRes = await fetch(`/api/export/progress?renderId=${renderId}&bucketName=${bucketName}`);
+                    const progData = await progRes.json();
+                    
+                    if (progData.done) {
+                      clearInterval(pollInterval);
+                      setDownloadProgress(100);
+                      setDownloadStage('done');
+                      
+                      // Trigger download via fetch to catch HTTP errors (like 403 Forbidden)
+                      try {
+                        const dlRes = await fetch(progData.outUrl);
+                        if (!dlRes.ok) {
+                          throw new Error(`Failed to download: ${dlRes.status} ${dlRes.statusText}`);
+                        }
+                        const blob = await dlRes.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement("a");
+                        a.href = url;
+                        a.download = `clip-${videoId}.mp4`;
+                        document.body.appendChild(a);
+                        a.click();
+                        a.remove();
+                        window.URL.revokeObjectURL(url);
+                      } catch (dlError) {
+                        console.error("Blob download failed, falling back to new tab", dlError);
+                        window.open(progData.outUrl, "_blank");
+                      }
+                      
+                      setTimeout(() => setDownloadStage(null), 2000);
+                    } else if (progData.fatalErrorEncountered) {
+                      clearInterval(pollInterval);
+                      throw new Error("Rendering failed on server.");
+                    } else {
+                      setDownloadProgress(Math.round(progData.overallProgress * 100));
+                    }
+                  } catch (e) {
+                    clearInterval(pollInterval);
+                    setDownloadStage(null);
+                    setPostError("Failed to fetch render progress: " + e.message);
+                  }
+                }, 2000);
+
+              } catch (e) {
+                console.error("Failed to render download", e);
+                setDownloadStage(null);
+                setPostError(e.message);
+              }
+            }}
+            disabled={!!postStage || !!downloadStage}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "12px", borderRadius: 10, border: "1px solid #3f3f46",
+              background: "#18181b", color: "#fafafa", fontSize: 14, fontWeight: 600,
+              cursor: postStage || downloadStage ? "not-allowed" : "pointer", transition: "all 0.2s ease",
+              opacity: postStage || downloadStage ? 0.5 : 1
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Download
+          </button>
+          
+          <button
+            onClick={() => router.push(`/editor/${videoId}`)}
+            disabled={!!postStage || !!downloadStage}
+            style={{
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              padding: "12px", borderRadius: 10, border: "1px solid #3f3f46",
+              background: "#18181b", color: "#fafafa", fontSize: 14, fontWeight: 600,
+              cursor: postStage || downloadStage ? "not-allowed" : "pointer", transition: "all 0.2s ease",
+              opacity: postStage || downloadStage ? 0.5 : 1
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+            </svg>
+            Edit Clip
+          </button>
+        </div>
+
         {postError && (
           <p style={{
             fontSize: 11, color: "#f87171",
@@ -516,6 +633,79 @@ export default function GeneratedClipPreview({ videoId }) {
               40%            { transform: scale(1.2); opacity: 1; }
             }
           `}</style>
+        </div>
+      )}
+
+      {/* DOWNLOAD RENDERING OVERLAY */}
+      {downloadStage && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 3000,
+          background: "rgba(0,0,0,0.88)",
+          backdropFilter: "blur(12px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexDirection: "column", gap: 28,
+          animation: "fadeIn 0.2s ease",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{
+              width: 52, height: 52, borderRadius: 14,
+              background: `#10b98118`,
+              border: `1.5px solid #10b981`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              color: "#10b981",
+              boxShadow: `0 0 24px rgba(16, 185, 129, 0.4)`,
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                High-Quality Render
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#fafafa", letterSpacing: "-0.03em" }}>
+                {downloadStage === 'rendering' ? 'Rendering Video...' : 'Download Ready! 🎉'}
+              </div>
+            </div>
+          </div>
+
+          <div style={{ width: 360, maxWidth: "80vw" }}>
+            <div style={{
+              width: "100%", height: 6, borderRadius: 99,
+              background: "#27272a", overflow: "hidden",
+            }}>
+              <div style={{
+                width: `${downloadProgress}%`, height: "100%",
+                background: "#10b981",
+                borderRadius: 99,
+                transition: "width 0.18s ease-out",
+                boxShadow: "0 0 12px rgba(16, 185, 129, 0.6)",
+              }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
+              <span style={{ fontSize: 12, color: "#71717a" }}>
+                {downloadStage === 'rendering' ? 'Baking subtitles and effects...' : 'Starting download...'}
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "#10b981" }}>
+                {downloadProgress}%
+              </span>
+            </div>
+          </div>
+
+          {downloadStage === 'rendering' && (
+            <div style={{ display: "flex", gap: 6 }}>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: "#10b981",
+                  opacity: 0.6,
+                  animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+                }} />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

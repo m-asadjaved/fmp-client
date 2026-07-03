@@ -488,7 +488,7 @@ export default function CaptionEditor({ videoId, initialJob }) {
 
   // Construct the S3 URL dynamically based on the videoId parameter if provided.
   const initialVideoUrl = videoId 
-    ? `https://fmp-641079926683-us-east-1-an.s3.us-east-1.amazonaws.com/processed_videos/output-${videoId}.mp4`
+    ? `/api/video/output/${videoId}`
     : "";
     
   const [videoSrc, setVideoSrc] = useState(initialVideoUrl);
