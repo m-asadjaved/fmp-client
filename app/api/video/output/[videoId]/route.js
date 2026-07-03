@@ -39,10 +39,23 @@ export async function GET(request, context) {
       return NextResponse.json({ error: "Video not found or unauthorized" }, { status: 404 });
     }
 
-    // Fixed the trailing '}' typo at the end of the URL string
-    const redirectUrl = `${AWS_BUCKET_URL}/processed_videos/output-${videoId}.mp4`;
+    const { searchParams } = new URL(request.url);
+    const index = searchParams.get("index") || "0";
+
+    const indexedUrl = `${AWS_BUCKET_URL}/processed_videos/output-${videoId}-${index}.mp4`;
+    const fallbackUrl = `${AWS_BUCKET_URL}/processed_videos/output-${videoId}.mp4`;
+
+    try {
+      const headRes = await fetch(indexedUrl, { method: "HEAD" });
+      if (headRes.ok) {
+        return NextResponse.redirect(indexedUrl);
+      }
+    } catch (e) {
+      // Ignore network errors on HEAD
+    }
     
-    return NextResponse.redirect(redirectUrl);
+    // Fallback for older videos processed before the multi-clip feature
+    return NextResponse.redirect(fallbackUrl);
 
   } catch (error) {
     console.error("Supabase Fetch Error:", error);

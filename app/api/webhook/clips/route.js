@@ -106,11 +106,16 @@ export async function POST(request) {
       .from('video_processing_req')
       .update({ status: 'completed' })
       .eq('id', reqId) // Target the specific record
+      .select('video_id')
+      .single();
+
+    const listenerId = data?.video_id || reqId;
 
     await supabase
       .from("video_processing_logs")
       .insert([
         {
+          video_id: listenerId,
           current_process: 'Video Edited Successfully',
           status: 'completed'
         },
@@ -119,7 +124,7 @@ export async function POST(request) {
       .single();
 
 
-    const listeners = global.clipListeners[reqId];
+    const listeners = global.clipListeners[listenerId];
 
     if (!listeners || listeners.length === 0) {
       return NextResponse.json({
@@ -150,7 +155,7 @@ export async function POST(request) {
 
     // Remove dead clients after a terminal event
     if (status === 'COMPLETED' || status === 'FAILED') {
-      delete global.clipListeners[reqId];
+      delete global.clipListeners[listenerId];
     }
 
     return NextResponse.json({

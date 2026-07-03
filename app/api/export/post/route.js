@@ -65,12 +65,33 @@ export async function POST(req) {
     // Transform local API proxy URLs to public S3 URLs for Lambda to access
     let resolvedVideoUrl = videoUrl;
     if (resolvedVideoUrl && resolvedVideoUrl.startsWith("/api/video/output/")) {
+      const urlObj = new URL(resolvedVideoUrl, "http://localhost"); // dummy base to parse query params
+      const index = urlObj.searchParams.get("index") || "0";
+      
       const bucketNameForUrl = process.env.AWS_BUCKET_NAME;
       const regionForUrl = process.env.AWS_REGION || "us-east-1";
+      
+      let baseUrl = "";
       if (bucketNameForUrl) {
-        resolvedVideoUrl = `https://${bucketNameForUrl}.s3.${regionForUrl}.amazonaws.com/processed_videos/output-${videoId}.mp4`;
+        baseUrl = `https://${bucketNameForUrl}.s3.${regionForUrl}.amazonaws.com`;
       } else if (process.env.AWS_BUCKET_URL) {
-        resolvedVideoUrl = `${process.env.AWS_BUCKET_URL}/processed_videos/output-${videoId}.mp4`;
+        baseUrl = process.env.AWS_BUCKET_URL;
+      }
+
+      if (baseUrl) {
+        const indexedUrl = `${baseUrl}/processed_videos/output-${videoId}-${index}.mp4`;
+        const fallbackUrl = `${baseUrl}/processed_videos/output-${videoId}.mp4`;
+
+        try {
+          const headRes = await fetch(indexedUrl, { method: "HEAD" });
+          if (headRes.ok) {
+            resolvedVideoUrl = indexedUrl;
+          } else {
+            resolvedVideoUrl = fallbackUrl;
+          }
+        } catch (e) {
+          resolvedVideoUrl = fallbackUrl;
+        }
       }
     }
 

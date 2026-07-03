@@ -73,8 +73,8 @@ export async function GET(request, context) {
 		}
 
 		const durationSeconds = parseFloat(videoData.duration);
-		// Cost: 1 credit per 60 seconds (rounded up), minimum 1 credit
-		const creditsCost = Math.max(1, Math.ceil(durationSeconds / 60));
+		// Cost: 1 credit per 20 minutes (1200 seconds) (rounded up), minimum 1 credit
+		const creditsCost = Math.max(1, Math.ceil(durationSeconds / 1200));
 
 		return NextResponse.json({
 			status: reqData?.status || "none",
@@ -109,19 +109,26 @@ export async function POST(request, context) {
 			);
 		}
 
+		const body = await request.json();
+		const { regenerate, preferences } = body;
+
 		// ── 1. Fetch existing video record (may not exist yet) ─────────────────
-		const { data: videoData, error: fetchError } = await supabase
+		// Sort by created_at descending and get the most recent one to avoid maybeSingle() crash
+		const { data: videoDataArray, error: fetchError } = await supabase
 			.from("video_processing_req")
 			.select("*")
 			.eq("video_id", videoId)
-			.maybeSingle();
+			.order("created_at", { ascending: false })
+			.limit(1);
 
 		if (fetchError) {
 			throw new Error(`DB fetch failed: ${fetchError.message}`);
 		}
+		
+		const videoData = videoDataArray && videoDataArray.length > 0 ? videoDataArray[0] : null;
 
 		// ── 2. Early-exit if already completed ────────────────────────────────
-		if (videoData?.status === "completed") {
+		if (!regenerate && videoData?.status === "completed") {
 			return NextResponse.json(
 				{
 					success: true,
@@ -134,7 +141,7 @@ export async function POST(request, context) {
 		}
 
 		// ── 3. Early-exit if already being processed ──────────────────────────
-		if (videoData?.status === "processing") {
+		if (!regenerate && videoData?.status === "processing") {
 			return NextResponse.json(
 				{
 					success: true,
@@ -158,7 +165,7 @@ export async function POST(request, context) {
 		}
 
 		const durationSeconds = parseFloat(videoRow.duration);
-		const creditsCost = Math.max(1, Math.ceil(durationSeconds / 60));
+		const creditsCost = Math.max(1, Math.ceil(durationSeconds / 1200));
 
 		// Check user balance
 		const { data: userCredits, error: creditsError } = await supabase
@@ -206,7 +213,7 @@ export async function POST(request, context) {
 		);
 
 		let ai_response_raw =
-			videoData?.ai_analysis && videoData.ai_analysis !== ""
+			(!regenerate && videoData?.ai_analysis && videoData.ai_analysis !== "")
 				? videoData.ai_analysis
 				: await SummarizeUsingAI(
 						`${AWS_BUCKET_URL}/raw_videos/${videoId}.mp4`
@@ -227,20 +234,34 @@ export async function POST(request, context) {
 			throw new Error("AI returned no recommended clips.");
 		}
 
-		if (!raw_data.full_subtitles) {
-			throw new Error("AI response is missing full_subtitles.");
-		}
-
 		// ── 7. Upsert the video_processing_req row (INSERT or UPDATE) ─────────
-		const { data: videoReqData, error: upsertError } = await supabase
-			.from("video_processing_req")
-			.insert({
-				video_id: videoId,
-				status: "processing",
-				ai_analysis: ai_analysis_str,
-			})
-			.select("id")
-			.single();
+		let videoReqData, upsertError;
+
+		if (videoData && videoData.id) {
+			const result = await supabase
+				.from("video_processing_req")
+				.update({
+					status: "processing",
+					ai_analysis: ai_analysis_str,
+				})
+				.eq("id", videoData.id)
+				.select("id")
+				.single();
+			videoReqData = result.data;
+			upsertError = result.error;
+		} else {
+			const result = await supabase
+				.from("video_processing_req")
+				.insert({
+					video_id: videoId,
+					status: "processing",
+					ai_analysis: ai_analysis_str,
+				})
+				.select("id")
+				.single();
+			videoReqData = result.data;
+			upsertError = result.error;
+		}
 
 		if (upsertError || !videoReqData) {
 			throw new Error(
@@ -251,58 +272,60 @@ export async function POST(request, context) {
 		}
 
 		// ── 8. Build clip payload ─────────────────────────────────────────────
-		const firstClip = raw_data.recommended_shorts[0];
-
-		if (!firstClip.start_time || !firstClip.duration_seconds) {
-			throw new Error(
-				"AI clip is missing required fields: start_time or duration_seconds."
-			);
+		if (!AWS_LAMBDA_START_VIDEO_PROCESSING_TASK_URL) {
+			throw new Error("AWS Lambda URL is not configured.");
 		}
 
-		const clip_info = {
-			start_time: firstClip.start_time,
-			duration_seconds: firstClip.duration_seconds,
-		};
-
-		// ── 9. Trigger Lambda ─────────────────────────────────────────────────
 		await insertLog(
 			videoId,
 			"Send the video to edit engine for video editing",
 			"editing"
 		);
 
-		if (!AWS_LAMBDA_START_VIDEO_PROCESSING_TASK_URL) {
-			throw new Error("AWS Lambda URL is not configured.");
-		}
+		// Process up to 5 clips concurrently to prevent runaway costs
+		const clipsToProcess = raw_data.recommended_shorts.slice(0, 5);
 
-		const lambdaResponse = await fetch(
-			AWS_LAMBDA_START_VIDEO_PROCESSING_TASK_URL,
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					req_id: videoReqData.id,
-					user_id: userId,
-					s3_bucket: AWS_BUCKET_NAME,
-					s3_input_key: `raw_videos/${videoId}.mp4`,
-					s3_output_key: `processed_videos/output-${videoId}.mp4`,
-					webhook_url: WEBHOOK_URL_VIDEO_STATUS,
-					clip_info,
-					full_subtitles: '',
-				}),
+		const lambdaPromises = clipsToProcess.map(async (clip, index) => {
+			if (!clip.start_time || !clip.duration_seconds) {
+				console.warn(`Clip ${index} is missing required fields, skipping.`);
+				return null;
 			}
-		);
 
-		if (!lambdaResponse.ok) {
-			const body = await lambdaResponse
-				.text()
-				.catch(() => "(unreadable)");
-			throw new Error(
-				`Lambda responded with ${lambdaResponse.status}: ${body}`
+			const clip_info = {
+				start_time: clip.start_time,
+				duration_seconds: clip.duration_seconds,
+			};
+
+			const lambdaResponse = await fetch(
+				AWS_LAMBDA_START_VIDEO_PROCESSING_TASK_URL,
+				{
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						req_id: videoReqData.id,
+						user_id: userId,
+						s3_bucket: AWS_BUCKET_NAME,
+						s3_input_key: `raw_videos/${videoId}.mp4`,
+						s3_output_key: `processed_videos/output-${videoId}-${index}.mp4`,
+						webhook_url: WEBHOOK_URL_VIDEO_STATUS,
+						clip_info,
+						full_subtitles: '',
+						preferences,
+					}),
+				}
 			);
-		}
 
-		return NextResponse.json({ success: true });
+			if (!lambdaResponse.ok) {
+				const body = await lambdaResponse.text().catch(() => "(unreadable)");
+				throw new Error(`Lambda ${index} responded with ${lambdaResponse.status}: ${body}`);
+			}
+
+			return true;
+		});
+
+		await Promise.all(lambdaPromises);
+
+		return NextResponse.json({ success: true, processed_clips: clipsToProcess.length });
 	} catch (error) {
 		console.error("[POST /video/:videoId]", error);
 		return NextResponse.json(
@@ -321,7 +344,7 @@ const summaryJsonSchema = {
 		recommended_shorts: {
 			type: "array",
 			description:
-				"Must contain exactly ONE object representing the single best viral clip from the video.",
+				"Must contain an array of objects representing the best viral clips identified from the video.",
 			items: {
 				type: "object",
 				properties: {
@@ -344,6 +367,10 @@ const summaryJsonSchema = {
 						description:
 							"Detailed explanation of why this specific segment makes the best standalone short-form clip.",
 					},
+					virality_score: {
+						type: "integer",
+						description: "A score from 0 to 100 representing the viral potential of this clip.",
+					},
 				},
 				required: [
 					"clip_number",
@@ -352,16 +379,12 @@ const summaryJsonSchema = {
 					"duration_seconds",
 					"title_or_hook",
 					"rationale",
+					"virality_score",
 				],
 			},
 		},
-		full_subtitles: {
-			type: "string",
-			description:
-				"[00:00:00.000] subtitle text here [00:00:05.456] next line of subtitle text...",
-		},
 	},
-	required: ["recommended_shorts", "full_subtitles"],
+	required: ["recommended_shorts"],
 };
 
 export async function SummarizeUsingAI(videoUrl) {
@@ -374,36 +397,30 @@ export async function SummarizeUsingAI(videoUrl) {
 		
 You are a world-class AI video editor, viral content strategist, and audience retention expert specializing in TikTok, YouTube Shorts, and Instagram Reels.
 
-Your task is to analyze the complete video transcript and metadata, then select EXACTLY ONE clip that has the highest probability of maximizing audience retention, watch time, engagement, and shareability.
+Your task is to analyze the complete video transcript and metadata, then identify 3 to 5 distinct clips (if the video is long enough) that have a very high probability of maximizing audience retention, watch time, engagement, and shareability. (If the video is short or lacks enough good segments, 1 or 2 clips is acceptable, but always aim for 3 to 5).
 
-The selected clip MUST work as a standalone short-form video without requiring additional context.
+Each selected clip MUST work as a standalone short-form video without requiring additional context.
 
-The final clip duration MUST be between 45 and 57 seconds.
+The duration for EACH clip MUST be between 30 and 50 seconds maximum.
 
 --------------------------------------------------
 OBJECTIVE
 --------------------------------------------------
 
-Identify the single strongest section of the video based on storytelling quality, emotional impact, curiosity, entertainment value, educational value, or surprise.
+Identify the strongest sections of the video based on storytelling quality, emotional impact, curiosity, entertainment value, educational value, or surprise.
 
 Prioritize clips that naturally encourage viewers to keep watching until the end.
-
-Do NOT simply choose the first interesting section. Search the entire transcript before making a decision.
 
 --------------------------------------------------
 SELECTION CRITERIA (Highest Priority First)
 --------------------------------------------------
 
-The chosen clip should satisfy as many of these criteria as possible:
+Each chosen clip should satisfy as many of these criteria as possible:
 
 1. Opens with a compelling hook within the first 3 seconds.
    The hook should immediately create curiosity, surprise, emotion, controversy, urgency, or a strong promise.
 
 2. Contains a complete narrative.
-   The clip should have:
-   - Hook
-   - Build-up
-   - Payoff or conclusion
 
 3. Requires little or no external context.
 
@@ -427,58 +444,15 @@ Avoid selecting clips that:
 - end abruptly without payoff
 
 --------------------------------------------------
-TRANSCRIPT EXTRACTION
---------------------------------------------------
-
-Extract ONLY the spoken dialogue contained inside the selected clip.
-
-Do NOT include dialogue before or after the selected boundaries.
-
-Subtitle requirements:
-
-• Maximum 5 words per subtitle segment
-• Split naturally at speech pauses
-• Never split words
-• Never merge unrelated phrases
-• Preserve the speaker's original wording
-• Do not paraphrase
-• Do not summarize
-• Do not censor unless explicitly instructed
-
-Each subtitle should be easy to read in under one second whenever possible.
-
---------------------------------------------------
-TIMESTAMP REQUIREMENTS
---------------------------------------------------
-
-Subtitle timestamps must be extremely accurate.
-
-Every subtitle segment should begin exactly when the first spoken word starts.
-
-Do NOT estimate timings using sentence averages.
-
-Synchronize each subtitle segment precisely with the spoken audio.
-
---------------------------------------------------
 TIMESTAMP NORMALIZATION
 --------------------------------------------------
 
-Treat the selected clip as an independent video.
+Treat each selected clip as an independent video.
 
 Normalize timestamps so the first spoken word begins at:
 
 00:00:00.000
 
-All remaining timestamps must be relative to this new timeline.
-
-Example:
-
-Original clip:
-01:12:18.250 → 01:13:05.800
-
-Output:
-
-00:00:00.000 → 00:00:47.550
 --------------------------------------------------
 OUTPUT REQUIREMENTS
 --------------------------------------------------
@@ -491,33 +465,13 @@ Populate every required field.
 
 Requirements:
 
-• recommended_shorts MUST contain EXACTLY ONE object.
-• That object must represent the single highest-scoring short-form clip in the entire video.
-• The selected clip duration MUST be between 45 and 57 seconds.
+• recommended_shorts MUST contain between 3 and 5 highly viral clips if the video is long enough. (If the video is short, 1 or 2 clips is acceptable, but always aim for 3 to 5).
+• Each selected clip duration MUST be between 30 and 50 seconds maximum.
 • start_time and end_time MUST use MM:SS format and refer to the timestamps in the ORIGINAL video.
 • duration_seconds MUST equal the actual clip length.
 • title_or_hook should be a concise, attention-grabbing headline suitable for TikTok, YouTube Shorts, or Instagram Reels.
 • rationale should explain why this segment was selected, referencing factors such as hook strength, audience retention, narrative completeness, emotional impact, educational value, surprise, shareability, or viral potential.
-
---------------------------------------------------
-FULL_SUBTITLES REQUIREMENTS
---------------------------------------------------
-
-The full_subtitles field must contain ONLY the subtitles for the selected clip.
-
-Requirements:
-
-• Normalize timestamps so the selected clip starts at [00:00:00.000].
-• Every timestamp must use the format [HH:MM:SS.mmm].
-• Include ONLY dialogue spoken inside the selected clip.
-• Do NOT include dialogue before or after the clip.
-• Preserve the original wording exactly.
-• Do NOT paraphrase.
-• Do NOT summarize.
-• Split subtitles into natural speech segments.
-• Each subtitle segment MUST contain no more than 5 spoken words.
-• Each timestamp must begin exactly when the first spoken word starts.
-• Synchronize timestamps as accurately as possible with the spoken audio.
+• virality_score MUST be an integer from 0 to 100 assessing the probability that this clip will go viral based on the current algorithm trends.
 
 Return ONLY the structured response defined by the provided schema.
 

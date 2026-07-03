@@ -39,6 +39,8 @@ export default function AIClipsPage({ params }) {
 	const [creditsCost, setCreditsCost] = useState(null);
 	const [userBalance, setUserBalance] = useState(null);
 	const [isInitialLoading, setIsInitialLoading] = useState(true);
+	const [aiAnalysis, setAiAnalysis] = useState(null);
+	const [isRegenerating, setIsRegenerating] = useState(false);
 
 	useEffect(() => {
 		let isMounted = true;
@@ -61,6 +63,14 @@ export default function AIClipsPage({ params }) {
 				setUserBalance(creditsData.balance || 0);
 
 				if (videoData.status === 'completed') {
+					if (videoData.ai_analysis) {
+						try {
+							const parsed = typeof videoData.ai_analysis === 'string' ? JSON.parse(videoData.ai_analysis) : videoData.ai_analysis;
+							setAiAnalysis(parsed);
+						} catch (e) {
+							console.error("Failed to parse ai_analysis", e);
+						}
+					}
 					setPhase('done');
 				} else if (videoData.status === 'processing') {
 					setPhase('processing');
@@ -169,7 +179,7 @@ export default function AIClipsPage({ params }) {
 				headers: {
 					"Content-Type": "application/json",
 				},
-				body: JSON.stringify({ preferences }),
+				body: JSON.stringify({ preferences, regenerate: isRegenerating }),
 			});
 			
 			if (response.status === 402) {
@@ -208,6 +218,7 @@ export default function AIClipsPage({ params }) {
 			console.error("Lambda call failed:", err);
 		} finally {
 			setLambdaLoading(false);
+			setIsRegenerating(false); // Reset regeneration state after request finishes
 			if (targetPhase === "done") {
 				setPhase("done");
 			} else if (targetPhase === "processing") {
@@ -226,8 +237,20 @@ export default function AIClipsPage({ params }) {
 		eventSource.onmessage = (event) => {
 			try {
 				const data = JSON.parse(event.data);
-
-				if (data.status === "completed") {
+				if (data.status?.toUpperCase() === 'COMPLETED') {
+					if (data.ai_analysis) {
+						const parsed = typeof data.ai_analysis === 'string' ? JSON.parse(data.ai_analysis) : data.ai_analysis;
+						setAiAnalysis(parsed);
+					} else {
+						// If webhook doesn't include ai_analysis, we can fetch it again here
+						// For now, rely on initial fetch or a secondary fetch if needed
+						fetch(`/api/video_processing/${videoId}`).then(r => r.json()).then(d => {
+							if (d.ai_analysis) {
+								const parsed = typeof d.ai_analysis === 'string' ? JSON.parse(d.ai_analysis) : d.ai_analysis;
+								setAiAnalysis(parsed);
+							}
+						});
+					}
 					setCurrentStep(pipelineSteps.length - 1);
 
 					setLogs((prev) => [
@@ -771,7 +794,29 @@ export default function AIClipsPage({ params }) {
 				)}
 
 				{phase === "done" && (
-					<GeneratedClipPreview videoId={videoId} />
+					<div className="flex flex-col gap-6 w-full max-w-6xl mx-auto">
+						<div className="flex justify-between items-center bg-[#18181b] border border-[#27272a] p-4 rounded-xl">
+							<div>
+								<h3 className="text-white font-bold text-sm">Want different clips?</h3>
+								<p className="text-[#a1a1aa] text-xs mt-1">You can re-run the AI analysis to discover new segments.</p>
+							</div>
+							<button
+								onClick={() => {
+									setPhase("preview");
+									setAiAnalysis(null);
+									setIsRegenerating(true);
+								}}
+								className="bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors"
+							>
+								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+									<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+									<path d="M3 3v5h5"/>
+								</svg>
+								Regenerate Clips
+							</button>
+						</div>
+						<GeneratedClipPreview videoId={videoId} aiAnalysis={aiAnalysis} />
+					</div>
 				)}
 
 				{/* FOOTER EXTERNAL REFERENCES */}

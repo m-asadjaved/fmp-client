@@ -15,7 +15,7 @@ const DEFAULT_SUBTITLES = `[00:00:00] Was being in prison kind of fun? Um, fun?
 [00:00:12] I've always wanted to go to jail. You know, there's this old saying
 [00:00:17] that you don't go to jail to make friends. And I made some lifelong friends.`;
 
-export default function GeneratedClipPreview({ videoId }) {
+export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
   const router = useRouter();
 
   const [subtitleInput, setSubtitleInput] = useState("");
@@ -39,7 +39,10 @@ export default function GeneratedClipPreview({ videoId }) {
   const [isLoaded, setIsLoaded] = useState(false);
   const [videoMeta, setVideoMeta] = useState(null);
 
-  const videoSrc = `/api/video/output/${videoId}`;
+  const [activeClipIndex, setActiveClipIndex] = useState(0);
+
+  const videoSrc = `/api/video/output/${videoId}?index=${activeClipIndex}`;
+  const recommendedShorts = aiAnalysis?.recommended_shorts || [];
 
   useEffect(() => {
     parseMedia({
@@ -227,6 +230,39 @@ export default function GeneratedClipPreview({ videoId }) {
 
   return (
     <div className="flex flex-col gap-6 w-full pt-4 animate-fadeIn">
+      {/* MULTI-CLIP SELECTOR */}
+      {recommendedShorts.length > 1 && (
+        <div className="flex gap-4 overflow-x-auto pb-4 max-w-full">
+          {recommendedShorts.map((clip, idx) => (
+            <button
+              key={idx}
+              onClick={() => setActiveClipIndex(idx)}
+              className={`flex-shrink-0 flex flex-col p-4 rounded-xl border text-left transition-all ${
+                activeClipIndex === idx 
+                  ? 'bg-[rgba(99,102,241,0.1)] border-[#6366f1]' 
+                  : 'bg-[#18181b] border-[#27272a] hover:border-[#3f3f46]'
+              }`}
+              style={{ width: 280 }}
+            >
+              <div className="flex justify-between items-start mb-2">
+                <span className="text-xs font-bold text-[#a1a1aa]">Clip {idx + 1}</span>
+                {clip.virality_score != null && (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${clip.virality_score >= 85 ? 'text-[#4ade80] bg-[rgba(74,222,128,0.1)]' : clip.virality_score >= 70 ? 'text-[#fbbf24] bg-[rgba(251,191,36,0.1)]' : 'text-[#a1a1aa] bg-[#27272a]'}`}>
+                    Score: {clip.virality_score}
+                  </span>
+                )}
+              </div>
+              <h4 className="text-sm font-semibold text-[#fafafa] mb-1 line-clamp-2 leading-tight">
+                {clip.title_or_hook || `Generated Clip ${idx + 1}`}
+              </h4>
+              <p className="text-xs text-[#a1a1aa] line-clamp-2 mt-auto">
+                {clip.duration_seconds}s • {clip.rationale}
+              </p>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* PLAYER CONTAINER */}
       <div style={{
         height: "calc(60vh)", minHeight: 400, aspectRatio: "9 / 16", margin: "0 auto", borderRadius: 12, overflow: "hidden",
@@ -368,7 +404,7 @@ export default function GeneratedClipPreview({ videoId }) {
           </button>
           
           <button
-            onClick={() => router.push(`/editor/${videoId}`)}
+            onClick={() => router.push(`/editor/${videoId}?index=${activeClipIndex}`)}
             disabled={!!postStage || !!downloadStage}
             style={{
               display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
