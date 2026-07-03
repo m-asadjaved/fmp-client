@@ -162,7 +162,7 @@ export default function AIClipsPage({ params }) {
   }, [isProcessing, videoId]);
 
   function handleViewGeneratedVideo(){
-    router.push(`/clips/output/${videoId}`);
+    router.push(`/dashboard/clips/output/${videoId}`);
   }
 
   // ─── Render ───────────────────────────────────────────────────────────────────

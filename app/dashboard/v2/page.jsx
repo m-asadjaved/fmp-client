@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth, SignInButton } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { 
@@ -13,8 +13,108 @@ import {
   ArrowRight,
   Sparkles,
   Lock,
-  Play
+  Play,
+  CheckCircle2,
+  X,
+  ExternalLink
 } from 'lucide-react';
+
+// ─── Platform colour/icon map ─────────────────────────────────────────────────
+const PLATFORM_META = {
+  YouTube:          { color: '#ef4444', bg: '#fef2f2', border: '#fecaca', emoji: '▶️' },
+  TikTok:           { color: '#09090b', bg: '#f4f4f5', border: '#e4e4e7', emoji: '🎵' },
+  'Instagram Reels':{ color: '#e11d74', bg: '#fff1f7', border: '#fbcfe8', emoji: '📸' },
+};
+const DEFAULT_PLATFORM_META = { color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', emoji: '🎬' };
+
+// ─── Single post-completion alert banner ─────────────────────────────────────
+function PostJobAlert({ job, onDismiss }) {
+  // Extract platforms. Fallback to a single platform if it's the old schema
+  const platforms = Array.isArray(job.platforms) ? job.platforms : (job.platform ? [job.platform] : []);
+  
+  // Use the first platform's styling as the base theme for the card
+  const mainPlat = platforms.length > 0 ? platforms[0] : null;
+  const meta = PLATFORM_META[mainPlat] || DEFAULT_PLATFORM_META;
+  
+  const platformNames = platforms.length > 0 ? platforms.join(', ') : 'Unknown Platform';
+
+  return (
+    <div
+      style={{
+        display: 'flex', alignItems: 'flex-start', gap: 14,
+        background: meta.bg,
+        border: `1px solid ${meta.border}`,
+        borderRadius: 14, padding: '16px 18px',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.06)',
+        animation: 'slideDown 0.35s cubic-bezier(0.16,1,0.3,1) forwards',
+        position: 'relative', overflow: 'hidden',
+      }}
+    >
+      {/* Left accent bar */}
+      <div style={{
+        position: 'absolute', left: 0, top: 0, bottom: 0, width: 4,
+        background: meta.color, borderRadius: '14px 0 0 14px'
+      }} />
+
+      {/* Icon */}
+      <div style={{
+        width: 40, height: 40, borderRadius: 10,
+        background: `${meta.color}18`, border: `1px solid ${meta.border}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 20, flexShrink: 0,
+      }}>
+        {meta.emoji}
+      </div>
+
+      {/* Text */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          <CheckCircle2 size={14} color={meta.color} />
+          <span style={{ fontSize: 12, fontWeight: 700, color: meta.color, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            {job.scheduled_for ? 'Post Scheduled' : 'Post Ready'}
+          </span>
+        </div>
+        <p style={{ fontSize: 14, fontWeight: 700, color: '#09090b', margin: 0, lineHeight: 1.4 }}>
+          {job.scheduled_for ? `Your video is scheduled for ${platformNames}!` : `Your video is live-ready on ${platformNames}!`}
+        </p>
+        <p style={{ fontSize: 12, color: '#52525b', margin: '3px 0 10px', lineHeight: 1.5 }}>
+          {job.scheduled_for 
+            ? `It will automatically publish at ${new Date(job.scheduled_for).toLocaleString()}.` 
+            : `Rendering complete. Download your clip and upload it to publish.`}
+        </p>
+        {job.output_url && !job.scheduled_for && (
+          <a
+            href={job.output_url}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              background: meta.color, color: '#fff',
+              fontSize: 12, fontWeight: 700,
+              padding: '6px 14px', borderRadius: 8,
+              textDecoration: 'none', transition: 'opacity 0.15s'
+            }}
+          >
+            <ExternalLink size={12} /> Download &amp; Publish
+          </a>
+        )}
+      </div>
+
+      {/* Dismiss */}
+      <button
+        onClick={() => onDismiss(job.id)}
+        style={{
+          background: 'transparent', border: 'none', cursor: 'pointer',
+          color: '#71717a', padding: 4, borderRadius: 6, flexShrink: 0,
+          display: 'flex', alignItems: 'center',
+        }}
+        aria-label="Dismiss"
+      >
+        <X size={15} />
+      </button>
+    </div>
+  );
+}
 
 // Helper function to extract a frame from the video file at 1 second
 const generateThumbnail = (videoFile, seekTime = 1) => {
@@ -56,6 +156,65 @@ export default function Dashboard() {
   const { isSignedIn, isLoaded } = useAuth();
   const router = useRouter();
 
+  // ─── Post job notifications ──────────────────────────────────────────────────
+  const [postAlerts, setPostAlerts] = useState([]);  // completed jobs to display
+  const pollIntervalRef = useRef(null);
+
+  // Dismiss a completed-job alert and acknowledge it in the DB
+  const dismissAlert = useCallback(async (jobId) => {
+    setPostAlerts(prev => prev.filter(j => j.id !== jobId));
+    try {
+      await fetch('/api/export/notifications', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId }),
+      });
+    } catch (err) {
+      console.error('Failed to acknowledge job:', err);
+    }
+  }, []);
+
+  // On mount: fetch any already-completed, unacknowledged jobs
+  useEffect(() => {
+    if (!isSignedIn) return;
+    fetch('/api/export/notifications')
+      .then(r => r.json())
+      .then(({ jobs }) => {
+        if (jobs?.length) setPostAlerts(prev => [
+          ...prev,
+          ...jobs.filter(j => !prev.some(p => p.id === j.id))
+        ]);
+      })
+      .catch(err => console.error('Notifications fetch error:', err));
+  }, [isSignedIn]);
+
+  // Poll for in-progress jobs every 8 seconds
+  useEffect(() => {
+    if (!isSignedIn) return;
+
+    const poll = async () => {
+      try {
+        const res = await fetch('/api/export/poll');
+        const { jobs } = await res.json();
+        if (!jobs) return;
+        const justCompleted = jobs.filter(j => j.status === 'completed');
+        if (justCompleted.length > 0) {
+          setPostAlerts(prev => [
+            ...justCompleted.filter(j => !prev.some(p => p.id === j.id)),
+            ...prev,
+          ]);
+        }
+      } catch (err) {
+        console.error('Poll error:', err);
+      }
+    };
+
+    // First call immediately, then on interval
+    poll();
+    pollIntervalRef.current = setInterval(poll, 8000);
+    return () => clearInterval(pollIntervalRef.current);
+  }, [isSignedIn]);
+
   // Navigation UI State
   const [videoLink, setVideoLink] = useState('');
 
@@ -68,7 +227,14 @@ export default function Dashboard() {
   const [uploadSpeed, setUploadSpeed] = useState('');
   const [history, setHistory] = useState([]);
   const [credits, setCredits] = useState(0);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const [loadingCredits, setLoadingCredits] = useState(true);
+  const [loadingStorage, setLoadingStorage] = useState(true);
   const [activeVideoUrl, setActiveVideoUrl] = useState(null);
+  const [storageData, setStorageData] = useState({ totalSizeBytes: 0, totalSizeGB: "0.00", percentage: 0 });
+  const [notifications, setNotifications] = useState([]);
+  const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+  const MAX_STORAGE_GB = 10;
 
   const fileInputRef = useRef(null);
 
@@ -76,6 +242,8 @@ export default function Dashboard() {
   const fetchUploadHistory = async () => {
     if (!isSignedIn) return;
     try {
+      setLoadingHistory(true);
+      setLoadingCredits(true);
       const res = await fetch('/api/upload');
       if (res.ok) {
         const data = await res.json();
@@ -84,12 +252,41 @@ export default function Dashboard() {
       }
     } catch (err) {
       console.error("Error retrieving dashboard data:", err);
+    } finally {
+      setLoadingHistory(false);
+      setLoadingCredits(false);
     }
   };
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
       fetchUploadHistory();
+      
+      // Fetch dynamic cloud storage usage
+      setLoadingStorage(true);
+      fetch('/api/user/storage')
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error) {
+            const usedGB = Number(data.totalSizeGB);
+            const pct = Math.min((usedGB / MAX_STORAGE_GB) * 100, 100);
+            setStorageData({
+              totalSizeBytes: data.totalSizeBytes,
+              totalSizeGB: data.totalSizeGB,
+              percentage: pct.toFixed(1)
+            });
+          }
+        })
+        .catch(err => console.error("Error fetching storage:", err))
+        .finally(() => setLoadingStorage(false));
+
+      // Fetch user notifications list
+      fetch('/api/user/notifications')
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error) setNotifications(data.notifications || []);
+        })
+        .catch(err => console.error("Error fetching notifications:", err));
     }
   }, [isSignedIn, isLoaded]);
 
@@ -234,15 +431,15 @@ export default function Dashboard() {
   };
 
   const handleMakeClips = (videoItem) => {
-    router.push(`/clips/v2/${videoItem.video_id}`);
+    router.push(`/dashboard/clips/v2/${videoItem.video_id}`);
   };
 
   // Auth Gate 1: App Loading Screen
   if (!isLoaded) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-brand-background text-brand-primary font-sans">
-        <Loader2 size={32} className="animate-spin mb-2" />
-        <span className="text-sm font-medium tracking-wide text-brand-on-surface-variant">Initializing system context...</span>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "#09090b", color: "#a78bfa", fontFamily: "'Inter', sans-serif" }}>
+        <Loader2 size={32} style={{ animation: "spin 1s linear infinite", marginBottom: 16 }} />
+        <span style={{ fontSize: 14, fontWeight: 500, letterSpacing: "0.05em", color: "#a1a1aa" }}>Initializing system context...</span>
       </div>
     );
   }
@@ -250,22 +447,21 @@ export default function Dashboard() {
   // Auth Gate 2: Access Control Restricted Screen (Matches Design Tokens)
   if (!isSignedIn) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-brand-background p-6 font-sans">
-        <div className="w-full max-w-md bg-white border border-brand-border-subtle rounded-lg p-8 text-center shadow-sm relative overflow-hidden">
-          <div className="absolute -top-10 -left-10 w-32 h-32 bg-brand-primary/5 blur-3xl rounded-full"></div>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "#09090b", padding: 24, fontFamily: "'Inter', sans-serif" }}>
+        <div style={{ width: "100%", maxWidth: 420, background: "#18181b", border: "1px solid #27272a", borderRadius: 16, padding: 32, textAlign: "center", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", position: "relative", overflow: "hidden" }}>
           
-          <div className="w-14 h-14 bg-brand-surfaceBg border border-brand-border-subtle text-brand-primary rounded-md flex items-center justify-center mx-auto mb-6">
-            <Lock size={24} />
+          <div style={{ width: 56, height: 56, background: "rgba(124, 58, 237, 0.1)", border: "1px solid rgba(124, 58, 237, 0.2)", color: "#a78bfa", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
+            <Lock size={28} />
           </div>
 
-          <h2 className="text-xl font-bold text-brand-on-surface tracking-tight">Access Restricted</h2>
-          <p className="text-sm text-brand-on-surface-variant mt-2 leading-relaxed">
+          <h2 style={{ fontSize: 24, fontWeight: 800, color: "#fafafa", margin: "0 0 8px", letterSpacing: "-0.03em" }}>Access Restricted</h2>
+          <p style={{ fontSize: 14, color: "#a1a1aa", margin: 0, lineHeight: 1.5 }}>
             Please sign in to unlock your custom creator dashboard, process raw video workspace formats, and analyze project clips.
           </p>
 
-          <div className="mt-6">
+          <div style={{ marginTop: 32 }}>
             <SignInButton mode="modal">
-              <button className="bg-brand-primary hover:bg-brand-primaryHover text-white font-semibold py-2.5 px-6 rounded text-sm transition-colors w-full">
+              <button style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)", color: "#fff", fontWeight: 700, padding: "12px 24px", borderRadius: 8, fontSize: 14, border: "none", cursor: "pointer", width: "100%", transition: "opacity 0.2s" }} onMouseOver={e => e.currentTarget.style.opacity = 0.9} onMouseOut={e => e.currentTarget.style.opacity = 1}>
                 Sign In to Account
               </button>
             </SignInButton>
@@ -277,93 +473,156 @@ export default function Dashboard() {
 
   return (
     <>
+      {/* ─── STYLE BLOCK for animations ──────────────────────────────────────── */}
+      <style>{`
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: .5; }
+        }
+      `}</style>
+
+      {/* ─── POST JOB ALERT BANNERS (fixed top-right) ────────────────────────── */}
+      {postAlerts.length > 0 && (
+        <div style={{
+          position: 'fixed', top: 20, right: 20, zIndex: 9999,
+          display: 'flex', flexDirection: 'column', gap: 12,
+          width: 380, maxWidth: 'calc(100vw - 40px)',
+        }}>
+          {postAlerts.map(job => (
+            <PostJobAlert key={job.id} job={job} onDismiss={dismissAlert} />
+          ))}
+        </div>
+      )}
 
       {/* DASHBOARD GRID CONTENT */}
-      <main className="flex-1 overflow-y-auto max-w-[1280px] mx-auto w-full px-12 py-8">
+      <main style={{ flex: 1, padding: "32px 40px", overflowY: "auto", background: "#09090b" }}>
         
         {/* TOP STATUS HEADER BAR */}
-        <header className="flex justify-between items-center mb-8 pb-4 border-b border-brand-border-subtle">
-          <div className="flex items-center gap-3">
-            <h2 className="text-2xl font-semibold tracking-tight">Dashboard</h2>
-            <span className="bg-[#e2fbf4] text-brand-vibrant-teal text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full uppercase border border-[#b2f2e1]">
+        <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32, paddingBottom: 16, borderBottom: "1px solid #27272a" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 800, color: "#fafafa", letterSpacing: "-0.03em", margin: 0 }}>Overview</h2>
+            <span style={{ background: "rgba(74, 222, 128, 0.1)", color: "#4ade80", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 12, border: "1px solid rgba(74, 222, 128, 0.2)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Live Status
             </span>
           </div>
 
-          <div className="flex items-center gap-6">
-            <button className="relative p-1 text-brand-on-surface-variant hover:text-brand-on-surface">
-              <Bell size={20} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border border-white"></span>
-            </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+            <div style={{ position: "relative" }}>
+              <button onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)} style={{ position: "relative", background: "transparent", border: "none", color: "#a1a1aa", cursor: "pointer", padding: 4 }}>
+                <Bell size={20} />
+                {notifications.some(n => !n.acknowledged) && <span style={{ position: "absolute", top: 2, right: 4, width: 8, height: 8, background: "#ef4444", borderRadius: "50%", border: "2px solid #09090b" }}></span>}
+              </button>
+              
+              {showNotificationsDropdown && (
+                <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 12, width: 340, background: "#18181b", border: "1px solid #27272a", borderRadius: 12, boxShadow: "0 12px 48px rgba(0,0,0,0.5)", zIndex: 1000, overflow: "hidden" }}>
+                  <div style={{ padding: "16px 20px", borderBottom: "1px solid #27272a", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#131316" }}>
+                    <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#fafafa" }}>Notifications</h4>
+                    <button style={{ background: "transparent", border: "none", color: "#a78bfa", fontSize: 11, fontWeight: 600, cursor: "pointer" }} onClick={() => {
+                       fetch('/api/user/notifications', { method: 'PATCH', body: JSON.stringify({ markAll: true }) })
+                         .then(() => setNotifications(prev => prev.map(n => ({...n, acknowledged: true}))));
+                    }}>Mark all read</button>
+                  </div>
+                  <div style={{ maxHeight: 360, overflowY: "auto" }}>
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: 32, textAlign: "center", color: "#71717a", fontSize: 13 }}>No notifications yet.</div>
+                    ) : (
+                      notifications.map(n => (
+                        <div key={n.id} style={{ padding: "16px 20px", borderBottom: "1px solid #27272a", background: n.acknowledged ? "transparent" : "rgba(124, 58, 237, 0.05)", display: "flex", gap: 12, opacity: n.acknowledged ? 0.7 : 1 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: "50%", background: n.type === 'success' ? '#4ade80' : n.type === 'error' ? '#ef4444' : n.type === 'warning' ? '#f59e0b' : '#3b82f6', marginTop: 6, flexShrink: 0 }}></div>
+                          <div style={{ flex: 1 }}>
+                            <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 700, color: "#fafafa" }}>{n.title}</p>
+                            <p style={{ margin: "0 0 6px", fontSize: 12, color: "#a1a1aa", lineHeight: 1.4 }}>{n.message}</p>
+                            <span style={{ fontSize: 10, color: "#71717a", fontFamily: "monospace" }}>{new Date(n.timestamp).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             
-            <div className="flex items-center gap-3">
-              <div className="text-right">
-                <p className="text-sm font-semibold text-brand-on-surface leading-none">Alex Rivera</p>
-                <p className="text-xs text-brand-on-surface-variant">alex@clipai.io</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ textAlign: "right" }}>
+                <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#fafafa" }}>Creator Account</p>
+                <p style={{ margin: 0, fontSize: 12, color: "#a1a1aa" }}>Active Plan</p>
               </div>
-              <img 
-                src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" 
-                alt="Profile Frame" 
-                className="w-10 h-10 rounded-full object-cover border border-brand-border-subtle"
-              />
+              <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#27272a", display: "flex", alignItems: "center", justifyItems: "center", border: "1px solid #3f3f46", overflow: "hidden" }}>
+                <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80" alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
             </div>
           </div>
         </header>
 
         {/* ANALYTICS UPPER BALANCES METRICS ROW */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24, marginBottom: 32 }}>
           
-          {/* Card 1: Storage Space allocation log */}
-          <div className="bg-white border border-brand-border-subtle rounded-lg p-6">
-            <div className="flex justify-between items-start mb-4">
-              <div className="text-brand-primary bg-brand-surfaceBg p-2 rounded">
+          {/* Card 1: Storage */}
+          <div style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 16, padding: 24, boxShadow: "0 8px 32px rgba(0,0,0,0.2)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+              <div style={{ background: "rgba(124, 58, 237, 0.1)", color: "#a78bfa", padding: 8, borderRadius: 10 }}>
                 <Cloud size={20} />
               </div>
-              <span className="text-xs font-semibold text-brand-on-surface-variant">25% Used</span>
+              {loadingStorage ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite", color: "#a1a1aa" }} /> : <span style={{ fontSize: 12, fontWeight: 700, color: "#a1a1aa" }}>{storageData.percentage}% Used</span>}
             </div>
-            <p className="text-xs font-medium text-brand-on-surface-variant mb-1">Cloud Storage</p>
-            <h3 className="text-2xl font-bold mb-3">2.5GB <span className="text-sm font-normal text-brand-on-surface-variant">/ 10GB</span></h3>
-            <div className="w-full bg-brand-surfaceBg h-2 rounded-full overflow-hidden">
-              <div className="bg-gradient-to-r from-brand-primary to-brand-neon-purple h-full w-[25%]" />
+            <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "#a1a1aa" }}>Cloud Storage</p>
+            {loadingStorage ? (
+              <div style={{ margin: "0 0 12px", height: 28, width: 120, background: "#27272a", borderRadius: 4, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
+            ) : (
+              <h3 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800, color: "#fafafa" }}>{storageData.totalSizeGB}GB <span style={{ fontSize: 14, fontWeight: 500, color: "#71717a" }}>/ {MAX_STORAGE_GB}GB</span></h3>
+            )}
+            <div style={{ width: "100%", background: "#27272a", height: 6, borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ background: "linear-gradient(90deg, #7c3aed, #4f46e5)", height: "100%", transition: "width 0.5s ease-in-out", width: `${loadingStorage ? 0 : storageData.percentage}%`, borderRadius: 4 }} />
             </div>
           </div>
 
-          {/* Card 2: Accurate Database AI Credits State Display */}
-          <div className="bg-white border border-brand-border-subtle rounded-lg p-6">
-            <div className="flex justify-between items-start mb-4">
-              <div className="text-brand-neon-purple bg-brand-surfaceBg p-2 rounded">
+          {/* Card 2: AI Credits */}
+          <div style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 16, padding: 24, boxShadow: "0 8px 32px rgba(0,0,0,0.2)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+              <div style={{ background: "rgba(236, 72, 153, 0.1)", color: "#f472b6", padding: 8, borderRadius: 10 }}>
                 <Hourglass size={20} />
               </div>
-              <button className="text-xs font-bold text-brand-primary hover:underline">Refill</button>
+              {loadingCredits ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite", color: "#a1a1aa" }} /> : <button style={{ background: "transparent", border: "none", fontSize: 12, fontWeight: 700, color: "#a78bfa", cursor: "pointer" }}>Refill</button>}
             </div>
-            <p className="text-xs font-medium text-brand-on-surface-variant mb-1">AI Credits Remaining</p>
-            <h3 className="text-2xl font-bold mb-3">
-              {credits.toFixed(1)} <span className="text-sm font-normal text-brand-on-surface-variant">Credits</span>
-            </h3>
-            <div className="w-full bg-brand-surfaceBg h-2 rounded-full overflow-hidden">
+            <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "#a1a1aa" }}>AI Credits Remaining</p>
+            {loadingCredits ? (
+              <div style={{ margin: "0 0 12px", height: 28, width: 80, background: "#27272a", borderRadius: 4, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
+            ) : (
+              <h3 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800, color: "#fafafa" }}>
+                {credits.toFixed(1)} <span style={{ fontSize: 14, fontWeight: 500, color: "#71717a" }}>Credits</span>
+              </h3>
+            )}
+            <div style={{ width: "100%", background: "#27272a", height: 6, borderRadius: 4, overflow: "hidden" }}>
               <div 
-                className="bg-brand-neon-purple h-full transition-all duration-300" 
-                style={{ width: `${Math.min((credits / 100) * 100, 100)}%` }}
+                style={{ background: "#ec4899", height: "100%", borderRadius: 4, transition: "width 0.3s", width: `${loadingCredits ? 0 : Math.min((credits / 100) * 100, 100)}%` }}
               />
             </div>
           </div>
 
-          {/* Card 3: Dynamic Project Count Ledger tracking */}
-          <div className="bg-white border border-brand-border-subtle rounded-lg p-6">
-            <div className="flex justify-between items-start mb-4">
-              <div className="text-brand-vibrant-teal bg-brand-surfaceBg p-2 rounded">
+          {/* Card 3: Active Projects */}
+          <div style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 16, padding: 24, boxShadow: "0 8px 32px rgba(0,0,0,0.2)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
+              <div style={{ background: "rgba(20, 184, 166, 0.1)", color: "#2dd4bf", padding: 8, borderRadius: 10 }}>
                 <Video size={20} />
               </div>
-              <span className="bg-[#eafbf7] text-brand-vibrant-teal text-[10px] font-bold px-2 py-0.5 rounded uppercase">Active Now</span>
+              {loadingHistory ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite", color: "#a1a1aa" }} /> : <span style={{ background: "rgba(20, 184, 166, 0.1)", color: "#2dd4bf", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 12, textTransform: "uppercase" }}>Active Now</span>}
             </div>
-            <p className="text-xs font-medium text-brand-on-surface-variant mb-1">Active Projects</p>
-            <h3 className="text-2xl font-bold mb-3">{history.length}</h3>
+            <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "#a1a1aa" }}>Active Projects</p>
+            {loadingHistory ? (
+              <div style={{ margin: "0 0 12px", height: 28, width: 40, background: "#27272a", borderRadius: 4, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
+            ) : (
+              <h3 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800, color: "#fafafa" }}>{history.length}</h3>
+            )}
             
-            <div className="flex items-center -space-x-2 overflow-hidden">
-              <img className="inline-block h-6 w-6 rounded-full ring-2 ring-white object-cover" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=50&q=80" alt="" />
-              <img className="inline-block h-6 w-6 rounded-full ring-2 ring-white object-cover" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=50&q=80" alt="" />
-              <img className="inline-block h-6 w-6 rounded-full ring-2 ring-white object-cover" src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=50&q=80" alt="" />
-              <div className="flex items-center justify-center h-6 w-6 rounded-full ring-2 ring-white bg-[#d2d9f4] text-[10px] font-bold text-brand-on-surface">
+            <div style={{ display: "flex", alignItems: "center", opacity: loadingHistory ? 0.3 : 1 }}>
+              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#3f3f46", border: "2px solid #18181b", zIndex: 3 }}></div>
+              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#52525b", border: "2px solid #18181b", marginLeft: -8, zIndex: 2 }}></div>
+              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#71717a", border: "2px solid #18181b", marginLeft: -8, zIndex: 1 }}></div>
+              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#27272a", border: "2px solid #18181b", marginLeft: -8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#fafafa" }}>
                 +{Math.max(0, history.length - 3)}
               </div>
             </div>
@@ -371,49 +630,47 @@ export default function Dashboard() {
 
         </section>
 
-        {/* CREATION HUB & DRAG DROP WORKSPACE INTERACTION SECTION */}
-        <section className="bg-white border border-brand-border-subtle rounded-lg p-6 mb-8 grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+        {/* CREATION HUB & DRAG DROP WORKSPACE */}
+        <section style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 32, background: "#18181b", border: "1px solid #27272a", borderRadius: 16, padding: 32, marginBottom: 32, alignItems: "center" }}>
           
-          <div className="lg:col-span-2 space-y-4">
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
-              <h3 className="text-xl font-bold text-brand-on-surface mb-2">Create New Project</h3>
-              <p className="text-sm text-brand-on-surface-variant max-w-lg leading-relaxed">
+              <h3 style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 800, color: "#fafafa" }}>Create New Project</h3>
+              <p style={{ margin: 0, fontSize: 14, color: "#a1a1aa", lineHeight: 1.5, maxWidth: 500 }}>
                 Transform long production footage into highly engaging vertical highlights using our integrated AI transcription models.
               </p>
             </div>
             
-            <div className="inline-flex items-center gap-1.5 text-brand-primary text-xs font-semibold bg-brand-surfaceBg px-2.5 py-1 rounded">
-              <Sparkles size={14} className="text-brand-neon-purple animate-pulse" />
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(124, 58, 237, 0.1)", color: "#c4b5fd", padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, width: "fit-content", border: "1px solid rgba(124, 58, 237, 0.2)" }}>
+              <Sparkles size={14} style={{ color: "#a78bfa" }} />
               <span>Powered by ClipAI Turbo</span>
             </div>
 
-            {/* Manual Link Input Control parsing container */}
-            <div className="mt-4">
-              <label className="block text-xs font-medium text-brand-on-surface-variant mb-1.5">Paste Video Link</label>
-              <div className="flex gap-2 max-w-xl">
+            <div style={{ marginTop: 8 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#a1a1aa", marginBottom: 8 }}>Paste Video Link</label>
+              <div style={{ display: "flex", gap: 8, maxWidth: 500 }}>
                 <input 
                   type="text" 
                   value={videoLink}
                   onChange={(e) => setVideoLink(e.target.value)}
                   placeholder="YouTube, Twitch, or Vimeo URL"
-                  className="flex-1 bg-white border border-brand-border-subtle rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary placeholder:text-slate-400"
+                  style={{ flex: 1, background: "#09090b", border: "1px solid #3f3f46", borderRadius: 8, padding: "10px 14px", color: "#fafafa", fontSize: 14, outline: "none" }}
                 />
-                <button className="bg-brand-primary hover:bg-brand-primaryHover text-white text-sm font-medium px-4 py-2 rounded transition-colors">
+                <button style={{ background: "#7c3aed", color: "#fff", border: "none", borderRadius: 8, padding: "0 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "background 0.2s" }} onMouseOver={e => e.currentTarget.style.background = "#6d28d9"} onMouseOut={e => e.currentTarget.style.background = "#7c3aed"}>
                   Analyze
                 </button>
               </div>
-              <p className="text-[11px] text-brand-on-surface-variant mt-1.5">
+              <p style={{ margin: "6px 0 0", fontSize: 11, color: "#71717a" }}>
                 Supports up to 4K resolution clip files and 2-hour durations.
               </p>
             </div>
           </div>
 
-          {/* S3 Input Component File Capture Trigger Interface */}
-          <div className="h-full min-h-[180px]">
+          <div style={{ height: "100%", minHeight: 180 }}>
             <input
               ref={fileInputRef}
               type="file"
-              className="hidden"
+              style={{ display: "none" }}
               accept="video/*"
               onChange={(e) => e.target.files?.[0] && handleFileSelection(e.target.files[0])}
               disabled={uploading || credits <= 0}
@@ -424,25 +681,27 @@ export default function Dashboard() {
               onDragLeave={() => setIsDragActive(false)}
               onDrop={(e) => { e.preventDefault(); setIsDragActive(false); if (e.dataTransfer.files?.[0]) handleFileSelection(e.dataTransfer.files[0]); }}
               onClick={() => !uploading && credits > 0 && fileInputRef.current.click()}
-              className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-center h-full transition-all duration-200 cursor-pointer ${
-                credits <= 0 
-                  ? 'border-brand-border-subtle bg-brand-surfaceBg opacity-50 cursor-not-allowed'
-                  : isDragActive 
-                    ? 'border-brand-primary bg-blue-50/50 shadow-inner' 
-                    : 'border-brand-border-subtle bg-brand-surfaceBg hover:bg-slate-50'
-              }`}
+              style={{
+                height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
+                background: isDragActive ? "rgba(124, 58, 237, 0.05)" : "#09090b",
+                border: `2px dashed ${isDragActive ? "#7c3aed" : "#3f3f46"}`,
+                borderRadius: 12, cursor: credits <= 0 ? "not-allowed" : "pointer",
+                padding: 24, transition: "all 0.2s", opacity: credits <= 0 ? 0.5 : 1
+              }}
+              onMouseOver={e => { if (credits > 0 && !isDragActive) e.currentTarget.style.borderColor = "#52525b"; }}
+              onMouseOut={e => { if (credits > 0 && !isDragActive) e.currentTarget.style.borderColor = "#3f3f46"; }}
             >
-              <div className="bg-white p-3 rounded-full shadow-sm text-brand-primary mb-2 border border-brand-border-subtle">
-                <UploadCloud size={20} />
+              <div style={{ background: "#18181b", padding: 12, borderRadius: "50%", color: "#a1a1aa", marginBottom: 12, border: "1px solid #27272a" }}>
+                <UploadCloud size={24} />
               </div>
               
               {credits <= 0 ? (
-                <p className="text-xs font-semibold text-red-500">Credit Balance Expired</p>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#ef4444" }}>Credit Balance Expired</p>
               ) : (
                 <>
-                  <p className="text-sm font-bold text-brand-on-surface mb-0.5">Upload Video Asset</p>
-                  <p className="text-xs text-brand-on-surface-variant">
-                    Drag & drop or <span className="text-brand-primary font-medium hover:underline">browse files</span>
+                  <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#fafafa" }}>Upload Video Asset</p>
+                  <p style={{ margin: 0, fontSize: 12, color: "#a1a1aa" }}>
+                    Drag & drop or <span style={{ color: "#a78bfa", fontWeight: 600 }}>browse files</span>
                   </p>
                 </>
               )}
@@ -452,18 +711,18 @@ export default function Dashboard() {
 
         {/* PERSISTENT LIVE UPLOAD PIPELINE TRANSMISSION MONITOR CARD */}
         {file && (
-          <section className="bg-white border border-brand-border-subtle rounded-lg p-6 mb-8 animate-fadeIn">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
-              <div className="min-w-0 flex-1">
-                <span className="text-[10px] font-bold text-brand-primary bg-blue-50 px-2 py-0.5 rounded tracking-wide uppercase">Staged Composition</span>
-                <h4 className="text-sm font-bold text-brand-on-surface truncate mt-1">{file.name}</h4>
-                <p className="text-xs text-brand-on-surface-variant">{formatSize(file.size)} • Duration: {formatDuration(videoDuration)}</p>
+          <section style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 16, padding: 24, marginBottom: 32 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "space-between", marginBottom: uploading ? 16 : 0 }}>
+              <div style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
+                <span style={{ fontSize: 10, fontWeight: 800, background: "rgba(124, 58, 237, 0.1)", color: "#c4b5fd", padding: "2px 8px", borderRadius: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Staged Composition</span>
+                <h4 style={{ margin: "8px 0 4px", fontSize: 14, fontWeight: 700, color: "#fafafa", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{file.name}</h4>
+                <p style={{ margin: 0, fontSize: 12, color: "#a1a1aa" }}>{formatSize(file.size)} • Duration: {formatDuration(videoDuration)}</p>
               </div>
 
               {!uploading && (
                 <button
                   onClick={handleUpload}
-                  className="bg-[var(--primary)] hover:bg-[var(--primary-hover)] cursor-pointer text-white text-xs font-bold px-5 py-2.5 rounded transition-colors flex-shrink-0"
+                  style={{ background: "#fafafa", color: "#09090b", border: "none", padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
                 >
                   Confirm & Start Upload
                 </button>
@@ -471,19 +730,19 @@ export default function Dashboard() {
             </div>
 
             {uploading && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs font-semibold text-brand-primary">
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-brand-primary animate-ping" />
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, fontWeight: 600, color: "#a78bfa" }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: "50%", background: "#a78bfa", animation: "ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite" }} />
                     Transmitting binary stream to secure storage node...
                   </span>
-                  <div className="flex gap-4 font-mono text-brand-on-surface-variant">
+                  <div style={{ display: "flex", gap: 16, fontFamily: "monospace", color: "#a1a1aa" }}>
                     <span>{uploadSpeed}</span>
-                    <span className="text-brand-primary font-bold">{progress}%</span>
+                    <span style={{ color: "#a78bfa", fontWeight: 700 }}>{progress}%</span>
                   </div>
                 </div>
-                <div className="w-full bg-[var(--surface-bg)] h-2 rounded-full overflow-hidden">
-                  <div className="bg-[var(--surface)] h-full transition-all duration-150" style={{ width: `${progress}%` }}></div>
+                <div style={{ width: "100%", background: "#09090b", height: 6, borderRadius: 4, overflow: "hidden" }}>
+                  <div style={{ background: "#a78bfa", height: "100%", transition: "width 0.15s", width: `${progress}%` }}></div>
                 </div>
               </div>
             )}
@@ -492,79 +751,98 @@ export default function Dashboard() {
 
         {/* RECENT REPOSITORIES MEDIA CARD LAYOUT */}
         <section>
-          <div className="flex justify-between items-center mb-6">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
             <div>
-              <h3 className="text-lg font-bold text-brand-on-surface">Recent Clips History</h3>
-              <p className="text-xs text-brand-on-surface-variant">Your latest AI-generated highlights ready for export execution.</p>
+              <h3 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 800, color: "#fafafa" }}>Recent Clips History</h3>
+              <p style={{ margin: 0, fontSize: 13, color: "#a1a1aa" }}>Your latest AI-generated highlights ready for export execution.</p>
             </div>
-            <button className="text-sm font-bold text-brand-primary flex items-center gap-1 hover:gap-2 transition-all">
+            <button style={{ background: "transparent", border: "none", color: "#c4b5fd", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
               View All <ArrowRight size={16} />
             </button>
           </div>
 
-          {history.length === 0 ? (
-            <div className="bg-white border border-brand-border-subtle border-dashed rounded-lg py-16 text-center">
-              <Video size={36} className="mx-auto text-brand-on-surface-variant mb-2 opacity-40" />
-              <p className="text-sm font-medium text-brand-on-surface-variant italic">No video logs recorded. Upload a project to begin.</p>
+          {loadingHistory ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 24 }}>
+              {[1, 2, 3, 4].map(i => (
+                <div key={i} style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  <div style={{ aspectRatio: "16/9", background: "#27272a", animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
+                  <div style={{ padding: 16, flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <div style={{ marginBottom: 16 }}>
+                      <div style={{ height: 16, width: "80%", background: "#27272a", borderRadius: 4, marginBottom: 8, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
+                      <div style={{ height: 12, width: "40%", background: "#27272a", borderRadius: 4, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
+                    </div>
+                    <div style={{ height: 28, width: "100%", background: "#27272a", borderRadius: 6, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : history.length === 0 ? (
+            <div style={{ background: "#09090b", border: "1px dashed #27272a", borderRadius: 16, padding: 64, textAlign: "center" }}>
+              <Video size={36} style={{ color: "#3f3f46", marginBottom: 12 }} />
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: "#71717a", fontStyle: "italic" }}>No video logs recorded. Upload a project to begin.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 24 }}>
               {history.map((item) => (
-                <div key={item.id || item.video_id} className="bg-white border border-brand-border-subtle rounded-lg overflow-hidden flex flex-col justify-between group shadow-sm hover:shadow transition-shadow">
+                <div key={item.id || item.video_id} style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column", transition: "transform 0.2s, box-shadow 0.2s" }} onMouseOver={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 12px 24px rgba(0,0,0,0.4)"; }} onMouseOut={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}>
                   
                   {/* Aspect Previews Area box */}
                   <div 
-                    className="relative aspect-video bg-neutral-900 overflow-hidden cursor-pointer group/thumb"
                     onClick={() => setActiveVideoUrl(item.video_url)}
+                    style={{ position: "relative", aspectRatio: "16/9", background: "#000", cursor: "pointer", overflow: "hidden" }}
                   >
                     {item.thumbnail_url ? (
                       <img 
                         src={item.thumbnail_url} 
                         alt="extracted frame content" 
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.3s" }}
+                        onMouseOver={e => e.currentTarget.style.transform = "scale(1.05)"}
+                        onMouseOut={e => e.currentTarget.style.transform = "scale(1)"}
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-slate-900">
-                        <Video size={24} className="text-white/40" />
+                      <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", background: "#09090b" }}>
+                        <Video size={24} style={{ color: "rgba(255,255,255,0.2)" }} />
                       </div>
                     )}
                     
-                    <span className="absolute bottom-2 right-2 bg-black/75 text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
+                    <span style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.75)", color: "#fff", fontSize: 10, fontFamily: "monospace", padding: "2px 6px", borderRadius: 4 }}>
                       {formatDuration(item.duration)}
                     </span>
 
-                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity">
-                      <div className="bg-white/90 p-2 rounded-full text-brand-primary shadow-md">
-                        <Play size={16} fill="currentColor" />
+                    <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.3)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.2s" }} onMouseOver={e => e.currentTarget.style.opacity = 1} onMouseOut={e => e.currentTarget.style.opacity = 0}>
+                      <div style={{ background: "rgba(255,255,255,0.9)", padding: 12, borderRadius: "50%", color: "#09090b" }}>
+                        <Play size={18} fill="currentColor" />
                       </div>
                     </div>
                   </div>
 
                   {/* Operational Information Meta Segment */}
-                  <div className="p-4 flex-1 flex flex-col justify-between">
-                    <div className="mb-4">
+                  <div style={{ padding: 16, flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <div style={{ marginBottom: 16 }}>
                       <h4 
                         onClick={() => setActiveVideoUrl(item.video_url)}
-                        className="text-sm font-bold text-brand-on-surface mb-1 line-clamp-1 cursor-pointer hover:text-brand-primary transition-colors"
+                        style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 800, color: "#fafafa", cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
                       >
                         {item.original_name || 'Untitled Clip Asset'}
                       </h4>
-                      <p className="text-[11px] text-brand-on-surface-variant font-mono uppercase tracking-wider">
+                      <p style={{ margin: 0, fontSize: 11, color: "#71717a", fontFamily: "monospace", textTransform: "uppercase", letterSpacing: "0.05em" }}>
                         Key: {item.file_key ? item.file_key.substring(0, 8) : 'Pending'}
                       </p>
                     </div>
 
-                    <div className="space-y-2">
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <button 
                         onClick={() => handleMakeClips(item)}
-                        className="w-full bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-white py-2 rounded text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
+                        style={{ width: "100%", background: "#27272a", color: "#fafafa", border: "1px solid #3f3f46", padding: "8px 0", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "background 0.2s" }}
+                        onMouseOver={e => e.currentTarget.style.background = "#3f3f46"}
+                        onMouseOut={e => e.currentTarget.style.background = "#27272a"}
                       >
                         <Sparkles size={12} />
                         Make AI Clips
                       </button>
-                      <div className="flex items-center justify-between text-[10px] text-brand-on-surface-variant font-mono pt-1">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10, color: "#71717a", fontFamily: "monospace", paddingTop: 4 }}>
                         <span>Node status:</span>
-                        <span className="text-brand-vibrant-teal font-bold uppercase tracking-wider">Ready</span>
+                        <span style={{ color: "#4ade80", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ready</span>
                       </div>
                     </div>
                   </div>
@@ -575,16 +853,15 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* FOOTER EXTERNAL REFERENCES */}
-        <footer className="mt-16 pt-6 border-t border-brand-border-subtle flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-brand-on-surface-variant">
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-brand-primary">ClipAI</span>
+        {/* FOOTER */}
+        <footer style={{ marginTop: 64, paddingTop: 24, borderTop: "1px solid #27272a", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: "#71717a" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontWeight: 800, color: "#fafafa" }}>ClipAI</span>
             <span>© 2026 ClipAI Inc. All rights reserved.</span>
           </div>
-          <div className="flex gap-6">
-            <a href="#" className="hover:text-brand-on-surface transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-brand-on-surface transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-brand-on-surface transition-colors">Security Node</a>
+          <div style={{ display: "flex", gap: 24 }}>
+            <a href="#" style={{ color: "#71717a", textDecoration: "none" }}>Privacy Policy</a>
+            <a href="#" style={{ color: "#71717a", textDecoration: "none" }}>Terms of Service</a>
           </div>
         </footer>
 
@@ -593,31 +870,33 @@ export default function Dashboard() {
       {/* POPUP NATIVE VIDEO PLAYBACK MODAL WINDOW OVERLAY */}
       {activeVideoUrl && (
         <div 
-          className="fixed inset-0 bg-black/75 backdrop-blur-md z-50 flex items-center justify-center p-4"
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
           onClick={() => setActiveVideoUrl(null)}
         >
           <div 
-            className="bg-white border border-brand-border-subtle rounded-lg w-full max-w-3xl overflow-hidden shadow-2xl relative"
+            style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 16, width: "100%", maxWidth: 800, overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Navigation Control Header bar */}
-            <div className="p-4 border-b border-brand-border-subtle flex justify-between items-center bg-brand-surfaceBg">
-              <span className="text-xs font-mono text-brand-on-surface-variant font-semibold">Media Workspace Workspace Player</span>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid #27272a", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#09090b" }}>
+              <span style={{ fontSize: 12, fontFamily: "monospace", color: "#a1a1aa", fontWeight: 600 }}>Media Workspace Player</span>
               <button 
                 onClick={() => setActiveVideoUrl(null)}
-                className="text-brand-on-surface-variant hover:text-brand-on-surface transition-colors text-xs font-bold px-2.5 py-1 rounded bg-white border border-brand-border-subtle shadow-sm"
+                style={{ background: "#27272a", border: "1px solid #3f3f46", color: "#a1a1aa", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 6, transition: "color 0.2s" }}
+                onMouseOver={e => e.currentTarget.style.color = "#fff"}
+                onMouseOut={e => e.currentTarget.style.color = "#a1a1aa"}
               >
                 Close ✕
               </button>
             </div>
             
             {/* Render Context Viewport screen */}
-            <div className="aspect-video w-full bg-black flex items-center justify-center">
+            <div style={{ aspectRatio: "16/9", width: "100%", background: "#000", display: "flex", alignItems: "center", justifyItems: "center" }}>
               <video 
                 src={activeVideoUrl} 
                 controls 
                 autoPlay
-                className="w-full h-full max-h-[70vh]"
+                style={{ width: "100%", height: "100%", maxHeight: "70vh" }}
               />
             </div>
           </div>

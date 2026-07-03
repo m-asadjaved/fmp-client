@@ -12,8 +12,8 @@ const s3Client = new S3Client({
   },
 });
 
-// POST: Generate a presigned URL for uploading a B-Roll video clip
-// Stores file at: user_uploads/broll/[userId]/[uuid].[ext]
+// POST: Generate a presigned URL for uploading a background music file
+// Stores file at: user_uploads/bg_music/[userId]/[uuid].[ext]
 export async function POST(request) {
   try {
     const { userId } = await auth();
@@ -30,10 +30,10 @@ export async function POST(request) {
       );
     }
 
-    const brollId = uuidv4();
     const fileExtension = filename.split(".").pop();
-    // User-scoped S3 path for b-roll clips
-    const s3Key = `user_uploads/broll/${userId}/${brollId}.${fileExtension}`;
+    const musicId = uuidv4();
+    // User-scoped S3 path for background music
+    const s3Key = `user_uploads/bg_music/${userId}/${musicId}.${fileExtension}`;
 
     const command = new PutObjectCommand({
       Bucket: process.env.AWS_BUCKET_NAME,
@@ -46,7 +46,7 @@ export async function POST(request) {
 
     return NextResponse.json({ uploadUrl, publicUrl });
   } catch (error) {
-    console.error("[POST /api/upload/broll]", error);
+    console.error("[POST /api/upload/bg-music]", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

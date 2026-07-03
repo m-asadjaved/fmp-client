@@ -17,6 +17,7 @@ import {
 	CheckCircle2,
 	AlertCircle,
 } from "lucide-react";
+import GeneratedClipPreview from "./GeneratedClipPreview";
 
 export default function AIClipsPage({ params }) {
 	const { videoId } = use(params);
@@ -253,30 +254,30 @@ export default function AIClipsPage({ params }) {
 	}, [isProcessing, videoId]);
 
 	function handleViewGeneratedVideo() {
-		window.location.href = `${EDITOR_URL}/edit/${videoId}`;
+		window.location.href = `${EDITOR_URL}/editor/${videoId}`;
 	}
 
 	return (
-		<div className="min-h-screen bg-brand-background text-brand-on-surface font-sans flex">
+		<div style={{ flex: 1, display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}>
 			{/* ANIMATED TOAST ALERT (MATCHES DESIGN SYSTEM TOKENS) */}
 			{alertVisible && (
 				<div
 					style={{ animation: "slideUp 0.35s ease-out forwards" }}
 					className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50"
 				>
-					<div className="flex items-center gap-3 bg-white border border-brand-border-subtle text-brand-on-surface px-5 py-3.5 rounded-lg shadow-xl whitespace-nowrap">
-						<span className="w-2.5 h-2.5 bg-brand-vibrant-teal rounded-full animate-ping shrink-0" />
+					<div className="flex items-center gap-3 bg-[#18181b] border border-[#27272a] text-[#fafafa] px-5 py-3.5 rounded-lg shadow-xl whitespace-nowrap">
+						<span className="w-2.5 h-2.5 bg-[#4ade80] rounded-full animate-ping shrink-0" />
 						<div>
-							<p className="text-sm font-bold text-brand-on-surface tracking-tight">
+							<p className="text-sm font-bold text-[#fafafa] tracking-tight">
 								Processing Started
 							</p>
-							<p className="text-xs text-brand-on-surface-variant">
+							<p style={{ fontSize: 12, color: "#a1a1aa", margin: 0, marginTop: 4 }}>
 								Your video has been queued in the AI engine.
 							</p>
 						</div>
 						<button
 							onClick={() => setAlertVisible(false)}
-							className="ml-4 text-brand-on-surface-variant hover:text-brand-on-surface text-xs"
+							className="ml-4 text-[#a1a1aa] hover:text-[#fafafa] text-xs"
 						>
 							✕
 						</button>
@@ -297,102 +298,30 @@ export default function AIClipsPage({ params }) {
       `}</style>
 
 			{/* SIDEBAR NAVIGATION PANEL (EXACT DESIGN MATCH) */}
-			<aside className="w-64 bg-white border-r border-brand-border-subtle flex flex-col justify-between p-4 sticky top-0 h-screen z-10">
-				<div>
-					{/* Brand Identity Branding Header */}
-					<div className="flex items-center gap-2 px-2 py-4 mb-4">
-						<div className="bg-brand-primary p-2 rounded text-white flex items-center justify-center">
-							<Film size={20} />
-						</div>
-						<div>
-							<h1 className="font-bold text-lg leading-none flex items-center gap-1 text-brand-on-surface">
-								ClipAI
-							</h1>
-							<span className="text-xs font-semibold text-brand-primary tracking-wider uppercase">
-								Pro Plan
-							</span>
-						</div>
-					</div>
-
-					{/* Navigation Link Lists */}
-					<nav className="space-y-1">
-						{[
-							{ name: "Dashboard", icon: LayoutDashboard },
-							{ name: "My Projects", icon: FolderMinus },
-							{ name: "Clips", icon: Film, active: true },
-							{ name: "Assets", icon: Layers },
-							{ name: "Settings", icon: Settings },
-						].map((item) => {
-							const Icon = item.icon;
-							return (
-								<button
-									key={item.name}
-									onClick={() =>
-										item.name === "Dashboard" &&
-										router.push("/dashboard")
-									}
-									className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-colors ${
-										item.active
-											? "bg-brand-primary text-white"
-											: "text-brand-on-surface-variant hover:bg-brand-surfaceBg hover:text-brand-on-surface"
-									}`}
-								>
-									<Icon size={18} />
-									{item.name}
-								</button>
-							);
-						})}
-					</nav>
-				</div>
-
-				{/* Footer Support Utilities inside Sidebar */}
-				<div className="space-y-4">
-					<div className="space-y-1 border-t border-brand-border-subtle pt-4">
-						<button className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-brand-on-surface-variant hover:text-brand-on-surface">
-							<HelpCircle size={18} /> Help
-						</button>
-						<button className="w-full flex items-center gap-3 px-3 py-2 text-sm font-medium text-brand-on-surface-variant hover:text-brand-on-surface">
-							<LifeBuoy size={18} /> Support
-						</button>
-					</div>
-
-					<div className="bg-brand-surfaceBg border border-brand-border-subtle rounded-lg p-4">
-						<h4 className="text-sm font-bold text-brand-on-surface mb-1">
-							Upgrade to Enterprise
-						</h4>
-						<p className="text-xs text-brand-on-surface-variant mb-3 leading-relaxed">
-							Unlock unlimited AI rendering pipeline rules and 4K
-							exports.
-						</p>
-						<button className="w-full bg-brand-primary text-white font-medium py-2 px-3 rounded text-xs hover:bg-brand-primaryHover transition-colors">
-							Upgrade Now
-						</button>
-					</div>
-				</div>
-			</aside>
+			
 
 			{/* MAIN LAYOUT WRAPPER PANELS */}
-			<main className="flex-1 overflow-y-auto max-w-[1280px] mx-auto w-full px-12 py-8">
+			<main style={{ flex: 1, maxWidth: 1280, margin: "0 auto", width: "100%", padding: "32px 48px" }}>
 				{/* TOP STATUS HEADER BAR */}
-				<header className="flex justify-between items-center mb-8 pb-4 border-b border-brand-border-subtle">
+				<header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32, paddingBottom: 16, borderBottom: "1px solid #27272a" }}>
 					<div className="flex items-center gap-3">
 						<button
 							onClick={() => router.back()}
-							className="text-xs font-semibold text-brand-primary hover:underline font-mono"
+							style={{ fontSize: 13, fontWeight: 600, color: "#a78bfa", fontFamily: "monospace", background: "none", border: "none", cursor: "pointer" }}
 						>
 							← Back to Workspace
 						</button>
-						<span className="text-neutral-300">/</span>
-						<h2 className="text-xl font-semibold tracking-tight">
+						<span style={{ color: "#3f3f46" }}>/</span>
+						<h2 style={{ fontSize: 24, fontWeight: 800, color: "#fafafa", margin: 0, letterSpacing: "-0.03em" }}>
 							AI Clipping Factory
 						</h2>
 						<span
 							className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full uppercase border ${
 								isProcessing
-									? "bg-blue-50 text-brand-primary border-blue-200 animate-pulse"
+									? "bg-[rgba(124,58,237,0.1)] text-[#a78bfa] border-[rgba(124,58,237,0.2)] animate-pulse"
 									: phase === "done"
-									? "bg-[#e2fbf4] text-brand-vibrant-teal border-[#b2f2e1]"
-									: "bg-brand-surfaceBg text-brand-on-surface-variant border-brand-border-subtle"
+									? "bg-[rgba(74,222,128,0.1)] text-[#4ade80] border-[rgba(74,222,128,0.2)]"
+									: "bg-[#18181b] text-[#a1a1aa] border-[#27272a]"
 							}`}
 						>
 							{isProcessing
@@ -406,17 +335,17 @@ export default function AIClipsPage({ params }) {
 					<div className="flex items-center gap-6">
 						<div className="flex items-center gap-3">
 							<div className="text-right">
-								<p className="text-sm font-semibold text-brand-on-surface leading-none">
+								<p style={{ fontSize: 14, fontWeight: 600, color: "#fafafa", margin: 0 }}>
 									Alex Rivera
 								</p>
-								<p className="text-xs text-brand-on-surface-variant">
+								<p className="text-xs text-[#a1a1aa]">
 									alex@clipai.io
 								</p>
 							</div>
 							<img
 								src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
 								alt="Profile frame"
-								className="w-10 h-10 rounded-full object-cover border border-brand-border-subtle"
+								style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", border: "1px solid #27272a" }}
 							/>
 						</div>
 					</div>
@@ -428,20 +357,20 @@ export default function AIClipsPage({ params }) {
 				{phase === "preview" && (
 					<div className="max-w-3xl mx-auto space-y-6">
 						<div>
-							<h3 className="text-xl font-bold text-brand-on-surface mb-1">
+							<h3 style={{ fontSize: 20, fontWeight: 800, color: "#fafafa", marginBottom: 4 }}>
 								Review Workspace Asset
 							</h3>
-							<p className="text-sm text-brand-on-surface-variant font-mono">
+							<p style={{ fontSize: 14, color: "#a1a1aa", fontFamily: "monospace", margin: 0 }}>
 								Asset Key Ref:{" "}
-								<span className="text-brand-primary font-semibold">
+								<span style={{ color: "#a78bfa", fontWeight: 600 }}>
 									{videoId}
 								</span>
 							</p>
 						</div>
 
 						{/* Video preview workspace platform card */}
-						<div className="bg-white border border-brand-border-subtle rounded-lg overflow-hidden shadow-sm">
-							<div className="relative w-full bg-black aspect-video flex items-center justify-center">
+						<div style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>
+							<div className="relative w-full bg-[rgba(74,222,128,0.1)]lack aspect-video flex items-center justify-center">
 								<video
 									ref={videoRef}
 									className="w-full h-full max-h-[60vh]"
@@ -457,11 +386,11 @@ export default function AIClipsPage({ params }) {
 								</video>
 							</div>
 
-							<div className="p-6 border-t border-brand-border-subtle bg-white">
-								<div className="inline-flex items-center gap-1.5 text-brand-primary text-xs font-semibold bg-brand-surfaceBg px-2.5 py-1 rounded mb-4">
+							<div style={{ padding: 24, borderTop: "1px solid #27272a", background: "#18181b" }}>
+								<div style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#a78bfa", fontSize: 12, fontWeight: 600, background: "rgba(124, 58, 237, 0.1)", padding: "4px 10px", borderRadius: 6, marginBottom: 16 }}>
 									<Sparkles
 										size={14}
-										className="text-brand-neon-purple animate-pulse"
+										style={{ color: "#c4b5fd" }} className="animate-pulse"
 									/>
 									<span>
 										Configure Workspace Automated Engine
@@ -497,8 +426,8 @@ export default function AIClipsPage({ params }) {
 											key={item.id}
 											className={`flex items-center gap-3 border rounded-lg p-3 cursor-pointer select-none transition-colors group ${
 												preferences[item.id]
-													? "bg-slate-50 border-brand-primary/50"
-													: "bg-[var(--surface-bg)] border-brand-border-subtle hover:bg-slate-50"
+													? "bg-[rgba(124,58,237,0.05)] border-[rgba(124,58,237,0.5)]"
+													: "bg-[#18181b] border-[#27272a] hover:bg-[#27272a]"
 											}`}
 										>
 											<input
@@ -516,8 +445,8 @@ export default function AIClipsPage({ params }) {
 											<div
 												className={`w-4 h-4 border rounded flex items-center justify-center transition-all ${
 													preferences[item.id]
-														? "bg-[var(--primary)] text-white"
-														: "bg-[var(--border-subtle)] bg-white"
+														? "bg-[#7c3aed] text-white"
+														: "bg-[#27272a] bg-[#18181b]"
 												}`}
 											>
 												{preferences[item.id] && (
@@ -539,8 +468,8 @@ export default function AIClipsPage({ params }) {
 											<span
 												className={`text-xs font-medium transition-colors ${
 													preferences[item.id]
-														? "text-brand-on-surface font-semibold"
-														: "text-brand-on-surface-variant"
+														? "text-[#fafafa] font-semibold"
+														: "text-[#a1a1aa]"
 												}`}
 											>
 												{item.label}
@@ -555,15 +484,15 @@ export default function AIClipsPage({ params }) {
 									disabled={lambdaLoading}
 									className={`w-full py-3 px-4 rounded font-bold text-sm tracking-wide transition-colors flex items-center justify-center gap-2 ${
 										lambdaLoading
-											? "bg-[var(--surface-bg)] text-brand-on-surface-variant cursor-not-allowed border border-brand-border-subtle"
-											: "button text-white shadow-sm"
+											? "bg-[var(--surface-bg)] text-[#a1a1aa] cursor-not-allowed border border-[#27272a]"
+											: "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-lg"
 									}`}
 								>
 									{lambdaLoading ? (
 										<>
 											<Loader2
 												size={16}
-												className="animate-spin text-brand-primary"
+												className="animate-spin text-[#a78bfa]"
 											/>
 											Submitting Pipeline Workspace
 											Task...
@@ -581,31 +510,31 @@ export default function AIClipsPage({ params }) {
 				)}
 
 				{/* ════════════════════════════════════════════════════════════
-            PHASE: PROCESSING + DONE — Pipeline UI Dashboard Grid
+            PHASE: PROCESSING — Pipeline UI Dashboard Grid
         ════════════════════════════════════════════════════════════ */}
-				{(phase === "processing" || phase === "done") && (
+				{phase === "processing" && (
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch animate-fadeIn">
 						{/* ── Main Production Engine Panel ── */}
-						<div className="lg:col-span-2 bg-white border border-brand-border-subtle rounded-lg p-6 flex flex-col justify-between min-h-[480px] shadow-sm">
+						<div style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 480, boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }} className="lg:col-span-2">
 							<div>
-								<div className="flex items-center justify-between border-b border-brand-border-subtle pb-4 mb-6">
+								<div className="flex items-center justify-between border-[rgba(74,222,128,0.2)] border-[#27272a] pb-4 mb-6">
 									<div>
-										<h3 className="text-lg font-bold text-brand-on-surface flex items-center gap-2">
+										<h3 className="text-lg font-bold text-[#fafafa] flex items-center gap-2">
 											{isProcessing && (
 												<Loader2
 													size={18}
-													className="animate-spin text-brand-primary"
+													className="animate-spin text-[#a78bfa]"
 												/>
 											)}
 											{isProcessing
 												? "AI Production Pipeline Active"
 												: "✨ Content Highlights Ready"}
 										</h3>
-										<p className="text-xs text-brand-on-surface-variant font-mono mt-0.5">
+										<p className="text-xs text-[#a1a1aa] font-mono mt-0.5">
 											Target Ref ID: {videoId}
 										</p>
 									</div>
-									<span className="text-xs font-mono bg-brand-surfaceBg border border-brand-border-subtle px-2.5 py-1 rounded text-brand-primary font-semibold">
+									<span className="text-xs font-mono bg-[rgba(74,222,128,0.1)]rand-surfaceBg border border-[#27272a] px-2.5 py-1 rounded text-[#a78bfa] font-semibold">
 										{isProcessing
 											? `Stage ${currentStep + 1} of ${
 													pipelineSteps.length
@@ -615,60 +544,40 @@ export default function AIClipsPage({ params }) {
 								</div>
 
 								{/* Animation screen/canvas window */}
-								<div className="relative w-full h-64 bg-brand-surfaceBg rounded-lg border border-brand-border-subtle flex flex-col items-center justify-center overflow-hidden">
-									{phase === "done" ? (
-										<div className="text-center p-6 animate-fadeIn space-y-3">
-											<div className="w-14 h-14 rounded-full bg-[#e2fbf4] text-brand-vibrant-teal border border-[#b2f2e1] flex items-center justify-center mx-auto text-xl">
-												<CheckCircle2 size={28} />
-											</div>
-											<div>
-												<p className="text-sm font-bold text-brand-on-surface">
-													Composition Finalized
-													Successfully
-												</p>
-												<p className="text-xs text-brand-on-surface-variant max-w-xs mx-auto mt-1 leading-relaxed">
-													Webhook signature verified
-													and matched. Your short-form
-													vertical assets are split
-													and ready.
-												</p>
-											</div>
-										</div>
-									) : (
-										<div className="text-center space-y-3 animate-pulse">
-											{pipelineSteps[currentStep] && (
-												<>
-													<div className="text-4xl bg-white w-16 h-16 rounded-lg border border-brand-border-subtle flex items-center justify-center mx-auto shadow-sm">
-														{
-															pipelineSteps[
-																currentStep
-															].icon
-														}
-													</div>
-													<div className="text-xs font-bold font-mono text-brand-primary uppercase tracking-wider">
-														{
-															pipelineSteps[
-																currentStep
-															].statusText
-														}
-													</div>
-												</>
-											)}
-										</div>
-									)}
+								<div className="relative w-full h-64 bg-[rgba(74,222,128,0.1)]rand-surfaceBg rounded-lg border border-[#27272a] flex flex-col items-center justify-center overflow-hidden">
+									<div className="text-center space-y-3 animate-pulse">
+										{pipelineSteps[currentStep] && (
+											<>
+												<div className="text-4xl bg-[#27272a] w-16 h-16 rounded-xl border border-[#27272a] flex items-center justify-center mx-auto shadow-sm">
+													{
+														pipelineSteps[
+															currentStep
+														].icon
+													}
+												</div>
+												<div className="text-xs font-bold font-mono text-[#a78bfa] uppercase tracking-wider">
+													{
+														pipelineSteps[
+															currentStep
+														].statusText
+													}
+												</div>
+											</>
+										)}
+									</div>
 								</div>
 							</div>
 
 							{/* Active Step Progress Indicators Card */}
 							{pipelineSteps[currentStep] && (
-								<div className="mt-6 bg-brand-surfaceBg border border-brand-border-subtle rounded-lg p-4">
-									<span className="text-[10px] font-bold text-brand-primary tracking-wider uppercase block mb-1">
+								<div className="mt-6 bg-[rgba(74,222,128,0.1)]rand-surfaceBg border border-[#27272a] rounded-lg p-4">
+									<span className="text-[10px] font-bold text-[#a78bfa] tracking-wider uppercase block mb-1">
 										Active Objective Task
 									</span>
-									<h4 className="text-sm font-bold text-brand-on-surface">
+									<h4 className="text-sm font-bold text-[#fafafa]">
 										{pipelineSteps[currentStep].title}
 									</h4>
-									<p className="text-xs text-brand-on-surface-variant mt-0.5 leading-relaxed">
+									<p className="text-xs text-[#a1a1aa] mt-0.5 leading-relaxed">
 										{pipelineSteps[currentStep].desc}
 									</p>
 
@@ -679,10 +588,10 @@ export default function AIClipsPage({ params }) {
 												key={i}
 												className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
 													i < currentStep
-														? "bg-brand-vibrant-teal"
+														? "bg-[#4ade80]"
 														: i === currentStep
-														? "bg-brand-primary"
-														: "bg-white border border-brand-border-subtle"
+														? "bg-[rgba(74,222,128,0.1)]rand-primary"
+														: "bg-white border border-[#27272a]"
 												}`}
 											/>
 										))}
@@ -692,21 +601,21 @@ export default function AIClipsPage({ params }) {
 						</div>
 
 						{/* ── Console Ledger Shell Card ── */}
-						<div className="bg-white border border-brand-border-subtle rounded-lg p-5 flex flex-col justify-between min-h-[480px] shadow-sm">
+						<div style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 16, padding: 20, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 480, boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>
 							<div className="flex flex-col flex-1">
-								<div className="flex items-center justify-between mb-3 border-b border-brand-border-subtle pb-2">
-									<h4 className="text-xs font-bold text-brand-on-surface-variant uppercase tracking-wider">
+								<div className="flex items-center justify-between mb-3 border-[rgba(74,222,128,0.2)] border-[#27272a] pb-2">
+									<h4 className="text-xs font-bold text-[#a1a1aa] uppercase tracking-wider">
 										System Console Logs
 									</h4>
 									{isProcessing && (
-										<span className="w-2 h-2 bg-brand-primary rounded-full animate-pulse" />
+										<span className="w-2 h-2 bg-[rgba(74,222,128,0.1)]rand-primary rounded-full animate-pulse" />
 									)}
 								</div>
 
 								{/* Simulated Log Output Window Container */}
-								<div className="flex-1 bg-brand-surfaceBg border border-brand-border-subtle rounded-lg p-4 font-mono text-[11px] text-brand-on-surface-variant overflow-y-auto space-y-2 max-h-[340px]">
+								<div className="flex-1 bg-[rgba(74,222,128,0.1)]rand-surfaceBg border border-[#27272a] rounded-lg p-4 font-mono text-[11px] text-[#a1a1aa] overflow-y-auto space-y-2 max-h-[340px]">
 									{logs.length === 0 && (
-										<p className="text-slate-400 italic">
+										<p className="text-[#71717a] italic">
 											Awaiting secure pipeline handshake
 											matrix output...
 										</p>
@@ -716,10 +625,10 @@ export default function AIClipsPage({ params }) {
 											return null;
 
 										let colorClass =
-											"text-brand-on-surface-variant";
+											"text-[#a1a1aa]";
 										if (log.startsWith("SUCCESS:"))
 											colorClass =
-												"text-brand-vibrant-teal font-semibold";
+												"text-[#4ade80] font-semibold";
 										if (log.startsWith("ERROR:"))
 											colorClass =
 												"text-red-500 font-semibold";
@@ -727,7 +636,7 @@ export default function AIClipsPage({ params }) {
 										return (
 											<div
 												key={i}
-												className={`border-l-2 pl-2 border-slate-300 ${colorClass}`}
+												className={`border-l-2 pl-2 border-[#3f3f46] ${colorClass}`}
 											>
 												{log}
 											</div>
@@ -737,21 +646,21 @@ export default function AIClipsPage({ params }) {
 							</div>
 
 							{/* Form Actions Footer Panel */}
-							<div className="mt-4 pt-3 border-t border-brand-border-subtle">
+							<div className="mt-4 pt-3 border-t border-[#27272a]">
 								<button
 									disabled={isProcessing}
 									onClick={handleViewGeneratedVideo}
 									className={`w-full py-2.5 px-4 rounded font-bold text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${
 										isProcessing
-											? "bg-brand-surfaceBg border border-brand-border-subtle text-brand-on-surface-variant cursor-not-allowed font-medium"
-											: "bg-brand-primary hover:bg-brand-primaryHover text-white font-semibold shadow-sm"
+											? "bg-[rgba(74,222,128,0.1)]rand-surfaceBg border border-[#27272a] text-[#a1a1aa] cursor-not-allowed font-medium"
+											: "bg-[rgba(74,222,128,0.1)]rand-primary hover:bg-[rgba(74,222,128,0.1)]rand-primaryHover text-white font-semibold shadow-sm"
 									}`}
 								>
 									{isProcessing ? (
 										<>
 											<Loader2
 												size={12}
-												className="animate-spin text-brand-primary"
+												className="animate-spin text-[#a78bfa]"
 											/>
 											Awaiting Cluster Webhook Broadcast
 											Signal...
@@ -770,10 +679,14 @@ export default function AIClipsPage({ params }) {
 					</div>
 				)}
 
+				{phase === "done" && (
+					<GeneratedClipPreview videoId={videoId} />
+				)}
+
 				{/* FOOTER EXTERNAL REFERENCES */}
-				<footer className="mt-16 pt-6 border-t border-brand-border-subtle flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-brand-on-surface-variant">
+				<footer className="mt-16 pt-6 border-t border-[#27272a] flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-[#a1a1aa]">
 					<div className="flex items-center gap-2">
-						<span className="font-bold text-brand-primary">
+						<span className="font-bold text-[#a78bfa]">
 							ClipAI
 						</span>
 						<span>© 2026 ClipAI Inc. All rights reserved.</span>
@@ -781,19 +694,19 @@ export default function AIClipsPage({ params }) {
 					<div className="flex gap-6">
 						<a
 							href="#"
-							className="hover:text-brand-on-surface transition-colors"
+							className="hover:text-[#fafafa] transition-colors"
 						>
 							Privacy Policy
 						</a>
 						<a
 							href="#"
-							className="hover:text-brand-on-surface transition-colors"
+							className="hover:text-[#fafafa] transition-colors"
 						>
 							Terms of Service
 						</a>
 						<a
 							href="#"
-							className="hover:text-brand-on-surface transition-colors"
+							className="hover:text-[#fafafa] transition-colors"
 						>
 							Security Node
 						</a>

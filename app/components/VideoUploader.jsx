@@ -259,7 +259,7 @@ export default function VideoUploader() {
   };
 
   const handleMakeClips = (videoItem) => {
-    router.push(`/clips/${videoItem.video_id}`);
+    router.push(`/dashboard/clips/${videoItem.video_id}`);
   };
 
   return (

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Player } from "@remotion/player";
 import { parseMedia } from "@remotion/media-parser";
 import { VideoComposition } from "./VideoComposition";
@@ -13,7 +14,7 @@ const INDIGO_GLOW = "rgba(99,102,241,0.35)";
 const INDIGO_SOFT = "rgba(99,102,241,0.1)";
 const INDIGO_BORDER = "rgba(99,102,241,0.25)";
 
-const CAPTION_THEMES = {
+export const CAPTION_THEMES = {
   classic: {
     id: "classic",
     name: "Classic",
@@ -95,6 +96,53 @@ const CAPTION_THEMES = {
     animation: "pop",
   }
 };
+
+// ── Social platforms config ────────────────────────────────────────────────────
+export const PLATFORMS = [
+  {
+    id: "youtube",
+    name: "YouTube",
+    color: "#ef4444",
+    glow: "rgba(239,68,68,0.3)",
+    bg: "rgba(239,68,68,0.08)",
+    border: "rgba(239,68,68,0.25)",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+        <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+      </svg>
+    ),
+    description: "Share to your YouTube channel",
+  },
+  {
+    id: "tiktok",
+    name: "TikTok",
+    color: "#a855f7",
+    glow: "rgba(168,85,247,0.3)",
+    bg: "rgba(168,85,247,0.08)",
+    border: "rgba(168,85,247,0.25)",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+        <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.77 1.52V6.73a4.85 4.85 0 01-1-.04z"/>
+      </svg>
+    ),
+    description: "Post as a TikTok short",
+  },
+  {
+    id: "instagram",
+    name: "Instagram Reels",
+    color: "#e11d74",
+    glow: "rgba(225,29,116,0.3)",
+    bg: "rgba(225,29,116,0.08)",
+    border: "rgba(225,29,116,0.25)",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
+        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
+      </svg>
+    ),
+    description: "Publish as an Instagram Reel",
+  },
+];
+
 
 
 
@@ -425,7 +473,7 @@ const LiveTranscript = ({ playerRef, captions, fps, hookDurationFrames, onEditCa
 };
 
 // ── Editor ────────────────────────────────────────────────────────────────────
-export default function CaptionEditor({ videoId }) {
+export default function CaptionEditor({ videoId, initialJob }) {
   const [subtitleInput, setSubtitleInput] = useState("");
   const [isSubtitlesLoading, setIsSubtitlesLoading] = useState(false);
   const [fontSize, setFontSize] = useState(56);
@@ -433,6 +481,11 @@ export default function CaptionEditor({ videoId }) {
   const [animationOverride, setAnimationOverride] = useState("theme");
   const [verticalPosition, setVerticalPosition] = useState(80);
   
+  // ── Preferences persistence state ─────────────────────────────────────────
+  const [isSavingPrefs, setIsSavingPrefs] = useState(false);
+  const [prefsSavedAt, setPrefsSavedAt] = useState(null);
+  const [prefsError, setPrefsError] = useState(null);
+
   // Construct the S3 URL dynamically based on the videoId parameter if provided.
   const initialVideoUrl = videoId 
     ? `https://fmp-641079926683-us-east-1-an.s3.us-east-1.amazonaws.com/processed_videos/output-${videoId}.mp4`
@@ -458,6 +511,63 @@ export default function CaptionEditor({ videoId }) {
   const [isMemeModalOpen, setIsMemeModalOpen] = useState(false);
   const [memeList, setMemeList] = useState([]);
   const [isLoadingMemes, setIsLoadingMemes] = useState(false);
+
+  // ── Load preferences on mount ───────────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/preferences')
+      .then(res => res.json())
+      .then(({ preferences: p }) => {
+        if (!p) return;
+        if (p.active_theme)          setActiveTheme(p.active_theme);
+        if (p.animation_override)    setAnimationOverride(p.animation_override);
+        if (p.font_size != null)     setFontSize(p.font_size);
+        if (p.vertical_position != null) setVerticalPosition(p.vertical_position);
+        if (p.bg_music_volume != null)   setBgMusicVolume(p.bg_music_volume);
+        if (p.hook_enabled != null)      setHookEnabled(p.hook_enabled);
+        if (p.hook_text)             setHookText(p.hook_text);
+        if (p.hook_duration_secs != null) setHookDurationSecs(p.hook_duration_secs);
+        if (p.hook_font_size != null)    setHookFontSize(p.hook_font_size);
+        if (p.hook_font_color)       setHookFontColor(p.hook_font_color);
+        if (p.hook_vertical_position != null) setHookVerticalPosition(p.hook_vertical_position);
+      })
+      .catch(err => console.warn("Could not load preferences:", err));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Save preferences handler ─────────────────────────────────────────────────
+  const handleSavePreferences = useCallback(async () => {
+    setIsSavingPrefs(true);
+    setPrefsError(null);
+    try {
+      const res = await fetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activeTheme,
+          animationOverride,
+          fontSize,
+          verticalPosition,
+          bgMusicVolume,
+          hookEnabled,
+          hookText,
+          hookDurationSecs,
+          hookFontSize,
+          hookFontColor,
+          hookVerticalPosition,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to save preferences');
+      }
+      setPrefsSavedAt(new Date());
+    } catch (err) {
+      console.error('Save preferences error:', err);
+      setPrefsError(err.message);
+    } finally {
+      setIsSavingPrefs(false);
+    }
+  }, [activeTheme, animationOverride, fontSize, verticalPosition, bgMusicVolume, hookEnabled, hookText, hookDurationSecs, hookFontSize, hookFontColor, hookVerticalPosition]);
 
   useEffect(() => {
     if (isMemeModalOpen && memeList.length === 0) {
@@ -551,11 +661,26 @@ export default function CaptionEditor({ videoId }) {
   const hookDurationFrames = (hookEnabled && hookMemeSrc) ? Math.ceil(hookDurationSecs * fps) : 0;
   const durationInFrames = baseDurationFrames + hookDurationFrames;
 
-  // Export State
-  const [isExporting, setIsExporting] = useState(false);
-  const [exportProgress, setExportProgress] = useState(0);
-  const [exportUrl, setExportUrl] = useState(null);
-  const [exportError, setExportError] = useState(null);
+  // ── Post modal + simulation state ────────────────────────────────────────────
+  const [showPlatformModal, setShowPlatformModal] = useState(false);
+  const [selectedPlatforms, setSelectedPlatforms] = useState(() => {
+    if (initialJob?.platforms && Array.isArray(initialJob.platforms)) {
+      return PLATFORMS.filter(p => initialJob.platforms.includes(p.name));
+    }
+    return [];
+  });
+  const [scheduleDate, setScheduleDate] = useState(() => {
+    if (initialJob?.scheduled_for) {
+      const d = new Date(initialJob.scheduled_for);
+      const tzOffset = d.getTimezoneOffset() * 60000;
+      return (new Date(d - tzOffset)).toISOString().slice(0, 16);
+    }
+    return "";
+  });
+  const [postStage, setPostStage] = useState(null); // null | 'uploading' | 'processing' | 'done'
+  const [postProgress, setPostProgress] = useState(0);
+  const [postError, setPostError] = useState(null);
+  const router = useRouter();
 
   const videoIdMatch = videoSrc.match(/output-(.+)\.mp4/);
   const parsedVideoId = videoIdMatch ? videoIdMatch[1] : "";
@@ -575,10 +700,13 @@ export default function CaptionEditor({ videoId }) {
       });
 
       try {
+        // User-scoped broll upload → user_uploads/broll/[userId]/
         const response = await fetch('/api/upload/broll', {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ filename: file.name, contentType: file.type })
         });
+        if (!response.ok) throw new Error('Failed to get upload URL');
         const { uploadUrl, publicUrl } = await response.json();
         
         await fetch(uploadUrl, {
@@ -589,7 +717,7 @@ export default function CaptionEditor({ videoId }) {
         
         setBrolls(prev => prev.map(b => b.captionIndex === index ? { ...b, url: publicUrl, isUploading: false } : b));
       } catch (err) {
-        console.error("Upload failed", err);
+        console.error("B-Roll upload failed", err);
         alert("Upload failed: " + err.message);
         setBrolls(prev => prev.map(b => b.captionIndex === index ? { ...b, isUploading: false } : b));
       }
@@ -627,10 +755,13 @@ export default function CaptionEditor({ videoId }) {
       setIsUploadingBgMusic(true);
 
       try {
-        const response = await fetch('/api/upload/broll', {
+        // User-scoped bg music upload → user_uploads/bg_music/[userId]/
+        const response = await fetch('/api/upload/bg-music', {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ filename: file.name, contentType: file.type })
         });
+        if (!response.ok) throw new Error('Failed to get upload URL');
         const { uploadUrl, publicUrl } = await response.json();
         
         await fetch(uploadUrl, {
@@ -641,7 +772,7 @@ export default function CaptionEditor({ videoId }) {
         
         setBgMusicSrc(publicUrl);
       } catch (err) {
-        console.error("Upload failed", err);
+        console.error("BG Music upload failed", err);
         alert("Upload failed: " + err.message);
       } finally {
         setIsUploadingBgMusic(false);
@@ -663,10 +794,13 @@ export default function CaptionEditor({ videoId }) {
       setIsUploadingMeme(true);
 
       try {
-        const response = await fetch('/api/upload/broll', {
+        // User-scoped hook/meme upload → user_uploads/hooks/[userId]/
+        const response = await fetch('/api/upload/hook', {
           method: 'POST',
-          body: JSON.stringify({ filename: `meme_${file.name}`, contentType: file.type })
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, contentType: file.type })
         });
+        if (!response.ok) throw new Error('Failed to get upload URL');
         const { uploadUrl, publicUrl } = await response.json();
         
         await fetch(uploadUrl, {
@@ -677,7 +811,7 @@ export default function CaptionEditor({ videoId }) {
         
         setHookMemeSrc(publicUrl);
       } catch (err) {
-        console.error("Upload failed", err);
+        console.error("Meme/Hook upload failed", err);
         alert("Upload failed: " + err.message);
       } finally {
         setIsUploadingMeme(false);
@@ -714,43 +848,82 @@ export default function CaptionEditor({ videoId }) {
     };
   }, [videoSrc, preloadedVideoSrc, fontSize, verticalPosition, captions, words, activeTheme, animationOverride, brolls, bgMusicSrc, bgMusicVolume, hookEnabled, hookText, hookDurationSecs, hookFontSize, hookFontColor, hookVerticalPosition, hookMemeSrc]);
 
-  const handleExport = async () => {
-    setIsExporting(true);
-    setExportProgress(0);
-    setExportUrl(null);
-    setExportError(null);
+  // ── Open platform picker ──────────────────────────────────────────────────────
+  const openPostModal = () => {
+    setPostError(null);
+    setShowPlatformModal(true);
+  };
 
+  const togglePlatform = (platform) => {
+    setSelectedPlatforms(prev => {
+      if (prev.some(p => p.id === platform.id)) {
+        return prev.filter(p => p.id !== platform.id);
+      } else {
+        return [...prev, platform];
+      }
+    });
+  };
+
+  // ── Confirm: run simulation then fire API ─────────────────────────────────────
+  const handleConfirmPost = async () => {
+    if (selectedPlatforms.length === 0) return;
+    setShowPlatformModal(false);
+    setPostError(null);
+
+    // ── Stage 1: Uploading simulation (0 → 60%) ───────────────────────────────
+    setPostStage('uploading');
+    setPostProgress(0);
+    await new Promise(resolve => {
+      let p = 0;
+      const t = setInterval(() => {
+        p += Math.random() * 8 + 4;
+        if (p >= 60) { p = 60; clearInterval(t); resolve(); }
+        setPostProgress(Math.round(p));
+      }, 180);
+    });
+
+    // ── Stage 2: Processing simulation (60 → 90%) ─────────────────────────────
+    setPostStage('processing');
+    await new Promise(resolve => {
+      let p = 60;
+      const t = setInterval(() => {
+        p += Math.random() * 4 + 2;
+        if (p >= 90) { p = 90; clearInterval(t); resolve(); }
+        setPostProgress(Math.round(p));
+      }, 220);
+    });
+
+    // ── Stage 3: Fire real API (90 → 100%) ───────────────────────────────────
+    setPostProgress(95);
     try {
-      const response = await fetch("/api/export", {
+      const response = await fetch("/api/export/post", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...inputProps, durationInFrames, fps }),
+        body: JSON.stringify({
+          ...inputProps,
+          videoId,
+          durationInFrames,
+          fps,
+          targetPlatforms: selectedPlatforms.map(p => p.name),
+          scheduledFor: scheduleDate || null,
+          jobId: initialJob?.id || null,
+        }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to start export");
+      if (!response.ok) throw new Error(data.error || "Failed to start post job");
 
-      const interval = setInterval(async () => {
-        const progressRes = await fetch(`/api/export/progress?renderId=${data.renderId}&bucketName=${data.bucketName}`);
-        const progressData = await progressRes.json();
-        if (progressData.fatalErrorEncountered) {
-          clearInterval(interval);
-          console.error("Lambda Render Errors:", progressData.errors);
-          const errorMsg = progressData.errors?.[0]?.message || progressData.errors?.[0]?.name || "An error occurred during rendering.";
-          setExportError(`Lambda Error: ${errorMsg}`);
-          setIsExporting(false);
-        } else if (progressData.done) {
-          clearInterval(interval);
-          setExportUrl(progressData.outputFile);
-          setExportProgress(100);
-          setIsExporting(false);
-        } else {
-          setExportProgress(Math.round(progressData.overallProgress * 100));
-        }
-      }, 3000);
+      // ── Stage 4: Done ──────────────────────────────────────────────────────
+      setPostProgress(100);
+      setPostStage('done');
+
+      // Brief pause to show the ✓ before redirect
+      await new Promise(r => setTimeout(r, 900));
+      router.push("/dashboard/v2/calendar");
     } catch (err) {
-      console.error(err);
-      setExportError(err.message);
-      setIsExporting(false);
+      console.error("[handleConfirmPost]", err);
+      setPostStage(null);
+      setPostProgress(0);
+      setPostError(err.message);
     }
   };
 
@@ -1033,52 +1206,92 @@ export default function CaptionEditor({ videoId }) {
             <InfoRow label="Subtitles" value={`${lineCount} lines`} />
           </div>
 
-          {/* Export Button replacing old RenderControls */}
-          <button
-            onClick={handleExport}
-            disabled={isExporting}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              width: "100%", padding: "11px 16px", borderRadius: 10, border: "none",
-              background: isExporting ? "rgba(163,230,53,0.4)" : `linear-gradient(135deg, ${INDIGO}, #1d4ed8)`,
-              color: "#ffffff", fontSize: 13.5, fontWeight: 700, fontFamily: "'Inter', sans-serif",
-              cursor: isExporting ? "not-allowed" : "pointer", transition: "all 0.2s ease",
-              boxShadow: isExporting ? "none" : `0 4px 24px ${INDIGO_GLOW}`,
-              letterSpacing: "-0.01em",
-            }}
-          >
-            {isExporting ? (
-              <span style={{ color: "rgba(255,255,255,0.8)" }}>Exporting... {exportProgress}%</span>
-            ) : (
-              <>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <path d="M5 3l14 9-14 9V3z" fill="#ffffff" />
-                </svg>
-                Export to MP4
-              </>
+          {/* ── Save Preferences Button ── */}
+          <div>
+            <button
+              onClick={handleSavePreferences}
+              disabled={isSavingPrefs}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                width: "100%", padding: "10px 16px", borderRadius: 10, border: `1px solid ${INDIGO_BORDER}`,
+                background: isSavingPrefs ? "rgba(99,102,241,0.05)" : "rgba(99,102,241,0.12)",
+                color: isSavingPrefs ? INDIGO_DIM : "#a5b4fc",
+                fontSize: 12.5, fontWeight: 700, fontFamily: "'Inter', sans-serif",
+                cursor: isSavingPrefs ? "not-allowed" : "pointer", transition: "all 0.2s ease",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {isSavingPrefs ? (
+                <>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
+                    style={{ animation: "spin 1s linear infinite" }}>
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
+                  </svg>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                    <polyline points="17 21 17 13 7 13 7 21" />
+                    <polyline points="7 3 7 8 15 8" />
+                  </svg>
+                  Save Preferences
+                </>
+              )}
+            </button>
+            {prefsSavedAt && !prefsError && (
+              <p style={{ fontSize: 10.5, color: "#4ade80", textAlign: "center", margin: "6px 0 0", fontWeight: 600 }}>
+                ✓ Saved {prefsSavedAt.toLocaleTimeString()}
+              </p>
             )}
-          </button>
+            {prefsError && (
+              <p style={{ fontSize: 10.5, color: "#f87171", textAlign: "center", margin: "6px 0 0" }}>
+                ✕ {prefsError}
+              </p>
+            )}
+          </div>
 
-          {exportUrl && (
-            <a href={exportUrl} target="_blank" rel="noreferrer" style={{ textDecoration: "none" }}>
-              <button style={{
-                width: "100%", padding: "10px 14px", borderRadius: 8,
-                background: "rgba(163,230,53,0.12)", border: "1px solid rgba(163,230,53,0.3)",
-                color: "#a5b4fc", fontSize: 13, fontWeight: 600, fontFamily: "'Inter', sans-serif",
-                cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+          {/* ── Post Button ── */}
+          <div>
+            <button
+              onClick={openPostModal}
+              disabled={!!postStage}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                width: "100%", padding: "13px 16px", borderRadius: 10, border: "none",
+                background: postStage
+                  ? "rgba(99,102,241,0.25)"
+                  : `linear-gradient(135deg, #7c3aed, ${INDIGO})`,
+                color: "#ffffff", fontSize: 13.5, fontWeight: 700,
+                fontFamily: "'Inter', sans-serif",
+                cursor: postStage ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
+                boxShadow: postStage ? "none" : "0 4px 24px rgba(124,58,237,0.4)",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+              Post Video
+            </button>
+            {postError && (
+              <p style={{
+                fontSize: 10.5, color: "#f87171",
+                textAlign: "center", margin: "6px 0 0",
+                background: "rgba(239,68,68,0.08)",
+                padding: "6px 8px", borderRadius: 6,
               }}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                  <path d="M12 15l-4-4h3V5h2v6h3l-4 4zM5 18h14v2H5v-2z" fill="#a5b4fc" />
-                </svg>
-                Download Exported Video
-              </button>
-            </a>
-          )}
-          {exportError && (
-            <div style={{ color: "#f87171", fontSize: 12, padding: "10px", background: "rgba(239,68,68,0.1)", borderRadius: "8px" }}>
-              Error: {exportError}
-            </div>
-          )}
+                ✕ {postError}
+              </p>
+            )}
+            <p style={{ fontSize: 10, color: "#71717a", textAlign: "center", marginTop: 6 }}>
+              Renders in the background · You&apos;ll be notified when ready
+            </p>
+          </div>
           <div style={{ height: 4 }} />
         </div>
       </div>
@@ -1213,6 +1426,250 @@ export default function CaptionEditor({ videoId }) {
               ))}
             </div>
           </div>
+        </div>
+      )}
+      {/* ────────────────────────────────────────────────────────────────────────
+          PLATFORM PICKER MODAL
+      ──────────────────────────────────────────────────────────────────────── */}
+      {showPlatformModal && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 2000,
+          background: "rgba(0,0,0,0.75)",
+          backdropFilter: "blur(8px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          animation: "fadeIn 0.2s ease",
+        }}>
+          <div style={{
+            background: "#18181b",
+            border: "1px solid #3f3f46",
+            borderRadius: 20,
+            padding: "32px 28px",
+            width: 460,
+            maxWidth: "calc(100vw - 32px)",
+            boxShadow: "0 32px 80px rgba(0,0,0,0.6)",
+            animation: "slideUp 0.3s cubic-bezier(0.16,1,0.3,1)",
+          }}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#fafafa", letterSpacing: "-0.03em" }}>
+                  Where to post?
+                </h2>
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "#71717a" }}>
+                  Choose the platform to publish your video
+                </p>
+              </div>
+              <button
+                onClick={() => { setShowPlatformModal(false); setSelectedPlatforms([]); setScheduleDate(""); }}
+                style={{
+                  background: "#27272a", border: "1px solid #3f3f46",
+                  borderRadius: 8, width: 32, height: 32,
+                  color: "#a1a1aa", cursor: "pointer", fontSize: 18,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  flexShrink: 0,
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Platform cards */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
+              {PLATFORMS.map(platform => {
+                const isSelected = selectedPlatforms.some(p => p.id === platform.id);
+                return (
+                  <button
+                    key={platform.id}
+                    onClick={() => togglePlatform(platform)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 16,
+                      padding: "14px 16px", borderRadius: 12, cursor: "pointer",
+                      background: isSelected ? platform.bg : "#09090b",
+                      border: `1.5px solid ${isSelected ? platform.border : "#27272a"}`,
+                      color: isSelected ? platform.color : "#a1a1aa",
+                      textAlign: "left", transition: "all 0.15s ease",
+                      boxShadow: isSelected ? `0 0 0 1px ${platform.border}, 0 4px 16px ${platform.glow}` : "none",
+                    }}
+                  >
+                    {/* Platform icon */}
+                    <div style={{
+                      width: 44, height: 44, borderRadius: 10, flexShrink: 0,
+                      background: isSelected ? `${platform.color}18` : "#18181b",
+                      border: `1px solid ${isSelected ? platform.border : "#27272a"}`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      color: isSelected ? platform.color : "#52525b",
+                      transition: "all 0.15s ease",
+                    }}>
+                      {platform.icon}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: isSelected ? "#fafafa" : "#d4d4d8" }}>
+                        {platform.name}
+                      </div>
+                      <div style={{ fontSize: 12, color: isSelected ? "#a1a1aa" : "#52525b", marginTop: 2 }}>
+                        {platform.description}
+                      </div>
+                    </div>
+                    {/* Checkbox indicator */}
+                    <div style={{
+                      width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+                      border: `2px solid ${isSelected ? platform.color : "#3f3f46"}`,
+                      background: isSelected ? platform.color : "transparent",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      transition: "all 0.15s ease",
+                    }}>
+                      {isSelected && (
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Scheduler */}
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#d4d4d8", marginBottom: 8 }}>
+                Schedule Post (Optional)
+              </label>
+              <input
+                type="datetime-local"
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
+                style={{
+                  width: "100%", padding: "12px 16px", borderRadius: 10,
+                  background: "#09090b", border: "1px solid #3f3f46",
+                  color: "#fafafa", fontSize: 14, fontFamily: "'Inter', sans-serif",
+                  outline: "none", colorScheme: "dark"
+                }}
+              />
+            </div>
+
+            {/* Confirm button */}
+            <button
+              onClick={handleConfirmPost}
+              disabled={selectedPlatforms.length === 0}
+              style={{
+                width: "100%", padding: "13px", borderRadius: 12, border: "none",
+                background: selectedPlatforms.length > 0
+                  ? (selectedPlatforms.length === 1 ? `linear-gradient(135deg, ${selectedPlatforms[0].color}, ${selectedPlatforms[0].color}bb)` : `linear-gradient(135deg, #7c3aed, ${INDIGO})`)
+                  : "#27272a",
+                color: selectedPlatforms.length > 0 ? "#fff" : "#52525b",
+                fontSize: 14, fontWeight: 700, cursor: selectedPlatforms.length > 0 ? "pointer" : "not-allowed",
+                transition: "all 0.2s ease",
+                boxShadow: selectedPlatforms.length > 0 ? (selectedPlatforms.length === 1 ? `0 4px 20px ${selectedPlatforms[0].glow}` : `0 4px 20px rgba(124,58,237,0.4)`) : "none",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+              {selectedPlatforms.length > 0 ? (scheduleDate ? `Schedule for ${selectedPlatforms.length} platform(s)` : `Post to ${selectedPlatforms.length} platform(s)`) : "Select a platform"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ────────────────────────────────────────────────────────────────────────
+          UPLOAD SIMULATION OVERLAY
+      ──────────────────────────────────────────────────────────────────────── */}
+      {postStage && selectedPlatforms.length > 0 && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 3000,
+          background: "rgba(0,0,0,0.88)",
+          backdropFilter: "blur(12px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexDirection: "column", gap: 28,
+          animation: "fadeIn 0.2s ease",
+        }}>
+          {/* Platform badge(s) */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ display: "flex", gap: -8 }}>
+              {selectedPlatforms.map((plat, idx) => (
+                <div key={plat.id} style={{
+                  width: 52, height: 52, borderRadius: 14,
+                  background: `${plat.color}18`,
+                  border: `1.5px solid ${plat.border}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  color: plat.color,
+                  boxShadow: `0 0 24px ${plat.glow}`,
+                  marginLeft: idx > 0 ? -16 : 0,
+                  zIndex: 10 - idx
+                }}>
+                  {plat.icon}
+                </div>
+              ))}
+            </div>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: selectedPlatforms.length === 1 ? selectedPlatforms[0].color : "#a5b4fc", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                {selectedPlatforms.map(p => p.name).join(", ")}
+              </div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#fafafa", letterSpacing: "-0.03em" }}>
+                {postStage === 'uploading' && 'Uploading video...'}
+                {postStage === 'processing' && 'Processing & encoding...'}
+                {postStage === 'done' && (scheduleDate ? 'Scheduled! 🎉' : 'Posted! 🎉')}
+              </div>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div style={{ width: 360, maxWidth: "80vw" }}>
+            <div style={{
+              width: "100%", height: 6, borderRadius: 99,
+              background: "#27272a", overflow: "hidden",
+            }}>
+              <div style={{
+                width: `${postProgress}%`, height: "100%",
+                background: postStage === 'done'
+                  ? "#4ade80"
+                  : (selectedPlatforms.length === 1 ? `linear-gradient(90deg, ${selectedPlatforms[0].color}, ${selectedPlatforms[0].color}99)` : `linear-gradient(90deg, #7c3aed, ${INDIGO})`),
+                borderRadius: 99,
+                transition: "width 0.18s ease-out",
+                boxShadow: postStage === 'done' ? "0 0 12px rgba(74,222,128,0.6)" : (selectedPlatforms.length === 1 ? `0 0 12px ${selectedPlatforms[0].glow}` : `0 0 12px rgba(124,58,237,0.4)`),
+              }} />
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
+              <span style={{ fontSize: 12, color: "#71717a" }}>
+                {postStage === 'uploading' && 'Uploading to servers...'}
+                {postStage === 'processing' && 'Queuing render job...'}
+                {postStage === 'done' && (scheduleDate ? 'Redirecting to calendar...' : 'Redirecting to dashboard...')}
+              </span>
+              <span style={{
+                fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums",
+                color: postStage === 'done' ? "#4ade80" : (selectedPlatforms.length === 1 ? selectedPlatforms[0].color : "#a5b4fc"),
+              }}>
+                {postProgress}%
+              </span>
+            </div>
+          </div>
+
+          {/* Animated dots */}
+          {postStage !== 'done' && (
+            <div style={{ display: "flex", gap: 6 }}>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: selectedPlatforms.length === 1 ? selectedPlatforms[0].color : "#a5b4fc",
+                  opacity: 0.6,
+                  animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
+                }} />
+              ))}
+            </div>
+          )}
+
+          {/* Keyframes injected inline */}
+          <style>{`
+            @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+            @keyframes bounce  {
+              0%, 80%, 100% { transform: scale(0.8); opacity: 0.4; }
+              40%            { transform: scale(1.2); opacity: 1; }
+            }
+          `}</style>
         </div>
       )}
     </div>

@@ -1,8 +1,13 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { ElevenLabsClient } from "@elevenlabs/elevenlabs-js";
 
 const AWS_BUCKET_URL = process.env.AWS_BUCKET_URL;
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY || "";
+
+const elevenlabs = new ElevenLabsClient({
+  apiKey: ELEVENLABS_API_KEY
+});
 
 const supabase = createClient(
   process.env.SUPABASE_URL || "",
@@ -2269,30 +2274,13 @@ async function transcribeWithElevenLabs(audioUrl) {
   const audioBuffer = await audioResponse.arrayBuffer();
 
   // 2. Send to ElevenLabs Speech-to-Text
-  const formData = new FormData();
-  formData.append(
-    "file",
-    new Blob([audioBuffer], { type: "audio/flac" }),
-    "audio.flac"
-  );
-  formData.append("model_id", "scribe_v1");
-  formData.append("timestamps_granularity", "word");
+  const audioBlob = new Blob([audioBuffer], { type: "audio/flac" });
 
-  const elResponse = await fetch(
-    "https://api.elevenlabs.io/v1/speech-to-text",
-    {
-      method: "POST",
-      headers: { "xi-api-key": ELEVENLABS_API_KEY },
-      body: formData,
-    }
-  );
-
-  if (!elResponse.ok) {
-    const err = await elResponse.text();
-    throw new Error(`ElevenLabs API error: ${err}`);
-  }
-
-  const data = await elResponse.json();
+  const data = await elevenlabs.speechToText.convert({
+    file: audioBlob,
+    model_id: "scribe_v1",
+    timestamps_granularity: "word"
+  });
 
   const words = data.words
     .filter(w => w.type === "word")
