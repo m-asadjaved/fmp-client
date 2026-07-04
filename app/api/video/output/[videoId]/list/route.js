@@ -41,17 +41,19 @@ export async function GET(request, context) {
     // Query the pre-computed generated clips from the database
     const { data: generatedClips, error: clipsError } = await supabase
       .from('generated_clips')
-      .select('clip_index, clip_url')
+      .select('id, clip_index, clip_url, created_at')
       .eq('video_id', videoId)
       .eq('user_id', userId)
-      .order('clip_index', { ascending: true });
+      .order('created_at', { ascending: false });
 
     let availableClips = [];
 
     if (!clipsError && generatedClips && generatedClips.length > 0) {
       availableClips = generatedClips.map(clip => ({
+        id: clip.id,
         index: clip.clip_index,
         url: clip.clip_url,
+        createdAt: clip.created_at
       }));
     } else {
       // Fallback for older videos that don't have records in generated_clips

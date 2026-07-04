@@ -8,7 +8,7 @@ import { VideoComposition } from "../../../../components/VideoComposition";
 import { parseSubtitleString } from "../../../../utils/parseSubtitles";
 import { CAPTION_THEMES, PLATFORMS } from "../../../../components/CaptionEditor";
 import { useRenderContext } from "@/contexts/RenderContext";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 const INDIGO = "#6366f1";
 const DEFAULT_SUBTITLES = `[00:00:00] Was being in prison kind of fun? Um, fun?
 [00:00:07] No, I wouldn't say fun. Like, what was kind of cool about it,
@@ -44,7 +44,22 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
   const [postStage, setPostStage] = useState(null);
   const [postProgress, setPostProgress] = useState(0);
   const [postError, setPostError] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
   const { addRenderTask, tasks } = useRenderContext();
+
+  const handleDelete = async (clipId) => {
+    if (!confirm("Are you sure you want to delete this clip to save storage?")) return;
+    setDeletingId(clipId);
+    try {
+      const res = await fetch(`/api/video/clips/${clipId}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error("Failed to delete clip");
+      setAvailableClips(prev => prev.filter(c => c.id !== clipId));
+    } catch (e) {
+      alert("Error deleting clip: " + e.message);
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const recommendedShorts = aiAnalysis?.recommended_shorts || [];
 
@@ -210,7 +225,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
   return (
     <div className="flex flex-col gap-10 w-full pt-4 animate-fadeIn">
       {availableClips.map((clip, idx) => {
-        const aiMeta = recommendedShorts[idx] || null;
+        const aiMeta = recommendedShorts[clip.index] || null;
         const clipUrl = clip.url;
         const fps = clipMetas[idx]?.fps ?? 30;
         const durationInFrames = getFrames(idx);
@@ -218,15 +233,27 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
         const score = aiMeta?.virality_score;
         const isClipRendering = tasks && Object.values(tasks).some(t => t.status === "rendering" && t.metadata?.filename === `clip-${videoId}-${idx}.mp4`);
         return (
-          <div key={idx} style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 40px rgba(0,0,0,0.5)" }}>
+          <div key={clip.id || idx} style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 40px rgba(0,0,0,0.5)", opacity: deletingId === clip.id ? 0.5 : 1 }}>
             {/* ── Hook + Meta Header ── */}
             <div style={{ padding: "20px 24px", borderBottom: "1px solid #27272a", background: "linear-gradient(135deg,rgba(99,102,241,0.07),rgba(124,58,237,0.03))" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "#a78bfa", background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.25)", padding: "2px 10px", borderRadius: 99, letterSpacing: "0.06em", textTransform: "uppercase" }}>Clip {idx + 1}</span>
-                {score != null && (
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: 99, ...(score >= 85 ? { color: "#4ade80", background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.25)" } : score >= 70 ? { color: "#fbbf24", background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)" } : { color: "#a1a1aa", background: "#27272a", border: "1px solid #3f3f46" }) }}>
-                    🔥 Virality: {score}
-                  </span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "#a78bfa", background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.25)", padding: "2px 10px", borderRadius: 99, letterSpacing: "0.06em", textTransform: "uppercase" }}>Clip {clip.index + 1}</span>
+                  {score != null && (
+                    <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: 99, ...(score >= 85 ? { color: "#4ade80", background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.25)" } : score >= 70 ? { color: "#fbbf24", background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)" } : { color: "#a1a1aa", background: "#27272a", border: "1px solid #3f3f46" }) }}>
+                      🔥 Virality: {score}
+                    </span>
+                  )}
+                  {clip.createdAt && (
+                    <span style={{ fontSize: 10, color: "#71717a", marginLeft: 4 }}>
+                      Generated {new Date(clip.createdAt).toLocaleDateString()} at {new Date(clip.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  )}
+                </div>
+                {clip.id && (
+                  <button onClick={() => handleDelete(clip.id)} disabled={deletingId === clip.id} style={{ background: "transparent", border: "none", color: "#f87171", cursor: deletingId === clip.id ? "not-allowed" : "pointer", display: "flex", alignItems: "center", padding: 4, borderRadius: 6 }} title="Delete Clip">
+                    {deletingId === clip.id ? <Loader2 className="animate-spin" size={16} /> : <Trash2 size={16} />}
+                  </button>
                 )}
               </div>
               {aiMeta?.title_or_hook && (
@@ -265,7 +292,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
                   )}
                   {downloadingIdx === idx ? "Starting..." : isClipRendering ? "Rendering..." : "Download"}
                 </button>
-                <button onClick={() => router.push(`/editor/${videoId}?index=${idx}`)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #3f3f46", background: "#18181b", color: "#fafafa", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: postStage ? 0.5 : 1 }}>
+                <button onClick={() => router.push(`/editor/${videoId}?index=${clip.index}`)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #3f3f46", background: "#18181b", color: "#fafafa", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: postStage ? 0.5 : 1 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                   Edit Clip
                 </button>

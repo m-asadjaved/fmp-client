@@ -275,13 +275,31 @@ def main():
 
         # 5. Frame loop ────────────────────────────────────────────────────
         print("🎬 Processing frames ...")
+        
+        face_intervals = clip_info.get("face_detection_intervals", [])
+
         for fi in range(total_frames):
             ret, frame = cap.read()
             if not ret:
                 break
 
-            ts_ms = int((config["startAt"] + fi / fps) * 1000)
-            tracker.update(frame, fi, ts_ms)
+            current_sec_in_clip = fi / fps
+            detect_face = True
+            
+            for interval in face_intervals:
+                # interval.get("end_sec", 9999) handles cases where end_sec might be missing
+                if interval.get("start_sec", 0) <= current_sec_in_clip <= interval.get("end_sec", 9999):
+                    detect_face = interval.get("detect_face", True)
+                    break
+
+            ts_ms = int((config["startAt"] + current_sec_in_clip) * 1000)
+            
+            if detect_face:
+                tracker.update(frame, fi, ts_ms)
+            else:
+                # Force tracker to skip and behave as if face is not visible
+                tracker.face_visible = False
+                tracker._missing = tracker._memory_limit + 1  # clear any lingering smooth-coast memory
 
             if tracker.face_visible:
                 camera.set_target(tracker.talking_cx)

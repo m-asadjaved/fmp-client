@@ -266,14 +266,14 @@ export default function AIClipsPage({ params }) {
 					]);
 
 					setPhase("done");
-
+					
 					intentionallyClosed.current = true;
 					eventSource.close();
 				} else if (data.status === "FAILED") {
 					setPhase("done");
 					setLogs((prev) => [
 						...prev,
-						"ERROR: External AI processing engine reported a structural failure.",
+						`ERROR: ${data.error || "External AI processing engine reported a structural failure."}`,
 					]);
 					intentionallyClosed.current = true;
 					eventSource.close();

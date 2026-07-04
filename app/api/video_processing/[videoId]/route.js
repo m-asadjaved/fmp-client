@@ -205,36 +205,7 @@ export async function POST(request, context) {
 
 		await supabase.from("videos").update({ credits_used: creditsCost }).eq("video_id", videoId);
 
-		// ── 6. Get or generate AI analysis ────────────────────────────────────
-		await insertLog(
-			videoId,
-			"Send the req to AI for analysis",
-			"analyzing"
-		);
-
-		let ai_response_raw =
-			(!regenerate && videoData?.ai_analysis && videoData.ai_analysis !== "")
-				? videoData.ai_analysis
-				: await SummarizeUsingAI(
-					`${AWS_BUCKET_URL}/raw_videos/${videoId}.mp4`
-				);
-
-		const raw_data = safeParseJSON(ai_response_raw);
-
-		// Normalise to string for DB storage
-		const ai_analysis_str =
-			typeof ai_response_raw === "string"
-				? ai_response_raw
-				: JSON.stringify(ai_response_raw);
-
-		if (
-			!Array.isArray(raw_data.recommended_shorts) ||
-			raw_data.recommended_shorts.length === 0
-		) {
-			throw new Error("AI returned no recommended clips.");
-		}
-
-		// ── 7. Upsert the video_processing_req row (INSERT or UPDATE) ─────────
+		// ── 6. Upsert the video_processing_req row (INSERT or UPDATE) ─────────
 		let videoReqData, upsertError;
 
 		if (videoData && videoData.id) {
@@ -242,7 +213,6 @@ export async function POST(request, context) {
 				.from("video_processing_req")
 				.update({
 					status: "processing",
-					ai_analysis: ai_analysis_str,
 				})
 				.eq("id", videoData.id)
 				.select("id")
@@ -255,7 +225,6 @@ export async function POST(request, context) {
 				.insert({
 					video_id: videoId,
 					status: "processing",
-					ai_analysis: ai_analysis_str,
 				})
 				.select("id")
 				.single();
@@ -265,66 +234,133 @@ export async function POST(request, context) {
 
 		if (upsertError || !videoReqData) {
 			throw new Error(
-				`Failed to upsert video_processing_req: ${upsertError?.message ?? "no data returned"
-				}`
+				`Failed to upsert video_processing_req: ${upsertError?.message ?? "no data returned"}`
 			);
 		}
 
-		// ── 8. Build clip payload ─────────────────────────────────────────────
-		if (!AWS_LAMBDA_START_VIDEO_PROCESSING_TASK_URL) {
-			throw new Error("AWS Lambda URL is not configured.");
-		}
+		// Return early so the UI updates to processing immediately
+		const earlyResponse = NextResponse.json({ success: true, videoStatus: "processing" });
 
-		await insertLog(
-			videoId,
-			"Send the video to edit engine for video editing",
-			"editing"
-		);
+		// ── 7. Get or generate AI analysis (BACKGROUND) ───────────────────────
+		(async () => {
+			try {
+				await insertLog(
+					videoId,
+					"Send the req to AI for analysis",
+					"analyzing"
+				);
 
-		// Process up to 5 clips concurrently to prevent runaway costs
-		const clipsToProcess = raw_data.recommended_shorts.slice(0, 5);
+				let ai_response_raw =
+					(!regenerate && videoData?.ai_analysis && videoData.ai_analysis !== "")
+						? videoData.ai_analysis
+						: await SummarizeUsingAI(
+							`${AWS_BUCKET_URL}/raw_videos/${videoId}.mp4`
+						);
 
-		const lambdaPromises = clipsToProcess.map(async (clip, index) => {
-			if (!clip.start_time || !clip.duration_seconds) {
-				console.warn(`Clip ${index} is missing required fields, skipping.`);
-				return null;
-			}
+				const raw_data = safeParseJSON(ai_response_raw);
 
-			const clip_info = {
-				start_time: clip.start_time,
-				duration_seconds: clip.duration_seconds,
-			};
+				// Normalise to string for DB storage
+				const ai_analysis_str =
+					typeof ai_response_raw === "string"
+						? ai_response_raw
+						: JSON.stringify(ai_response_raw);
 
-			const lambdaResponse = await fetch(
-				AWS_LAMBDA_START_VIDEO_PROCESSING_TASK_URL,
-				{
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({
-						req_id: videoReqData.id,
-						user_id: userId,
-						s3_bucket: AWS_BUCKET_NAME,
-						s3_input_key: `raw_videos/${videoId}.mp4`,
-						s3_output_key: `processed_videos/output-${videoId}-${index}.mp4`,
-						webhook_url: WEBHOOK_URL_VIDEO_STATUS,
-						clip_info,
-						full_subtitles: '',
-						preferences,
-					}),
+				if (
+					!Array.isArray(raw_data.recommended_shorts) ||
+					raw_data.recommended_shorts.length === 0
+				) {
+					throw new Error("AI returned no recommended clips.");
 				}
-			);
 
-			if (!lambdaResponse.ok) {
-				const body = await lambdaResponse.text().catch(() => "(unreadable)");
-				throw new Error(`Lambda ${index} responded with ${lambdaResponse.status}: ${body}`);
+				// Update the request with AI analysis
+				await supabase
+					.from("video_processing_req")
+					.update({
+						ai_analysis: ai_analysis_str,
+					})
+					.eq("id", videoReqData.id);
+
+				// ── 8. Build clip payload ─────────────────────────────────────────────
+				if (!AWS_LAMBDA_START_VIDEO_PROCESSING_TASK_URL) {
+					throw new Error("AWS Lambda URL is not configured.");
+				}
+
+				await insertLog(
+					videoId,
+					"Send the video to edit engine for video editing",
+					"editing"
+				);
+
+				// Process up to 5 clips concurrently to prevent runaway costs
+				const clipsToProcess = raw_data.recommended_shorts.slice(0, 5);
+
+				const lambdaPromises = clipsToProcess.map(async (clip, index) => {
+					if (!clip.start_time || !clip.duration_seconds) {
+						console.warn(`Clip ${index} is missing required fields, skipping.`);
+						return null;
+					}
+
+					const clip_info = {
+						start_time: clip.start_time,
+						duration_seconds: clip.duration_seconds,
+						face_detection_intervals: clip.face_detection_intervals || [],
+					};
+
+					const lambdaResponse = await fetch(
+						AWS_LAMBDA_START_VIDEO_PROCESSING_TASK_URL,
+						{
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({
+								req_id: videoReqData.id,
+								user_id: userId,
+								s3_bucket: AWS_BUCKET_NAME,
+								s3_input_key: `raw_videos/${videoId}.mp4`,
+								s3_output_key: `processed_videos/output-${videoId}-${index}.mp4`,
+								webhook_url: WEBHOOK_URL_VIDEO_STATUS,
+								clip_info,
+								full_subtitles: '',
+								preferences,
+							}),
+						}
+					);
+
+					if (!lambdaResponse.ok) {
+						const body = await lambdaResponse.text().catch(() => "(unreadable)");
+						throw new Error(`Lambda ${index} responded with ${lambdaResponse.status}: ${body}`);
+					}
+
+					return true;
+				});
+
+				await Promise.all(lambdaPromises);
+
+			} catch (err) {
+				console.error("[Background Processing Error]", err);
+				
+				// Update DB to failed
+				await supabase.from("video_processing_req").update({ status: "failed" }).eq("id", videoReqData.id);
+				
+				// Broadcast error to webhook
+				try {
+					const protocol = request.headers.get("x-forwarded-proto") || "http";
+					const host = request.headers.get("host") || "localhost:3000";
+					await fetch(`${protocol}://${host}/api/webhook/clips`, {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ 
+							req_id: videoReqData.id, 
+							status: 'FAILED', 
+							error: err.message || "An error occurred during AI processing" 
+						})
+					});
+				} catch (webhookErr) {
+					console.error("Failed to trigger error webhook", webhookErr);
+				}
 			}
+		})();
 
-			return true;
-		});
-
-		await Promise.all(lambdaPromises);
-
-		return NextResponse.json({ success: true, processed_clips: clipsToProcess.length });
+		return earlyResponse;
 	} catch (error) {
 		console.error("[POST /video/:videoId]", error);
 		return NextResponse.json(
@@ -381,7 +417,7 @@ const summaryJsonSchema = {
 							properties: {
 								start_sec: { type: "integer", description: "Start second of this interval (relative to the clip's start)." },
 								end_sec: { type: "integer", description: "End second of this interval (relative to the clip's start)." },
-								detect_face: { type: "boolean", description: "True if a human face is the main subject and should be tracked; False otherwise." }
+								detect_face: { type: "boolean", description: "True ONLY if exactly ONE person is visible on the screen at a time, even if the person changes (e.g. Person A cuts to Person B). False if there are multiple people visible simultaneously or no people at all." }
 							},
 							required: ["start_sec", "end_sec", "detect_face"]
 						}
@@ -491,7 +527,7 @@ Requirements:
 • title_or_hook should be a concise, attention-grabbing headline suitable for TikTok, YouTube Shorts, or Instagram Reels.
 • rationale should explain why this segment was selected, referencing factors such as hook strength, audience retention, narrative completeness, emotional impact, educational value, surprise, shareability, or viral potential.
 • virality_score MUST be an integer from 0 to 100 assessing the probability that this clip will go viral based on the current algorithm trends.
-• face_detection_intervals MUST be an array that covers the entire duration of the clip. Each item should specify the start_sec, end_sec, and a boolean detect_face indicating if a face is prominently present and should be tracked (true) or if the segment is b-roll/screen-recording without a main speaker (false).
+• face_detection_intervals MUST be an array that covers the entire duration of the clip. Each item should specify the start_sec, end_sec, and a boolean detect_face. IMPORTANT: detect_face MUST be true ONLY if there is EXACTLY ONE person on the screen at that time. If the camera cuts from one person to another person, detect_face remains true because there is still only one person on screen. However, if multiple people are on screen AT THE SAME TIME, or there are no people, detect_face MUST be false.
 
 Return ONLY the structured response defined by the provided schema.
 
