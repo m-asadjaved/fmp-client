@@ -76,12 +76,16 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
 
   useEffect(() => {
     if (!availableClips.length) return;
-    availableClips.forEach((clip, idx) => {
+    availableClips.forEach((clip) => {
+      const metaKey = clip.id || clip.url;
+      // Don't refetch if we already have the meta for this exact clip
+      if (clipMetas[metaKey]) return;
+
       parseMedia({ src: clip.url, fields: { durationInSeconds: true, fps: true }, acknowledgeRemotionLicense: true })
-        .then((m) => setClipMetas((p) => ({ ...p, [idx]: { durationInSeconds: m.durationInSeconds, fps: m.fps } })))
+        .then((m) => setClipMetas((p) => ({ ...p, [metaKey]: { durationInSeconds: m.durationInSeconds, fps: m.fps } })))
         .catch(console.error);
     });
-  }, [availableClips]);
+  }, [availableClips, clipMetas]);
 
   useEffect(() => {
     const load = async () => {
@@ -134,9 +138,15 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
 
   const togglePlatform = (p) => setSelectedPlatforms((prev) => prev.some((x) => x.id === p.id) ? prev.filter((x) => x.id !== p.id) : [...prev, p]);
 
-  const handleOpenPost = (idx, clipUrl) => {
+  const handleOpenPost = (idx, clipUrl, clipId) => {
     const inputProps = buildInputProps(clipUrl);
-    setActiveClipData({ idx, inputProps, durationInFrames: getFrames(idx), fps: clipMetas[idx]?.fps ?? 30 });
+    const metaKey = clipId || clipUrl;
+    const fps = clipMetas[metaKey]?.fps ?? 30;
+    const durationInFrames = (() => {
+      const base = clipMetas[metaKey]?.durationInSeconds ? Math.ceil(clipMetas[metaKey].durationInSeconds * fps) : 450;
+      return base + ((hookEnabled && hookMemeSrc) ? Math.ceil(hookDurationSecs * fps) : 0);
+    })();
+    setActiveClipData({ idx, inputProps, durationInFrames, fps });
     setPostError(null);
     setShowPlatformModal(true);
   };
@@ -165,11 +175,15 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
 
   const getCacheKey = (idx) => `render_cache_${videoId}_${idx}`;
 
-  const handleDownload = async (idx, clipUrl) => {
+  const handleDownload = async (idx, clipUrl, clipId) => {
     setDownloadingIdx(idx);
     const inputProps = buildInputProps(clipUrl);
-    const durationInFrames = getFrames(idx);
-    const fps = clipMetas[idx]?.fps ?? 30;
+    const metaKey = clipId || clipUrl;
+    const fps = clipMetas[metaKey]?.fps ?? 30;
+    const durationInFrames = (() => {
+      const base = clipMetas[metaKey]?.durationInSeconds ? Math.ceil(clipMetas[metaKey].durationInSeconds * fps) : 450;
+      return base + ((hookEnabled && hookMemeSrc) ? Math.ceil(hookDurationSecs * fps) : 0);
+    })();
     
     // Check if we already rendered this exact configuration
     const configHash = JSON.stringify({ inputProps, durationInFrames, fps });
@@ -225,10 +239,19 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
   return (
     <div className="flex flex-col gap-10 w-full pt-4 animate-fadeIn">
       {availableClips.map((clip, idx) => {
+        const metaKey = clip.id || clip.url;
         const aiMeta = recommendedShorts[clip.index] || null;
         const clipUrl = clip.url;
-        const fps = clipMetas[idx]?.fps ?? 30;
-        const durationInFrames = getFrames(idx);
+        const fps = clipMetas[metaKey]?.fps ?? 30;
+        
+        // Helper to get duration since we replaced getFrames
+        const getFrames = () => {
+          const cFps = clipMetas[metaKey]?.fps ?? 30;
+          const base = clipMetas[metaKey]?.durationInSeconds ? Math.ceil(clipMetas[metaKey].durationInSeconds * cFps) : 450;
+          return base + ((hookEnabled && hookMemeSrc) ? Math.ceil(hookDurationSecs * cFps) : 0);
+        };
+        
+        const durationInFrames = getFrames();
         const inputProps = buildInputProps(clipUrl);
         const score = aiMeta?.virality_score;
         const isClipRendering = tasks && Object.values(tasks).some(t => t.status === "rendering" && t.metadata?.filename === `clip-${videoId}-${idx}.mp4`);
@@ -273,18 +296,25 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
             {/* ── Player ── */}
             <div style={{ display: "flex", justifyContent: "center", padding: "24px", background: "#09090b" }}>
               <div style={{ height: "58vh", minHeight: 360, aspectRatio: "9/16", borderRadius: 10, overflow: "hidden", boxShadow: "0 0 0 1px #27272a, 0 24px 64px rgba(0,0,0,0.8)", background: "#000" }}>
-                <Player component={VideoComposition} inputProps={inputProps} durationInFrames={durationInFrames || 300} fps={fps} compositionHeight={1920} compositionWidth={1080} style={{ width: "100%", height: "100%" }} controls acknowledgeRemotionLicense />
+                {deletingId === clip.id ? (
+                  <div className="flex flex-col items-center justify-center h-full gap-3 text-[#a1a1aa]">
+                    <Loader2 className="animate-spin" size={24} />
+                    <span className="text-sm font-medium">Deleting clip...</span>
+                  </div>
+                ) : (
+                  <Player component={VideoComposition} inputProps={inputProps} durationInFrames={durationInFrames || 300} fps={fps} compositionHeight={1920} compositionWidth={1080} style={{ width: "100%", height: "100%" }} controls acknowledgeRemotionLicense />
+                )}
               </div>
             </div>
 
             {/* ── Actions ── */}
             <div style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
-              <button onClick={() => handleOpenPost(idx, clipUrl)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "13px", borderRadius: 10, border: "none", background: `linear-gradient(135deg,#7c3aed,${INDIGO})`, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 24px rgba(124,58,237,0.4)", opacity: postStage ? 0.5 : 1 }}>
+              <button onClick={() => handleOpenPost(idx, clipUrl, clip.id)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "13px", borderRadius: 10, border: "none", background: `linear-gradient(135deg,#7c3aed,${INDIGO})`, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 24px rgba(124,58,237,0.4)", opacity: postStage ? 0.5 : 1 }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 Post Video Now
               </button>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <button onClick={() => handleDownload(idx, clipUrl)} title={isClipRendering ? "Your video is in rendering you can see the progress from the right bottom task button" : undefined} disabled={!!postStage || downloadingIdx === idx || isClipRendering} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #3f3f46", background: "#18181b", color: "#fafafa", fontSize: 13, fontWeight: 600, cursor: isClipRendering ? "not-allowed" : "pointer", opacity: (postStage || downloadingIdx === idx || isClipRendering) ? 0.5 : 1 }}>
+                <button onClick={() => handleDownload(idx, clipUrl, clip.id)} title={isClipRendering ? "Your video is in rendering you can see the progress from the right bottom task button" : undefined} disabled={!!postStage || downloadingIdx === idx || isClipRendering} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #3f3f46", background: "#18181b", color: "#fafafa", fontSize: 13, fontWeight: 600, cursor: isClipRendering ? "not-allowed" : "pointer", opacity: (postStage || downloadingIdx === idx || isClipRendering) ? 0.5 : 1 }}>
                   {downloadingIdx === idx ? (
                     <Loader2 className="animate-spin" size={14} />
                   ) : (

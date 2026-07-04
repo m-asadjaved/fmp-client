@@ -64,11 +64,11 @@ export async function DELETE(request, context) {
       }
     }
 
-    // Delete from Supabase
+    // Delete from Supabase (by clip_url to remove any duplicates from webhook retries)
     const { error: deleteError } = await supabase
       .from('generated_clips')
       .delete()
-      .eq('id', clipId);
+      .eq('clip_url', clip.clip_url);
 
     if (deleteError) {
       throw deleteError;

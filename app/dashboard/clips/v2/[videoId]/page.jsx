@@ -98,6 +98,7 @@ export default function AIClipsPage({ params }) {
 		soundEffects: false,
 		vfx: false,
 		useAI: true,
+		prioritize: false,
 	});
 
 	const intentionallyClosed = useRef(false);
@@ -390,6 +391,9 @@ export default function AIClipsPage({ params }) {
           from { opacity: 0; transform: scale(0.95); }
           to   { opacity: 1; transform: scale(1);    }
         }
+        @keyframes shimmer {
+          100% { transform: translateX(100%); }
+        }
         .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
       `}</style>
 
@@ -574,18 +578,72 @@ export default function AIClipsPage({ params }) {
 									))}
 								</div>
 
+								{/* Premium Prioritize Option */}
+								<div className="mb-6">
+									<label
+										className={`flex items-center gap-4 border rounded-xl p-4 cursor-pointer select-none transition-all group relative overflow-hidden ${
+											preferences.prioritize
+												? "bg-gradient-to-r from-[rgba(245,158,11,0.1)] to-[rgba(217,119,6,0.1)] border-[#f59e0b] shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+												: "bg-[#18181b] border-[#27272a] hover:bg-[#27272a] hover:border-[#3f3f46]"
+										}`}
+									>
+										{preferences.prioritize && (
+											<div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(245,158,11,0.1)] to-transparent -translate-x-full animate-[shimmer_2.5s_infinite]" />
+										)}
+										<input
+											type="checkbox"
+											checked={preferences.prioritize}
+											onChange={(e) =>
+												setPreferences((prev) => ({
+													...prev,
+													prioritize: e.target.checked,
+												}))
+											}
+											className="sr-only"
+										/>
+										<div
+											className={`w-5 h-5 border rounded-md flex items-center justify-center transition-all shrink-0 relative z-10 ${
+												preferences.prioritize
+													? "bg-[#f59e0b] border-[#f59e0b] text-[#18181b]"
+													: "bg-[#27272a] border-[#3f3f46]"
+											}`}
+										>
+											{preferences.prioritize && (
+												<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}>
+													<path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+												</svg>
+											)}
+										</div>
+										<div className="flex-1 relative z-10">
+											<div className="flex flex-wrap items-center gap-2">
+												<span className={`text-sm font-bold transition-colors ${
+													preferences.prioritize ? "text-[#f59e0b]" : "text-[#fafafa]"
+												}`}>
+													⚡ Prioritize AI Processing (Fast Mode)
+												</span>
+												<span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[rgba(245,158,11,0.15)] text-[#f59e0b] border border-[rgba(245,158,11,0.3)]">
+													+2 Credits
+												</span>
+											</div>
+											<p className="text-xs text-[#a1a1aa] mt-1 leading-relaxed">
+												Jump the queue and use the advanced Gemini Standard tier for ultra-fast, high-precision clipping results.
+											</p>
+										</div>
+									</label>
+								</div>
+
 								{/* Cost Display & Start Processing Button */}
 								<div className="flex items-center justify-between mt-2 mb-3 px-1">
 									<div className="flex items-center gap-2">
 										<span className="text-[#a1a1aa] text-xs font-medium">Credits Required:</span>
 										<span className="text-white text-sm font-bold bg-[#27272a] px-2 py-0.5 rounded border border-[#3f3f46]">
-											{creditsCost !== null ? creditsCost : "-"}
+											{creditsCost !== null ? creditsCost + (preferences.prioritize ? 2 : 0) : "-"}
 										</span>
 									</div>
 									<div className="flex items-center gap-2">
 										<span className="text-[#a1a1aa] text-xs font-medium">Your Balance:</span>
 										<span className={`text-sm font-bold px-2 py-0.5 rounded border ${
-											userBalance !== null && creditsCost !== null && userBalance < creditsCost
+											userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0))
 												? "text-red-400 bg-red-400/10 border-red-400/20"
 												: "text-[#4ade80] bg-[#4ade80]/10 border-[#4ade80]/20"
 										}`}>
@@ -596,9 +654,9 @@ export default function AIClipsPage({ params }) {
 
 								<button
 									onClick={startProcessing}
-									disabled={lambdaLoading || isInitialLoading || (userBalance !== null && creditsCost !== null && userBalance < creditsCost)}
+									disabled={lambdaLoading || isInitialLoading || (userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0)))}
 									className={`w-full py-3 px-4 rounded font-bold text-sm tracking-wide transition-colors flex items-center justify-center gap-2 ${
-										lambdaLoading || isInitialLoading || (userBalance !== null && creditsCost !== null && userBalance < creditsCost)
+										lambdaLoading || isInitialLoading || (userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0)))
 											? "bg-[var(--surface-bg)] text-[#a1a1aa] cursor-not-allowed border border-[#27272a]"
 											: "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-lg"
 									}`}
@@ -611,7 +669,7 @@ export default function AIClipsPage({ params }) {
 											/>
 											{isInitialLoading ? "Verifying Video..." : "Submitting Pipeline Workspace Task..."}
 										</>
-									) : (userBalance !== null && creditsCost !== null && userBalance < creditsCost) ? (
+									) : (userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0))) ? (
 										<>
 											<AlertCircle size={16} className="text-red-400" />
 											Insufficient Credits

@@ -165,7 +165,10 @@ export async function POST(request, context) {
 		}
 
 		const durationSeconds = parseFloat(videoRow.duration);
-		const creditsCost = Math.max(1, Math.ceil(durationSeconds / 1200));
+		let creditsCost = Math.max(1, Math.ceil(durationSeconds / 1200));
+		if (preferences?.prioritize) {
+			creditsCost += 2;
+		}
 
 		// Check user balance
 		const { data: userCredits, error: creditsError } = await supabase
@@ -254,7 +257,8 @@ export async function POST(request, context) {
 					(!regenerate && videoData?.ai_analysis && videoData.ai_analysis !== "")
 						? videoData.ai_analysis
 						: await SummarizeUsingAI(
-							`${AWS_BUCKET_URL}/raw_videos/${videoId}.mp4`
+							`${AWS_BUCKET_URL}/raw_videos/${videoId}.mp4`,
+							preferences?.prioritize
 						);
 
 				const raw_data = safeParseJSON(ai_response_raw);
@@ -417,7 +421,7 @@ const summaryJsonSchema = {
 							properties: {
 								start_sec: { type: "integer", description: "Start second of this interval (relative to the clip's start)." },
 								end_sec: { type: "integer", description: "End second of this interval (relative to the clip's start)." },
-								detect_face: { type: "boolean", description: "True ONLY if exactly ONE person is visible on the screen at a time, even if the person changes (e.g. Person A cuts to Person B). False if there are multiple people visible simultaneously or no people at all." }
+								detect_face: { type: "boolean", description: "True ONLY if exactly ONE person is clearly visible on the screen for the ENTIRE interval. Be extremely conservative. If there is any ambiguity, transition, or if a second person appears even for a fraction of a second, this MUST be false." }
 							},
 							required: ["start_sec", "end_sec", "detect_face"]
 						}
@@ -440,7 +444,7 @@ const summaryJsonSchema = {
 	required: ["recommended_shorts"],
 };
 
-export async function SummarizeUsingAI(videoUrl) {
+export async function SummarizeUsingAI(videoUrl, prioritize = false) {
 	try {
 		if (!videoUrl) {
 			throw new Error("Video URL is required");
@@ -454,7 +458,8 @@ Your task is to analyze the complete video transcript and metadata, then identif
 
 Each selected clip MUST work as a standalone short-form video without requiring additional context.
 
-The duration for EACH clip MUST be between 30 and 50 seconds maximum.
+The duration for EACH clip MUST be under 85 seconds maximum.
+CRITICAL: Each clip must fully clear and resolve its topic from start to end within this 85-second window. With this extended duration, any topic should be able to be cleared easily. Do not leave the topic hanging or incomplete.
 
 --------------------------------------------------
 OBJECTIVE
@@ -475,7 +480,7 @@ Each chosen clip should satisfy as many of these criteria as possible:
    CRITICAL: Each clip must cover EXACTLY ONE clear topic that is directly related to its hook.
    Do NOT select clips that jump between multiple subjects. The hook promises one thing — the clip must deliver exactly that one thing.
 
-2. Contains a complete narrative around that single topic.
+2. Contains a complete narrative that clears the single topic from start to finish within the clip.
 
 3. Requires little or no external context.
 
@@ -521,21 +526,22 @@ Populate every required field.
 Requirements:
 
 • recommended_shorts MUST contain between 3 and 5 highly viral clips if the video is long enough. (If the video is short, 1 or 2 clips is acceptable, but always aim for 3 to 5).
-• Each selected clip duration MUST be between 30 and 50 seconds maximum.
+• Each selected clip duration MUST be under 85 seconds maximum and fully clear the topic.
 • start_time and end_time MUST use MM:SS format and refer to the timestamps in the ORIGINAL video.
 • duration_seconds MUST equal the actual clip length.
 • title_or_hook should be a concise, attention-grabbing headline suitable for TikTok, YouTube Shorts, or Instagram Reels.
 • rationale should explain why this segment was selected, referencing factors such as hook strength, audience retention, narrative completeness, emotional impact, educational value, surprise, shareability, or viral potential.
 • virality_score MUST be an integer from 0 to 100 assessing the probability that this clip will go viral based on the current algorithm trends.
-• face_detection_intervals MUST be an array that covers the entire duration of the clip. Each item should specify the start_sec, end_sec, and a boolean detect_face. IMPORTANT: detect_face MUST be true ONLY if there is EXACTLY ONE person on the screen at that time. If the camera cuts from one person to another person, detect_face remains true because there is still only one person on screen. However, if multiple people are on screen AT THE SAME TIME, or there are no people, detect_face MUST be false.
+• face_detection_intervals MUST be an array that covers the entire duration of the clip. Each item should specify the start_sec, end_sec, and a boolean detect_face. IMPORTANT: You must be extremely precise and conservative with detect_face. It MUST be true ONLY if there is EXACTLY ONE person clearly visible on the screen for the ENTIRE interval. If there is any ambiguity, transition, or if a second person appears even for a fraction of a second, you MUST set detect_face to false for that time buffer. For example, if two people are visible from 0 to 4.5 seconds, and then exactly one person is visible from 4.5 to 7 seconds, you must be conservative and output false from 0 to 5 seconds, and true ONLY from 5 to 7 seconds. Never output true unless you are 100% certain only one person is on screen.
 
 Return ONLY the structured response defined by the provided schema.
 
 `;
 
 		const interaction = await ai.interactions.create({
-			model: "gemini-3.1-flash-lite",
+			// model: "gemini-3.1-flash-lite",
 			// model: "gemini-2.5-pro",
+			model: "gemini-3.1-pro-preview",
 			input: [
 				{
 					type: "video",
@@ -554,6 +560,7 @@ Return ONLY the structured response defined by the provided schema.
 				mime_type: "application/json",
 				schema: summaryJsonSchema,
 			},
+			service_tier: prioritize ? "standard" : "flex",
 		});
 
 		console.log(interaction.output_text);

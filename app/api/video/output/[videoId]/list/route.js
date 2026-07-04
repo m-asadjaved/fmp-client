@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
@@ -49,12 +51,41 @@ export async function GET(request, context) {
     let availableClips = [];
 
     if (!clipsError && generatedClips && generatedClips.length > 0) {
-      availableClips = generatedClips.map(clip => ({
-        id: clip.id,
-        index: clip.clip_index,
-        url: clip.clip_url,
-        createdAt: clip.created_at
+      const validClips = [];
+      await Promise.all(generatedClips.map(async (clip) => {
+        try {
+          // Verify the clip still exists in S3
+          const res = await fetch(clip.clip_url, { method: "HEAD" });
+          if (res.ok) {
+            // Deduplicate by index in case webhook fired multiple times
+            if (!validClips.some(c => c.index === clip.clip_index)) {
+              validClips.push({
+                id: clip.id,
+                index: clip.clip_index,
+                url: clip.clip_url,
+                createdAt: clip.created_at
+              });
+            } else {
+              // Delete duplicate DB record
+              supabase.from('generated_clips').delete().eq('id', clip.id).then();
+            }
+          } else {
+            // S3 file is gone (deleted manually or previously), delete the orphaned DB record
+            supabase.from('generated_clips').delete().eq('id', clip.id).then();
+          }
+        } catch (e) {
+          // If fetch fails network-wise, we assume it's valid to not accidentally delete it
+          if (!validClips.some(c => c.index === clip.clip_index)) {
+             validClips.push({
+                id: clip.id,
+                index: clip.clip_index,
+                url: clip.clip_url,
+                createdAt: clip.created_at
+              });
+          }
+        }
       }));
+      availableClips = validClips.sort((a, b) => a.index - b.index);
     } else {
       // Fallback for older videos that don't have records in generated_clips
       const legacyUrl = `${AWS_BUCKET_URL}/processed_videos/output-${videoId}.mp4`;
