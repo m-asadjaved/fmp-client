@@ -52,15 +52,20 @@ export default function AIClipsPage({ params }) {
 				]);
 
 				if (!videoRes.ok) throw new Error("Failed to load video status");
-				if (!creditsRes.ok) throw new Error("Failed to load user credits");
+				
+				let creditsData = {};
+				if (creditsRes.ok) {
+					creditsData = await creditsRes.json();
+				} else {
+					console.warn("Failed to load user credits, proceeding anyway");
+				}
 
 				const videoData = await videoRes.json();
-				const creditsData = await creditsRes.json();
 
 				if (!isMounted) return;
 
 				setCreditsCost(videoData.creditsCost || 1);
-				setUserBalance(creditsData.balance || 0);
+				setUserBalance(creditsData.balance ?? null);
 
 				if (videoData.status === 'completed') {
 					if (videoData.ai_analysis) {

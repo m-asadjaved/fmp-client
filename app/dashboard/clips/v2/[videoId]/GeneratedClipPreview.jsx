@@ -1,15 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Player } from "@remotion/player";
 import { parseMedia } from "@remotion/media-parser";
 import { VideoComposition } from "../../../../components/VideoComposition";
 import { parseSubtitleString } from "../../../../utils/parseSubtitles";
 import { CAPTION_THEMES, PLATFORMS } from "../../../../components/CaptionEditor";
-
+import { useRenderContext } from "@/contexts/RenderContext";
+import { Loader2 } from "lucide-react";
 const INDIGO = "#6366f1";
-
 const DEFAULT_SUBTITLES = `[00:00:00] Was being in prison kind of fun? Um, fun?
 [00:00:07] No, I wouldn't say fun. Like, what was kind of cool about it,
 [00:00:12] I've always wanted to go to jail. You know, there's this old saying
@@ -17,7 +17,6 @@ const DEFAULT_SUBTITLES = `[00:00:00] Was being in prison kind of fun? Um, fun?
 
 export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
   const router = useRouter();
-
   const [subtitleInput, setSubtitleInput] = useState("");
   const [words, setWords] = useState([]);
   const [activeTheme, setActiveTheme] = useState("classic");
@@ -31,46 +30,50 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
   const [hookFontSize, setHookFontSize] = useState(72);
   const [hookFontColor, setHookFontColor] = useState("#fbbf24");
   const [hookVerticalPosition, setHookVerticalPosition] = useState(20);
-
   const [brolls, setBrolls] = useState([]);
   const [bgMusicSrc, setBgMusicSrc] = useState("");
   const [hookMemeSrc, setHookMemeSrc] = useState("");
-  
   const [isLoaded, setIsLoaded] = useState(false);
-  const [videoMeta, setVideoMeta] = useState(null);
+  const [clipMetas, setClipMetas] = useState({});
+  const [availableClips, setAvailableClips] = useState([]);
+  const [clipsLoading, setClipsLoading] = useState(true);
+  const [activeClipData, setActiveClipData] = useState(null);
+  const [showPlatformModal, setShowPlatformModal] = useState(false);
+  const [selectedPlatforms, setSelectedPlatforms] = useState([]);
+  const [scheduleDate, setScheduleDate] = useState("");
+  const [postStage, setPostStage] = useState(null);
+  const [postProgress, setPostProgress] = useState(0);
+  const [postError, setPostError] = useState(null);
+  const { addRenderTask, tasks } = useRenderContext();
 
-  const [activeClipIndex, setActiveClipIndex] = useState(0);
-
-  const videoSrc = `/api/video/output/${videoId}?index=${activeClipIndex}`;
   const recommendedShorts = aiAnalysis?.recommended_shorts || [];
 
   useEffect(() => {
-    parseMedia({
-      src: videoSrc,
-      fields: { durationInSeconds: true, fps: true },
-      acknowledgeRemotionLicense: true
-    })
-      .then((meta) => {
-        setVideoMeta({
-          durationInSeconds: meta.durationInSeconds,
-          fps: meta.fps,
-        });
-      })
-      .catch((err) => {
-        console.error("Failed to parse video metadata:", err);
-      });
-  }, [videoSrc]);
+    let cancelled = false;
+    setClipsLoading(true);
+    fetch(`/api/video/output/${videoId}/list`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then(({ clips }) => { if (!cancelled) setAvailableClips(clips || []); })
+      .catch((e) => console.error("clip list error:", e))
+      .finally(() => { if (!cancelled) setClipsLoading(false); });
+    return () => { cancelled = true; };
+  }, [videoId]);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [prefsRes, subsRes] = await Promise.all([
-          fetch('/api/preferences'),
-          fetch(`/api/video/subtitles/v2/${videoId}`)
-        ]);
+    if (!availableClips.length) return;
+    availableClips.forEach((clip, idx) => {
+      parseMedia({ src: clip.url, fields: { durationInSeconds: true, fps: true }, acknowledgeRemotionLicense: true })
+        .then((m) => setClipMetas((p) => ({ ...p, [idx]: { durationInSeconds: m.durationInSeconds, fps: m.fps } })))
+        .catch(console.error);
+    });
+  }, [availableClips]);
 
-        if (prefsRes.ok) {
-          const { preferences: p } = await prefsRes.json();
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [pr, sr] = await Promise.all([fetch("/api/preferences"), fetch(`/api/video/subtitles/v2/${videoId}`)]);
+        if (pr.ok) {
+          const { preferences: p } = await pr.json();
           if (p) {
             if (p.active_theme) setActiveTheme(p.active_theme);
             if (p.animation_override) setAnimationOverride(p.animation_override);
@@ -85,665 +88,246 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
             if (p.hook_vertical_position != null) setHookVerticalPosition(p.hook_vertical_position);
           }
         }
-
-        if (subsRes.ok) {
-          const data = await subsRes.json();
-          if (data.subtitles) setSubtitleInput(data.subtitles);
-          else setSubtitleInput(DEFAULT_SUBTITLES);
-          if (data.words) setWords(data.words);
-        } else {
-          setSubtitleInput(DEFAULT_SUBTITLES);
-        }
-      } catch (e) {
-        console.error("Error loading preview data", e);
-        setSubtitleInput(DEFAULT_SUBTITLES);
-      } finally {
-        setIsLoaded(true);
-      }
+        if (sr.ok) {
+          const d = await sr.json();
+          setSubtitleInput(d.subtitles || DEFAULT_SUBTITLES);
+          if (d.words) setWords(d.words);
+        } else setSubtitleInput(DEFAULT_SUBTITLES);
+      } catch { setSubtitleInput(DEFAULT_SUBTITLES); }
+      finally { setIsLoaded(true); }
     };
-    loadData();
+    load();
   }, [videoId]);
 
   const captions = useMemo(() => parseSubtitleString(subtitleInput), [subtitleInput]);
-  const durationMs = captions.length > 0 ? captions[captions.length - 1].endMs : 10000;
-  
-  const fps = videoMeta?.fps ?? 30;
-  const baseDurationFrames = (videoMeta && videoMeta.durationInSeconds && fps)
-    ? Math.ceil(videoMeta.durationInSeconds * fps)
-    : (Math.ceil((durationMs / 1000) * fps) || 450);
-    
-  const hookDurationFrames = (hookEnabled && hookMemeSrc) ? Math.ceil(hookDurationSecs * fps) : 0;
-  const durationInFrames = baseDurationFrames + hookDurationFrames;
 
-  const inputProps = useMemo(() => {
+  const buildInputProps = useMemo(() => (clipUrl) => {
     const themeObj = { ...CAPTION_THEMES[activeTheme] };
-    if (animationOverride !== "theme") {
-      themeObj.animation = animationOverride;
-    }
+    if (animationOverride !== "theme") themeObj.animation = animationOverride;
     return {
-      videoUrl: videoSrc,
-      fontSize,
-      fontFamily: "Arial, sans-serif",
-      verticalPosition,
-      captions,
-      theme: themeObj,
-      words,
-      overlays: [],
-      brolls,
-      bgMusicSrc,
-      bgMusicVolume,
-      hook: hookEnabled ? {
-        text: hookText,
-        durationSecs: hookDurationSecs,
-        fontSize: hookFontSize,
-        fontColor: hookFontColor,
-        verticalPosition: hookVerticalPosition,
-        memeSrc: hookMemeSrc
-      } : null
+      videoUrl: clipUrl, fontSize, fontFamily: "Arial, sans-serif", verticalPosition,
+      captions, theme: themeObj, words, overlays: [], brolls, bgMusicSrc, bgMusicVolume,
+      hook: hookEnabled ? { text: hookText, durationSecs: hookDurationSecs, fontSize: hookFontSize, fontColor: hookFontColor, verticalPosition: hookVerticalPosition, memeSrc: hookMemeSrc } : null,
     };
-  }, [videoSrc, fontSize, verticalPosition, captions, words, activeTheme, animationOverride, brolls, bgMusicSrc, bgMusicVolume, hookEnabled, hookText, hookDurationSecs, hookFontSize, hookFontColor, hookVerticalPosition, hookMemeSrc]);
+  }, [fontSize, verticalPosition, captions, words, activeTheme, animationOverride, brolls, bgMusicSrc, bgMusicVolume, hookEnabled, hookText, hookDurationSecs, hookFontSize, hookFontColor, hookVerticalPosition, hookMemeSrc]);
 
-  // -- Post Modal Logic --
-  const [showPlatformModal, setShowPlatformModal] = useState(false);
-  const [selectedPlatforms, setSelectedPlatforms] = useState([]);
-  const [scheduleDate, setScheduleDate] = useState("");
-  const [postStage, setPostStage] = useState(null);
-  const [postProgress, setPostProgress] = useState(0);
-  const [postError, setPostError] = useState(null);
+  const getFrames = (idx) => {
+    const fps = clipMetas[idx]?.fps ?? 30;
+    const base = clipMetas[idx]?.durationInSeconds ? Math.ceil(clipMetas[idx].durationInSeconds * fps) : 450;
+    return base + ((hookEnabled && hookMemeSrc) ? Math.ceil(hookDurationSecs * fps) : 0);
+  };
 
-  const [downloadStage, setDownloadStage] = useState(null);
-  const [downloadProgress, setDownloadProgress] = useState(0);
+  const togglePlatform = (p) => setSelectedPlatforms((prev) => prev.some((x) => x.id === p.id) ? prev.filter((x) => x.id !== p.id) : [...prev, p]);
 
-  const togglePlatform = (platform) => {
-    setSelectedPlatforms(prev => {
-      if (prev.some(p => p.id === platform.id)) {
-        return prev.filter(p => p.id !== platform.id);
-      } else {
-        return [...prev, platform];
-      }
-    });
+  const handleOpenPost = (idx, clipUrl) => {
+    const inputProps = buildInputProps(clipUrl);
+    setActiveClipData({ idx, inputProps, durationInFrames: getFrames(idx), fps: clipMetas[idx]?.fps ?? 30 });
+    setPostError(null);
+    setShowPlatformModal(true);
   };
 
   const handleConfirmPost = async () => {
-    if (selectedPlatforms.length === 0) return;
+    if (!activeClipData || selectedPlatforms.length === 0) return;
+    const { inputProps, durationInFrames, fps } = activeClipData;
     setShowPlatformModal(false);
-    setPostError(null);
-
-    setPostStage('uploading');
-    setPostProgress(0);
-    await new Promise(resolve => {
-      let p = 0;
-      const t = setInterval(() => {
-        p += Math.random() * 8 + 4;
-        if (p >= 60) { p = 60; clearInterval(t); resolve(); }
-        setPostProgress(Math.round(p));
-      }, 180);
-    });
-
-    setPostStage('processing');
-    await new Promise(resolve => {
-      let p = 60;
-      const t = setInterval(() => {
-        p += Math.random() * 4 + 2;
-        if (p >= 90) { p = 90; clearInterval(t); resolve(); }
-        setPostProgress(Math.round(p));
-      }, 220);
-    });
-
+    setPostStage("uploading"); setPostProgress(0);
+    await new Promise((res) => { let p = 0; const t = setInterval(() => { p += Math.random() * 8 + 4; if (p >= 60) { p = 60; clearInterval(t); res(); } setPostProgress(Math.round(p)); }, 180); });
+    setPostStage("processing");
+    await new Promise((res) => { let p = 60; const t = setInterval(() => { p += Math.random() * 4 + 2; if (p >= 90) { p = 90; clearInterval(t); res(); } setPostProgress(Math.round(p)); }, 220); });
     setPostProgress(95);
     try {
-      const response = await fetch("/api/export/post", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...inputProps,
-          videoId,
-          durationInFrames,
-          fps,
-          targetPlatforms: selectedPlatforms.map(p => p.name),
-          scheduledFor: scheduleDate || null,
-        }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to start post job");
-
-      setPostProgress(100);
-      setPostStage('done');
-
-      await new Promise(r => setTimeout(r, 900));
+      const r = await fetch("/api/export/post", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...inputProps, videoId, durationInFrames, fps, targetPlatforms: selectedPlatforms.map((p) => p.name), scheduledFor: scheduleDate || null }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Failed");
+      setPostProgress(100); setPostStage("done");
+      await new Promise((r) => setTimeout(r, 900));
       router.push("/dashboard/v2/calendar");
-    } catch (err) {
-      console.error("[handleConfirmPost]", err);
-      setPostStage(null);
-      setPostProgress(0);
-      setPostError(err.message);
+    } catch (e) { setPostStage(null); setPostProgress(0); setPostError(e.message); }
+  };
+
+  const [cachedRenders, setCachedRenders] = useState({});
+  const [downloadingIdx, setDownloadingIdx] = useState(null);
+
+  const getCacheKey = (idx) => `render_cache_${videoId}_${idx}`;
+
+  const handleDownload = async (idx, clipUrl) => {
+    setDownloadingIdx(idx);
+    const inputProps = buildInputProps(clipUrl);
+    const durationInFrames = getFrames(idx);
+    const fps = clipMetas[idx]?.fps ?? 30;
+    
+    // Check if we already rendered this exact configuration
+    const configHash = JSON.stringify({ inputProps, durationInFrames, fps });
+    
+    // 1. Check persistent localStorage (survives page reloads)
+    try {
+      const stored = localStorage.getItem(getCacheKey(idx));
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.hash === configHash) {
+          addRenderTask(parsed.renderId, parsed.bucketName, { filename: `clip-${videoId}-${idx}.mp4` });
+          setDownloadingIdx(null);
+          return;
+        }
+      }
+    } catch(e) {}
+
+    // 2. Check memory fallback (just in case localStorage is disabled)
+    if (cachedRenders[idx] && cachedRenders[idx].hash === configHash) {
+      const { renderId, bucketName } = cachedRenders[idx];
+      addRenderTask(renderId, bucketName, { filename: `clip-${videoId}-${idx}.mp4` });
+      setDownloadingIdx(null);
+      return;
+    }
+
+    setPostError(null);
+    try {
+      const r = await fetch("/api/export/post", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...inputProps, videoId, durationInFrames, fps, downloadOnly: true }) });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || "Failed");
+      const { renderId, bucketName } = d;
+      
+      const newCache = { hash: configHash, renderId, bucketName };
+      setCachedRenders(prev => ({ ...prev, [idx]: newCache }));
+      try { localStorage.setItem(getCacheKey(idx), JSON.stringify(newCache)); } catch(e){}
+      
+      addRenderTask(renderId, bucketName, { filename: `clip-${videoId}-${idx}.mp4` });
+    } catch (e) { 
+      setPostError(e.message); 
+    } finally {
+      setDownloadingIdx(null);
     }
   };
 
-  if (!isLoaded) {
-    return (
-      <div className="flex justify-center items-center h-64 text-[#a1a1aa] font-mono text-xs animate-pulse">
-        Initializing player context...
-      </div>
-    );
+  if (!isLoaded || clipsLoading) {
+    return <div className="flex justify-center items-center h-64 text-[#a1a1aa] font-mono text-xs animate-pulse">{clipsLoading ? "Discovering clips from S3..." : "Initializing player..."}</div>;
+  }
+
+  if (!availableClips.length) {
+    return <div className="flex flex-col items-center justify-center h-64 gap-2 text-[#71717a] text-sm">No clips available yet — processing may still be underway.</div>;
   }
 
   return (
-    <div className="flex flex-col gap-6 w-full pt-4 animate-fadeIn">
-      {/* MULTI-CLIP SELECTOR */}
-      {recommendedShorts.length > 1 && (
-        <div className="flex gap-4 overflow-x-auto pb-4 max-w-full">
-          {recommendedShorts.map((clip, idx) => (
-            <button
-              key={idx}
-              onClick={() => setActiveClipIndex(idx)}
-              className={`flex-shrink-0 flex flex-col p-4 rounded-xl border text-left transition-all ${
-                activeClipIndex === idx 
-                  ? 'bg-[rgba(99,102,241,0.1)] border-[#6366f1]' 
-                  : 'bg-[#18181b] border-[#27272a] hover:border-[#3f3f46]'
-              }`}
-              style={{ width: 280 }}
-            >
-              <div className="flex justify-between items-start mb-2">
-                <span className="text-xs font-bold text-[#a1a1aa]">Clip {idx + 1}</span>
-                {clip.virality_score != null && (
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${clip.virality_score >= 85 ? 'text-[#4ade80] bg-[rgba(74,222,128,0.1)]' : clip.virality_score >= 70 ? 'text-[#fbbf24] bg-[rgba(251,191,36,0.1)]' : 'text-[#a1a1aa] bg-[#27272a]'}`}>
-                    Score: {clip.virality_score}
+    <div className="flex flex-col gap-10 w-full pt-4 animate-fadeIn">
+      {availableClips.map((clip, idx) => {
+        const aiMeta = recommendedShorts[idx] || null;
+        const clipUrl = clip.url;
+        const fps = clipMetas[idx]?.fps ?? 30;
+        const durationInFrames = getFrames(idx);
+        const inputProps = buildInputProps(clipUrl);
+        const score = aiMeta?.virality_score;
+        const isClipRendering = tasks && Object.values(tasks).some(t => t.status === "rendering" && t.metadata?.filename === `clip-${videoId}-${idx}.mp4`);
+        return (
+          <div key={idx} style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 40px rgba(0,0,0,0.5)" }}>
+            {/* ── Hook + Meta Header ── */}
+            <div style={{ padding: "20px 24px", borderBottom: "1px solid #27272a", background: "linear-gradient(135deg,rgba(99,102,241,0.07),rgba(124,58,237,0.03))" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#a78bfa", background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.25)", padding: "2px 10px", borderRadius: 99, letterSpacing: "0.06em", textTransform: "uppercase" }}>Clip {idx + 1}</span>
+                {score != null && (
+                  <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 10px", borderRadius: 99, ...(score >= 85 ? { color: "#4ade80", background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.25)" } : score >= 70 ? { color: "#fbbf24", background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)" } : { color: "#a1a1aa", background: "#27272a", border: "1px solid #3f3f46" }) }}>
+                    🔥 Virality: {score}
                   </span>
                 )}
               </div>
-              <h4 className="text-sm font-semibold text-[#fafafa] mb-1 line-clamp-2 leading-tight">
-                {clip.title_or_hook || `Generated Clip ${idx + 1}`}
-              </h4>
-              <p className="text-xs text-[#a1a1aa] line-clamp-2 mt-auto">
-                {clip.duration_seconds}s • {clip.rationale}
-              </p>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* PLAYER CONTAINER */}
-      <div style={{
-        height: "calc(60vh)", minHeight: 400, aspectRatio: "9 / 16", margin: "0 auto", borderRadius: 12, overflow: "hidden",
-        boxShadow: `0 0 0 1px #27272a, 0 24px 64px rgba(0,0,0,0.8)`,
-        position: "relative", background: "#000"
-      }}>
-        <Player
-          component={VideoComposition}
-          inputProps={inputProps}
-          durationInFrames={durationInFrames || 300}
-          fps={fps || 30}
-          compositionHeight={1920}
-          compositionWidth={1080}
-          style={{ width: "100%", height: "100%" }}
-          controls
-          acknowledgeRemotionLicense
-        />
-      </div>
-
-      {/* ACTIONS CONTAINER */}
-      <div className="max-w-md mx-auto w-full flex flex-col gap-3">
-        <button
-          onClick={() => { setPostError(null); setShowPlatformModal(true); }}
-          disabled={!!postStage}
-          style={{
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-            width: "100%", padding: "14px 16px", borderRadius: 10, border: "none",
-            background: postStage
-              ? "rgba(99,102,241,0.25)"
-              : `linear-gradient(135deg, #7c3aed, ${INDIGO})`,
-            color: "#ffffff", fontSize: 14, fontWeight: 700,
-            fontFamily: "'Inter', sans-serif",
-            cursor: postStage ? "not-allowed" : "pointer",
-            transition: "all 0.2s ease",
-            boxShadow: postStage ? "none" : "0 4px 24px rgba(124,58,237,0.4)",
-            letterSpacing: "-0.01em",
-          }}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
-          Post Video Now
-        </button>
-
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={async () => {
-              setPostError(null);
-              setDownloadStage('rendering');
-              setDownloadProgress(0);
-
-              try {
-                // Start render job
-                const response = await fetch("/api/export/post", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    ...inputProps,
-                    videoId,
-                    durationInFrames,
-                    fps,
-                    downloadOnly: true,
-                  }),
-                });
-                
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || "Failed to start download render");
-                
-                const { renderId, bucketName } = data;
-                
-                // Poll for progress
-                const pollInterval = setInterval(async () => {
-                  try {
-                    const progRes = await fetch(`/api/export/progress?renderId=${renderId}&bucketName=${bucketName}`);
-                    const progData = await progRes.json();
-                    
-                    if (progData.done) {
-                      clearInterval(pollInterval);
-                      setDownloadProgress(100);
-                      setDownloadStage('done');
-                      
-                      // Trigger download via fetch to catch HTTP errors (like 403 Forbidden)
-                      try {
-                        const dlRes = await fetch(progData.outUrl);
-                        if (!dlRes.ok) {
-                          throw new Error(`Failed to download: ${dlRes.status} ${dlRes.statusText}`);
-                        }
-                        const blob = await dlRes.blob();
-                        const url = window.URL.createObjectURL(blob);
-                        const a = document.createElement("a");
-                        a.href = url;
-                        a.download = `clip-${videoId}.mp4`;
-                        document.body.appendChild(a);
-                        a.click();
-                        a.remove();
-                        window.URL.revokeObjectURL(url);
-                      } catch (dlError) {
-                        console.error("Blob download failed, falling back to new tab", dlError);
-                        window.open(progData.outUrl, "_blank");
-                      }
-                      
-                      setTimeout(() => setDownloadStage(null), 2000);
-                    } else if (progData.fatalErrorEncountered) {
-                      clearInterval(pollInterval);
-                      throw new Error("Rendering failed on server.");
-                    } else {
-                      setDownloadProgress(Math.round(progData.overallProgress * 100));
-                    }
-                  } catch (e) {
-                    clearInterval(pollInterval);
-                    setDownloadStage(null);
-                    setPostError("Failed to fetch render progress: " + e.message);
-                  }
-                }, 2000);
-
-              } catch (e) {
-                console.error("Failed to render download", e);
-                setDownloadStage(null);
-                setPostError(e.message);
-              }
-            }}
-            disabled={!!postStage || !!downloadStage}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              padding: "12px", borderRadius: 10, border: "1px solid #3f3f46",
-              background: "#18181b", color: "#fafafa", fontSize: 14, fontWeight: 600,
-              cursor: postStage || downloadStage ? "not-allowed" : "pointer", transition: "all 0.2s ease",
-              opacity: postStage || downloadStage ? 0.5 : 1
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Download
-          </button>
-          
-          <button
-            onClick={() => router.push(`/editor/${videoId}?index=${activeClipIndex}`)}
-            disabled={!!postStage || !!downloadStage}
-            style={{
-              display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              padding: "12px", borderRadius: 10, border: "1px solid #3f3f46",
-              background: "#18181b", color: "#fafafa", fontSize: 14, fontWeight: 600,
-              cursor: postStage || downloadStage ? "not-allowed" : "pointer", transition: "all 0.2s ease",
-              opacity: postStage || downloadStage ? 0.5 : 1
-            }}
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20h9" />
-              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-            </svg>
-            Edit Clip
-          </button>
-        </div>
-
-        {postError && (
-          <p style={{
-            fontSize: 11, color: "#f87171",
-            textAlign: "center", margin: "8px 0 0",
-            background: "rgba(239,68,68,0.08)",
-            padding: "8px", borderRadius: 6,
-          }}>
-            ✕ {postError}
-          </p>
-        )}
-      </div>
-
-      {/* PLATFORM PICKER MODAL */}
-      {showPlatformModal && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 2000,
-          background: "rgba(0,0,0,0.75)",
-          backdropFilter: "blur(8px)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          animation: "fadeIn 0.2s ease",
-        }}>
-          <div style={{
-            background: "#18181b",
-            border: "1px solid #3f3f46",
-            borderRadius: 20,
-            padding: "32px 28px",
-            width: 460,
-            maxWidth: "calc(100vw - 32px)",
-            boxShadow: "0 32px 80px rgba(0,0,0,0.6)",
-            animation: "slideUp 0.3s cubic-bezier(0.16,1,0.3,1)",
-          }}>
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#fafafa", letterSpacing: "-0.03em" }}>
-                  Where to post?
-                </h2>
-                <p style={{ margin: "4px 0 0", fontSize: 13, color: "#71717a" }}>
-                  Choose the platform to publish your video
-                </p>
-              </div>
-              <button
-                onClick={() => { setShowPlatformModal(false); setSelectedPlatforms([]); setScheduleDate(""); }}
-                style={{
-                  background: "#27272a", border: "1px solid #3f3f46",
-                  borderRadius: 8, width: 32, height: 32,
-                  color: "#a1a1aa", cursor: "pointer", fontSize: 18,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                ×
-              </button>
+              {aiMeta?.title_or_hook && (
+                <h3 style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 800, color: "#fbbf24", letterSpacing: "-0.02em", lineHeight: 1.3 }}>
+                  🎣 {aiMeta.title_or_hook}
+                </h3>
+              )}
+              {aiMeta?.clip_topic && (
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "#71717a" }}>Topic:</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#c4b5fd", background: "rgba(196,181,253,0.08)", padding: "3px 10px", borderRadius: 6, border: "1px solid rgba(196,181,253,0.2)" }}>{aiMeta.clip_topic}</span>
+                </div>
+              )}
+              {aiMeta?.rationale && <p style={{ margin: 0, fontSize: 12, color: "#71717a", lineHeight: 1.6 }}>{aiMeta.rationale}</p>}
             </div>
 
-            {/* Platform cards */}
+            {/* ── Player ── */}
+            <div style={{ display: "flex", justifyContent: "center", padding: "24px", background: "#09090b" }}>
+              <div style={{ height: "58vh", minHeight: 360, aspectRatio: "9/16", borderRadius: 10, overflow: "hidden", boxShadow: "0 0 0 1px #27272a, 0 24px 64px rgba(0,0,0,0.8)", background: "#000" }}>
+                <Player component={VideoComposition} inputProps={inputProps} durationInFrames={durationInFrames || 300} fps={fps} compositionHeight={1920} compositionWidth={1080} style={{ width: "100%", height: "100%" }} controls acknowledgeRemotionLicense />
+              </div>
+            </div>
+
+            {/* ── Actions ── */}
+            <div style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 10 }}>
+              <button onClick={() => handleOpenPost(idx, clipUrl)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "13px", borderRadius: 10, border: "none", background: `linear-gradient(135deg,#7c3aed,${INDIGO})`, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 24px rgba(124,58,237,0.4)", opacity: postStage ? 0.5 : 1 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Post Video Now
+              </button>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <button onClick={() => handleDownload(idx, clipUrl)} title={isClipRendering ? "Your video is in rendering you can see the progress from the right bottom task button" : undefined} disabled={!!postStage || downloadingIdx === idx || isClipRendering} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #3f3f46", background: "#18181b", color: "#fafafa", fontSize: 13, fontWeight: 600, cursor: isClipRendering ? "not-allowed" : "pointer", opacity: (postStage || downloadingIdx === idx || isClipRendering) ? 0.5 : 1 }}>
+                  {downloadingIdx === idx ? (
+                    <Loader2 className="animate-spin" size={14} />
+                  ) : (
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  )}
+                  {downloadingIdx === idx ? "Starting..." : isClipRendering ? "Rendering..." : "Download"}
+                </button>
+                <button onClick={() => router.push(`/editor/${videoId}?index=${idx}`)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #3f3f46", background: "#18181b", color: "#fafafa", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: postStage ? 0.5 : 1 }}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                  Edit Clip
+                </button>
+              </div>
+              {postError && <p style={{ fontSize: 11, color: "#f87171", textAlign: "center", background: "rgba(239,68,68,0.08)", padding: "8px", borderRadius: 6, margin: 0 }}>✕ {postError}</p>}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* ── Platform Modal ── */}
+      {showPlatformModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ background: "#18181b", border: "1px solid #3f3f46", borderRadius: 20, padding: "32px 28px", width: 460, maxWidth: "calc(100vw - 32px)", boxShadow: "0 32px 80px rgba(0,0,0,0.6)" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+              <div><h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#fafafa", letterSpacing: "-0.03em" }}>Where to post?</h2><p style={{ margin: "4px 0 0", fontSize: 13, color: "#71717a" }}>Choose the platform</p></div>
+              <button onClick={() => { setShowPlatformModal(false); setSelectedPlatforms([]); setScheduleDate(""); }} style={{ background: "#27272a", border: "1px solid #3f3f46", borderRadius: 8, width: 32, height: 32, color: "#a1a1aa", cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+            </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
-              {PLATFORMS.map(platform => {
-                const isSelected = selectedPlatforms.some(p => p.id === platform.id);
+              {PLATFORMS.map((platform) => {
+                const isSel = selectedPlatforms.some((p) => p.id === platform.id);
                 return (
-                  <button
-                    key={platform.id}
-                    onClick={() => togglePlatform(platform)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 16,
-                      padding: "14px 16px", borderRadius: 12, cursor: "pointer",
-                      background: isSelected ? platform.bg : "#09090b",
-                      border: `1.5px solid ${isSelected ? platform.border : "#27272a"}`,
-                      color: isSelected ? platform.color : "#a1a1aa",
-                      textAlign: "left", transition: "all 0.15s ease",
-                      boxShadow: isSelected ? `0 0 0 1px ${platform.border}, 0 4px 16px ${platform.glow}` : "none",
-                    }}
-                  >
-                    <div style={{
-                      width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-                      background: isSelected ? `${platform.color}18` : "#18181b",
-                      border: `1px solid ${isSelected ? platform.border : "#27272a"}`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      color: isSelected ? platform.color : "#52525b",
-                      transition: "all 0.15s ease",
-                    }}>
-                      {platform.icon}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: isSelected ? "#fafafa" : "#d4d4d8" }}>
-                        {platform.name}
-                      </div>
-                      <div style={{ fontSize: 12, color: isSelected ? "#a1a1aa" : "#52525b", marginTop: 2 }}>
-                        {platform.description}
-                      </div>
-                    </div>
-                    <div style={{
-                      width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-                      border: `2px solid ${isSelected ? platform.color : "#3f3f46"}`,
-                      background: isSelected ? platform.color : "transparent",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      transition: "all 0.15s ease",
-                    }}>
-                      {isSelected && (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      )}
+                  <button key={platform.id} onClick={() => togglePlatform(platform)} style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 16px", borderRadius: 12, cursor: "pointer", background: isSel ? platform.bg : "#09090b", border: `1.5px solid ${isSel ? platform.border : "#27272a"}`, color: isSel ? platform.color : "#a1a1aa", textAlign: "left", transition: "all 0.15s ease" }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: isSel ? `${platform.color}18` : "#18181b", border: `1px solid ${isSel ? platform.border : "#27272a"}`, display: "flex", alignItems: "center", justifyContent: "center", color: isSel ? platform.color : "#52525b" }}>{platform.icon}</div>
+                    <div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 700, color: isSel ? "#fafafa" : "#d4d4d8" }}>{platform.name}</div><div style={{ fontSize: 12, color: isSel ? "#a1a1aa" : "#52525b", marginTop: 2 }}>{platform.description}</div></div>
+                    <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${isSel ? platform.color : "#3f3f46"}`, background: isSel ? platform.color : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {isSel && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
                     </div>
                   </button>
                 );
               })}
             </div>
-
-            {/* Scheduler */}
-            <div style={{ marginBottom: 24 }}>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#d4d4d8", marginBottom: 8 }}>
-                Schedule Post (Optional)
-              </label>
-              <input
-                type="datetime-local"
-                value={scheduleDate}
-                onChange={(e) => setScheduleDate(e.target.value)}
-                style={{
-                  width: "100%", padding: "12px 16px", borderRadius: 10,
-                  background: "#09090b", border: "1px solid #3f3f46",
-                  color: "#fafafa", fontSize: 14, fontFamily: "'Inter', sans-serif",
-                  outline: "none", colorScheme: "dark"
-                }}
-              />
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#d4d4d8", marginBottom: 8 }}>Schedule (Optional)</label>
+              <input type="datetime-local" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} style={{ width: "100%", padding: "12px 16px", borderRadius: 10, background: "#09090b", border: "1px solid #3f3f46", color: "#fafafa", fontSize: 14, outline: "none", colorScheme: "dark" }} />
             </div>
-
-            {/* Confirm button */}
-            <button
-              onClick={handleConfirmPost}
-              disabled={selectedPlatforms.length === 0}
-              style={{
-                width: "100%", padding: "13px", borderRadius: 12, border: "none",
-                background: selectedPlatforms.length > 0
-                  ? (selectedPlatforms.length === 1 ? `linear-gradient(135deg, ${selectedPlatforms[0].color}, ${selectedPlatforms[0].color}bb)` : `linear-gradient(135deg, #7c3aed, ${INDIGO})`)
-                  : "#27272a",
-                color: selectedPlatforms.length > 0 ? "#fff" : "#52525b",
-                fontSize: 14, fontWeight: 700, cursor: selectedPlatforms.length > 0 ? "pointer" : "not-allowed",
-                transition: "all 0.2s ease",
-                boxShadow: selectedPlatforms.length > 0 ? (selectedPlatforms.length === 1 ? `0 4px 20px ${selectedPlatforms[0].glow}` : `0 4px 20px rgba(124,58,237,0.4)`) : "none",
-                display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-              }}
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="22" y1="2" x2="11" y2="13" />
-                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-              </svg>
+            <button onClick={handleConfirmPost} disabled={selectedPlatforms.length === 0} style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: selectedPlatforms.length > 0 ? `linear-gradient(135deg,#7c3aed,${INDIGO})` : "#27272a", color: selectedPlatforms.length > 0 ? "#fff" : "#52525b", fontSize: 14, fontWeight: 700, cursor: selectedPlatforms.length > 0 ? "pointer" : "not-allowed" }}>
               {selectedPlatforms.length > 0 ? (scheduleDate ? `Schedule for ${selectedPlatforms.length} platform(s)` : `Post to ${selectedPlatforms.length} platform(s)`) : "Select a platform"}
             </button>
           </div>
         </div>
       )}
 
-      {/* UPLOAD SIMULATION OVERLAY */}
+      {/* ── Post Progress Overlay ── */}
       {postStage && selectedPlatforms.length > 0 && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 3000,
-          background: "rgba(0,0,0,0.88)",
-          backdropFilter: "blur(12px)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          flexDirection: "column", gap: 28,
-          animation: "fadeIn 0.2s ease",
-        }}>
-          {/* Platform badge(s) */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ display: "flex", gap: -8 }}>
-              {selectedPlatforms.map((plat, idx) => (
-                <div key={plat.id} style={{
-                  width: 52, height: 52, borderRadius: 14,
-                  background: `${plat.color}18`,
-                  border: `1.5px solid ${plat.border}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  color: plat.color,
-                  boxShadow: `0 0 24px ${plat.glow}`,
-                  marginLeft: idx > 0 ? -16 : 0,
-                  zIndex: 10 - idx
-                }}>
-                  {plat.icon}
-                </div>
-              ))}
-            </div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: selectedPlatforms.length === 1 ? selectedPlatforms[0].color : "#a5b4fc", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                {selectedPlatforms.map(p => p.name).join(", ")}
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#fafafa", letterSpacing: "-0.03em" }}>
-                {postStage === 'uploading' && 'Uploading video...'}
-                {postStage === 'processing' && 'Processing & encoding...'}
-                {postStage === 'done' && (scheduleDate ? 'Scheduled! 🎉' : 'Posted! 🎉')}
-              </div>
-            </div>
-          </div>
-
-          {/* Progress bar */}
+        <div style={{ position: "fixed", inset: 0, zIndex: 3000, background: "rgba(0,0,0,0.88)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28 }}>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "#fafafa" }}>{postStage === "uploading" && "Uploading video..."}{postStage === "processing" && "Processing & encoding..."}{postStage === "done" && (scheduleDate ? "Scheduled! 🎉" : "Posted! 🎉")}</div>
           <div style={{ width: 360, maxWidth: "80vw" }}>
-            <div style={{
-              width: "100%", height: 6, borderRadius: 99,
-              background: "#27272a", overflow: "hidden",
-            }}>
-              <div style={{
-                width: `${postProgress}%`, height: "100%",
-                background: postStage === 'done'
-                  ? "#4ade80"
-                  : (selectedPlatforms.length === 1 ? `linear-gradient(90deg, ${selectedPlatforms[0].color}, ${selectedPlatforms[0].color}99)` : `linear-gradient(90deg, #7c3aed, ${INDIGO})`),
-                borderRadius: 99,
-                transition: "width 0.18s ease-out",
-                boxShadow: postStage === 'done' ? "0 0 12px rgba(74,222,128,0.6)" : (selectedPlatforms.length === 1 ? `0 0 12px ${selectedPlatforms[0].glow}` : `0 0 12px rgba(124,58,237,0.4)`),
-              }} />
+            <div style={{ width: "100%", height: 6, borderRadius: 99, background: "#27272a", overflow: "hidden" }}>
+              <div style={{ width: `${postProgress}%`, height: "100%", background: postStage === "done" ? "#4ade80" : `linear-gradient(90deg,#7c3aed,${INDIGO})`, borderRadius: 99, transition: "width 0.18s ease-out" }} />
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
-              <span style={{ fontSize: 12, color: "#71717a" }}>
-                {postStage === 'uploading' && 'Uploading to servers...'}
-                {postStage === 'processing' && 'Queuing render job...'}
-                {postStage === 'done' && (scheduleDate ? 'Redirecting to calendar...' : 'Redirecting to dashboard...')}
-              </span>
-              <span style={{
-                fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums",
-                color: postStage === 'done' ? "#4ade80" : (selectedPlatforms.length === 1 ? selectedPlatforms[0].color : "#a5b4fc"),
-              }}>
-                {postProgress}%
-              </span>
-            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}><span style={{ fontSize: 12, fontWeight: 700, color: postStage === "done" ? "#4ade80" : "#a5b4fc" }}>{postProgress}%</span></div>
           </div>
-
-          {/* Animated dots */}
-          {postStage !== 'done' && (
-            <div style={{ display: "flex", gap: 6 }}>
-              {[0, 1, 2].map(i => (
-                <div key={i} style={{
-                  width: 6, height: 6, borderRadius: "50%",
-                  background: selectedPlatforms.length === 1 ? selectedPlatforms[0].color : "#a5b4fc",
-                  opacity: 0.6,
-                  animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
-                }} />
-              ))}
-            </div>
-          )}
-
-          <style>{`
-            @keyframes fadeIn  { from { opacity: 0; } to { opacity: 1; } }
-            @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-            @keyframes bounce  {
-              0%, 80%, 100% { transform: scale(0.8); opacity: 0.4; }
-              40%            { transform: scale(1.2); opacity: 1; }
-            }
-          `}</style>
         </div>
       )}
 
-      {/* DOWNLOAD RENDERING OVERLAY */}
-      {downloadStage && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 3000,
-          background: "rgba(0,0,0,0.88)",
-          backdropFilter: "blur(12px)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          flexDirection: "column", gap: 28,
-          animation: "fadeIn 0.2s ease",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{
-              width: 52, height: 52, borderRadius: 14,
-              background: `#10b98118`,
-              border: `1.5px solid #10b981`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: "#10b981",
-              boxShadow: `0 0 24px rgba(16, 185, 129, 0.4)`,
-            }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="7 10 12 15 17 10" />
-                <line x1="12" y1="15" x2="12" y2="3" />
-              </svg>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "#10b981", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                High-Quality Render
-              </div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#fafafa", letterSpacing: "-0.03em" }}>
-                {downloadStage === 'rendering' ? 'Rendering Video...' : 'Download Ready! 🎉'}
-              </div>
-            </div>
-          </div>
 
-          <div style={{ width: 360, maxWidth: "80vw" }}>
-            <div style={{
-              width: "100%", height: 6, borderRadius: 99,
-              background: "#27272a", overflow: "hidden",
-            }}>
-              <div style={{
-                width: `${downloadProgress}%`, height: "100%",
-                background: "#10b981",
-                borderRadius: 99,
-                transition: "width 0.18s ease-out",
-                boxShadow: "0 0 12px rgba(16, 185, 129, 0.6)",
-              }} />
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
-              <span style={{ fontSize: 12, color: "#71717a" }}>
-                {downloadStage === 'rendering' ? 'Baking subtitles and effects...' : 'Starting download...'}
-              </span>
-              <span style={{ fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "#10b981" }}>
-                {downloadProgress}%
-              </span>
-            </div>
-          </div>
-
-          {downloadStage === 'rendering' && (
-            <div style={{ display: "flex", gap: 6 }}>
-              {[0, 1, 2].map(i => (
-                <div key={i} style={{
-                  width: 6, height: 6, borderRadius: "50%",
-                  background: "#10b981",
-                  opacity: 0.6,
-                  animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite`,
-                }} />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
+      `}</style>
     </div>
   );
 }

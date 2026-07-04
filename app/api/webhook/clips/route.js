@@ -106,10 +106,36 @@ export async function POST(request) {
       .from('video_processing_req')
       .update({ status: 'completed' })
       .eq('id', reqId) // Target the specific record
-      .select('video_id')
+      .select('video_id, ai_analysis')
       .single();
 
     const listenerId = data?.video_id || reqId;
+
+    if (status === 'COMPLETED' && listenerId) {
+      // Get user_id
+      const { data: videoData } = await supabase
+        .from('videos')
+        .select('user_id')
+        .eq('video_id', listenerId)
+        .single();
+        
+      if (videoData?.user_id && process.env.AWS_BUCKET_URL) {
+        let analysis = body.ai_analysis || data?.ai_analysis;
+        if (typeof analysis === 'string') {
+          try { analysis = JSON.parse(analysis); } catch(e){}
+        }
+        
+        const numClips = analysis?.recommended_shorts?.length || 1;
+        const rows = Array.from({ length: numClips }).map((_, i) => ({
+          user_id: videoData.user_id,
+          video_id: listenerId,
+          clip_index: i,
+          clip_url: `${process.env.AWS_BUCKET_URL}/processed_videos/output-${listenerId}-${i}.mp4`
+        }));
+        
+        await supabase.from('generated_clips').insert(rows).select();
+      }
+    }
 
     await supabase
       .from("video_processing_logs")

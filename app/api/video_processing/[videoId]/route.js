@@ -124,7 +124,7 @@ export async function POST(request, context) {
 		if (fetchError) {
 			throw new Error(`DB fetch failed: ${fetchError.message}`);
 		}
-		
+
 		const videoData = videoDataArray && videoDataArray.length > 0 ? videoDataArray[0] : null;
 
 		// ── 2. Early-exit if already completed ────────────────────────────────
@@ -187,7 +187,7 @@ export async function POST(request, context) {
 
 		// ── 5. Deduct Credits ──────────────────────────────────────────────────
 		const newBalance = userCredits.balance - creditsCost;
-		
+
 		const { error: updateError } = await supabase
 			.from("user_credits")
 			.update({ balance: newBalance })
@@ -216,8 +216,8 @@ export async function POST(request, context) {
 			(!regenerate && videoData?.ai_analysis && videoData.ai_analysis !== "")
 				? videoData.ai_analysis
 				: await SummarizeUsingAI(
-						`${AWS_BUCKET_URL}/raw_videos/${videoId}.mp4`
-				  );
+					`${AWS_BUCKET_URL}/raw_videos/${videoId}.mp4`
+				);
 
 		const raw_data = safeParseJSON(ai_response_raw);
 
@@ -265,8 +265,7 @@ export async function POST(request, context) {
 
 		if (upsertError || !videoReqData) {
 			throw new Error(
-				`Failed to upsert video_processing_req: ${
-					upsertError?.message ?? "no data returned"
+				`Failed to upsert video_processing_req: ${upsertError?.message ?? "no data returned"
 				}`
 			);
 		}
@@ -360,16 +359,32 @@ const summaryJsonSchema = {
 					duration_seconds: { type: "integer" },
 					title_or_hook: {
 						type: "string",
-						description: "Catchy, viral hook headline.",
+						description: "Catchy, viral hook headline that immediately grabs attention.",
+					},
+					clip_topic: {
+						type: "string",
+						description: "A single, crystal-clear topic that the entire clip revolves around. Must be directly related to the hook. Example: 'Why sleep deprivation destroys memory' or 'The hidden cost of free shipping'. ONE topic only — no compound subjects.",
 					},
 					rationale: {
 						type: "string",
-						description:
-							"Detailed explanation of why this specific segment makes the best standalone short-form clip.",
+						description: "Explanation of why this segment makes the best standalone short-form clip.",
 					},
 					virality_score: {
 						type: "integer",
 						description: "A score from 0 to 100 representing the viral potential of this clip.",
+					},
+					face_detection_intervals: {
+						type: "array",
+						description: "Intervals specifying when face detection should be active within this clip.",
+						items: {
+							type: "object",
+							properties: {
+								start_sec: { type: "integer", description: "Start second of this interval (relative to the clip's start)." },
+								end_sec: { type: "integer", description: "End second of this interval (relative to the clip's start)." },
+								detect_face: { type: "boolean", description: "True if a human face is the main subject and should be tracked; False otherwise." }
+							},
+							required: ["start_sec", "end_sec", "detect_face"]
+						}
 					},
 				},
 				required: [
@@ -378,8 +393,10 @@ const summaryJsonSchema = {
 					"end_time",
 					"duration_seconds",
 					"title_or_hook",
+					"clip_topic",
 					"rationale",
 					"virality_score",
+					"face_detection_intervals",
 				],
 			},
 		},
@@ -418,9 +435,11 @@ SELECTION CRITERIA (Highest Priority First)
 Each chosen clip should satisfy as many of these criteria as possible:
 
 1. Opens with a compelling hook within the first 3 seconds.
-   The hook should immediately create curiosity, surprise, emotion, controversy, urgency, or a strong promise.
+   The hook must immediately create curiosity, surprise, emotion, controversy, urgency, or a strong promise.
+   CRITICAL: Each clip must cover EXACTLY ONE clear topic that is directly related to its hook.
+   Do NOT select clips that jump between multiple subjects. The hook promises one thing — the clip must deliver exactly that one thing.
 
-2. Contains a complete narrative.
+2. Contains a complete narrative around that single topic.
 
 3. Requires little or no external context.
 
@@ -472,6 +491,7 @@ Requirements:
 • title_or_hook should be a concise, attention-grabbing headline suitable for TikTok, YouTube Shorts, or Instagram Reels.
 • rationale should explain why this segment was selected, referencing factors such as hook strength, audience retention, narrative completeness, emotional impact, educational value, surprise, shareability, or viral potential.
 • virality_score MUST be an integer from 0 to 100 assessing the probability that this clip will go viral based on the current algorithm trends.
+• face_detection_intervals MUST be an array that covers the entire duration of the clip. Each item should specify the start_sec, end_sec, and a boolean detect_face indicating if a face is prominently present and should be tracked (true) or if the segment is b-roll/screen-recording without a main speaker (false).
 
 Return ONLY the structured response defined by the provided schema.
 

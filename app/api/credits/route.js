@@ -17,6 +17,44 @@ const PLAN_CREDITS = {
   business: 150,
 };
 
+/**
+ * Attempt to fetch Clerk user metadata with a timeout.
+ * Returns null on any network/API failure so callers can fall back gracefully.
+ */
+async function getClerkUserMetadata(userId) {
+  const TIMEOUT_MS = 5000;
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+    const client = await clerkClient();
+    const userPromise = client.users.getUser(userId);
+
+    // Race the Clerk request against a timeout
+    const user = await Promise.race([
+      userPromise,
+      new Promise((_, reject) =>
+        setTimeout(
+          () => reject(new Error("Clerk API timeout")),
+          TIMEOUT_MS
+        )
+      ),
+    ]);
+
+    clearTimeout(timeoutId);
+    return {
+      plan: user?.publicMetadata?.plan || null,
+      interval: user?.publicMetadata?.interval || null,
+    };
+  } catch (err) {
+    console.warn(
+      "Clerk API unavailable, falling back to Supabase plan data:",
+      err?.message || err
+    );
+    return null;
+  }
+}
+
 export async function GET() {
   try {
     const { userId } = await auth();
@@ -28,23 +66,37 @@ export async function GET() {
       );
     }
 
-    // Fetch fresh data from Clerk (bypasses cache)
-    const client = await clerkClient();
-    const user = await client.users.getUser(userId);
-
-    const currentPlan = user?.publicMetadata?.plan || "free";
-    const interval = user?.publicMetadata?.interval || "month";
-
-    // Monthly credit grant for this plan (yearly = same credits, just billed annually)
-    const planCredits = PLAN_CREDITS[currentPlan] ?? 1;
-    const planKey = `${currentPlan}:${interval}`; // e.g. "pro:month" or "expert:year"
-
-    // Fetch existing user record
+    // Fetch existing user record from Supabase (always needed)
     const { data: existingUser } = await supabase
       .from("user_credits")
       .select("balance, plan, plan_credits")
       .eq("user_id", userId)
       .single();
+
+    // Try Clerk first; fall back to Supabase's stored plan if Clerk is down
+    const clerkMeta = await getClerkUserMetadata(userId);
+
+    let currentPlan;
+    let interval;
+
+    if (clerkMeta?.plan) {
+      // Clerk returned fresh data
+      currentPlan = clerkMeta.plan;
+      interval = clerkMeta.interval || "month";
+    } else if (existingUser?.plan) {
+      // Clerk unavailable — parse plan from Supabase (format: "pro:month")
+      const [storedPlan, storedInterval] = existingUser.plan.split(":");
+      currentPlan = storedPlan || "free";
+      interval = storedInterval || "month";
+    } else {
+      // Brand new user and Clerk is down — use safe defaults
+      currentPlan = "free";
+      interval = "month";
+    }
+
+    // Monthly credit grant for this plan
+    const planCredits = PLAN_CREDITS[currentPlan] ?? 1;
+    const planKey = `${currentPlan}:${interval}`; // e.g. "pro:month"
 
     let finalBalance = 0;
 
@@ -70,14 +122,8 @@ export async function GET() {
     } else {
       const planChanged = existingUser.plan !== planKey;
 
-      if (planChanged) {
-        // ── Plan changed: reset balance to new plan's credits ────────
-        // Calculate how many credits were already used in old plan
-        const oldPlanCredits = existingUser.plan_credits ?? 0;
-        const creditsUsed = Math.max(0, oldPlanCredits - existingUser.balance);
-
-        // New balance = new plan credits minus already-used credits (fair carry-over)
-        // Or simply reset fully — your product decision. Here we reset fully:
+      if (planChanged && clerkMeta) {
+        // ── Plan changed (only update if Clerk confirmed the new plan) ────
         finalBalance = planCredits;
 
         await supabase
@@ -97,7 +143,7 @@ export async function GET() {
           description: `Switched to ${planLabel} Plan (${interval})`,
         });
       } else {
-        // ── Same plan: return current balance as-is ──────────────────
+        // ── Same plan (or Clerk down — return stored balance) ────────────
         finalBalance = existingUser.balance;
       }
     }
@@ -105,7 +151,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       balance: finalBalance,
-      planCredits: planCredits, // monthly allowance for this plan
+      planCredits: planCredits,
       currentPlan: currentPlan,
       interval: interval,
     });
