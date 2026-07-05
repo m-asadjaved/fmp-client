@@ -16,6 +16,7 @@ export const VideoComposition = ({
   fontFamily = "Inter, sans-serif",
   activeWordColor = "#a3e635",
   verticalPosition = 85, // percentage from top (85 is near bottom)
+  splitTemplate = null,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -147,11 +148,26 @@ export const VideoComposition = ({
           <Audio src={bgMusicSrc} volume={bgMusicVolume / 100} />
         )}
 
-        {videoUrl && (
-          <Video 
-            src={videoUrl} 
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-          />
+        {splitTemplate ? (
+          <>
+            <Video 
+              src={videoUrl} 
+              style={{ width: '100%', height: '50%', objectFit: 'cover', position: 'absolute', top: 0 }} 
+            />
+            <Video 
+              src={splitTemplate.url} 
+              style={{ width: '100%', height: '50%', objectFit: 'cover', position: 'absolute', bottom: 0 }} 
+              muted
+              loop
+            />
+          </>
+        ) : (
+          videoUrl && (
+            <Video 
+              src={videoUrl} 
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+            />
+          )
         )}
       </Sequence>
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
+import { S3Client, CopyObjectCommand } from "@aws-sdk/client-s3";
 
 const AWS_LAMBDA_START_VIDEO_PROCESSING_TASK_URL =
 	process.env.AWS_LAMBDA_START_VIDEO_PROCESSING_TASK_URL;
@@ -56,7 +57,7 @@ export async function GET(request, context) {
 		// Fetch processing status
 		const { data: reqData } = await supabase
 			.from("video_processing_req")
-			.select("status")
+			.select("status, ai_analysis")
 			.eq("video_id", videoId)
 			.maybeSingle();
 
@@ -78,6 +79,7 @@ export async function GET(request, context) {
 
 		return NextResponse.json({
 			status: reqData?.status || "none",
+			ai_analysis: reqData?.ai_analysis || null,
 			duration: durationSeconds,
 			creditsCost,
 			creditsUsed: videoData.credits_used || 0
@@ -155,13 +157,14 @@ export async function POST(request, context) {
 		// ── 4. Calculate Credits Cost ───────────────────────────────────────────
 		const { data: videoRow, error: videoError } = await supabase
 			.from("videos")
-			.select("duration")
+			.select("duration, gemini_file_uri")
 			.eq("video_id", videoId)
 			.eq("user_id", userId)
 			.single();
 
 		if (videoError || !videoRow) {
-			return NextResponse.json({ error: "Video not found" }, { status: 404 });
+			console.error("Error fetching videoRow:", videoError?.message || "No row found");
+			return NextResponse.json({ error: videoError?.message || "Video not found" }, { status: 404 });
 		}
 
 		const durationSeconds = parseFloat(videoRow.duration);
@@ -253,28 +256,84 @@ export async function POST(request, context) {
 					"analyzing"
 				);
 
-				let ai_response_raw =
-					(!regenerate && videoData?.ai_analysis && videoData.ai_analysis !== "")
-						? videoData.ai_analysis
-						: await SummarizeUsingAI(
-							`${AWS_BUCKET_URL}/raw_videos/${videoId}.mp4`,
+				let final_raw_data = null;
+				let clipsToProcess = [];
+				let startIndexForNewClips = 0;
+
+				if (!regenerate && videoData?.ai_analysis && videoData.ai_analysis !== "") {
+					// Use existing clips
+					final_raw_data = safeParseJSON(videoData.ai_analysis);
+					if (Array.isArray(final_raw_data.recommended_shorts)) {
+						// Old clips shouldn't show the "NEW" badge forever
+						final_raw_data.recommended_shorts = final_raw_data.recommended_shorts.map(c => ({ ...c, is_new: false }));
+					}
+					clipsToProcess = final_raw_data.recommended_shorts || [];
+				} else {
+					let ai_response_raw;
+					try {
+						const videoUrlToProcess = videoRow.gemini_file_uri || `${AWS_BUCKET_URL}/raw_videos/${videoId}.mp4`;
+						ai_response_raw = await SummarizeUsingAI(
+							videoUrlToProcess,
 							preferences?.prioritize
 						);
+					} catch (aiErr) {
+						console.error("Gemini processing failed (possibly expired URI):", aiErr);
+						// "Touch" the S3 file to re-trigger the upload Lambda
+						const s3 = new S3Client({
+							region: process.env.AWS_REGION || "us-east-1",
+							credentials: {
+								accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+								secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+							},
+						});
+						await s3.send(new CopyObjectCommand({
+							Bucket: AWS_BUCKET_NAME,
+							CopySource: `${AWS_BUCKET_NAME}/raw_videos/${videoId}.mp4`,
+							Key: `raw_videos/${videoId}.mp4`,
+							MetadataDirective: "REPLACE"
+						}));
+						throw new Error("Video archive expired. Background re-upload started! Please try again in 1 minute.");
+					}
+					
+					const new_raw_data = safeParseJSON(ai_response_raw);
 
-				const raw_data = safeParseJSON(ai_response_raw);
+					if (
+						!Array.isArray(new_raw_data.recommended_shorts) ||
+						new_raw_data.recommended_shorts.length === 0
+					) {
+						throw new Error("AI returned no recommended clips.");
+					}
 
-				// Normalise to string for DB storage
-				const ai_analysis_str =
-					typeof ai_response_raw === "string"
-						? ai_response_raw
-						: JSON.stringify(ai_response_raw);
+					// Append logic if regenerating
+					if (regenerate && videoData?.ai_analysis && videoData.ai_analysis !== "") {
+						const existing_data = safeParseJSON(videoData.ai_analysis);
+						if (Array.isArray(existing_data.recommended_shorts)) {
+							startIndexForNewClips = existing_data.recommended_shorts.length;
+							const old_clips = existing_data.recommended_shorts.map(c => ({ ...c, is_new: false }));
+							const new_clips = new_raw_data.recommended_shorts.map(c => ({ ...c, is_new: true }));
 
-				if (
-					!Array.isArray(raw_data.recommended_shorts) ||
-					raw_data.recommended_shorts.length === 0
-				) {
-					throw new Error("AI returned no recommended clips.");
+							final_raw_data = {
+								...existing_data,
+								recommended_shorts: [...old_clips, ...new_clips]
+							};
+						} else {
+							final_raw_data = {
+								...new_raw_data,
+								recommended_shorts: new_raw_data.recommended_shorts.map(c => ({ ...c, is_new: true }))
+							};
+						}
+					} else {
+						final_raw_data = {
+							...new_raw_data,
+							recommended_shorts: new_raw_data.recommended_shorts.map(c => ({ ...c, is_new: true }))
+						};
+					}
+
+					// Process ONLY the newly generated clips (up to 5 to prevent runaway costs)
+					clipsToProcess = new_raw_data.recommended_shorts.slice(0, 5);
 				}
+
+				const ai_analysis_str = JSON.stringify(final_raw_data);
 
 				// Update the request with AI analysis
 				await supabase
@@ -295,12 +354,12 @@ export async function POST(request, context) {
 					"editing"
 				);
 
-				// Process up to 5 clips concurrently to prevent runaway costs
-				const clipsToProcess = raw_data.recommended_shorts.slice(0, 5);
+				const lambdaPromises = clipsToProcess.map(async (clip, idx) => {
+					// Calculate correct S3 index so we don't overwrite existing clips
+					const globalIndex = startIndexForNewClips + idx;
 
-				const lambdaPromises = clipsToProcess.map(async (clip, index) => {
 					if (!clip.start_time || !clip.duration_seconds) {
-						console.warn(`Clip ${index} is missing required fields, skipping.`);
+						console.warn(`Clip ${globalIndex} is missing required fields, skipping.`);
 						return null;
 					}
 
@@ -320,18 +379,22 @@ export async function POST(request, context) {
 								user_id: userId,
 								s3_bucket: AWS_BUCKET_NAME,
 								s3_input_key: `raw_videos/${videoId}.mp4`,
-								s3_output_key: `processed_videos/output-${videoId}-${index}.mp4`,
+								s3_output_key: `processed_videos/output-${videoId}-${globalIndex}.mp4`,
 								webhook_url: WEBHOOK_URL_VIDEO_STATUS,
 								clip_info,
 								full_subtitles: '',
-								preferences,
+								preferences: {
+									...preferences,
+									hook_text: clip.title_or_hook || preferences?.hook_text,
+									hook_enabled: clip.title_or_hook ? true : preferences?.hook_enabled,
+								},
 							}),
 						}
 					);
 
 					if (!lambdaResponse.ok) {
 						const body = await lambdaResponse.text().catch(() => "(unreadable)");
-						throw new Error(`Lambda ${index} responded with ${lambdaResponse.status}: ${body}`);
+						throw new Error(`Lambda ${globalIndex} responded with ${lambdaResponse.status}: ${body}`);
 					}
 
 					return true;
@@ -341,10 +404,10 @@ export async function POST(request, context) {
 
 			} catch (err) {
 				console.error("[Background Processing Error]", err);
-				
+
 				// Update DB to failed
 				await supabase.from("video_processing_req").update({ status: "failed" }).eq("id", videoReqData.id);
-				
+
 				// Broadcast error to webhook
 				try {
 					const protocol = request.headers.get("x-forwarded-proto") || "http";
@@ -352,10 +415,10 @@ export async function POST(request, context) {
 					await fetch(`${protocol}://${host}/api/webhook/clips`, {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ 
-							req_id: videoReqData.id, 
-							status: 'FAILED', 
-							error: err.message || "An error occurred during AI processing" 
+						body: JSON.stringify({
+							req_id: videoReqData.id,
+							status: 'FAILED',
+							error: err.message || "An error occurred during AI processing"
 						})
 					});
 				} catch (webhookErr) {
@@ -380,6 +443,16 @@ const ai = new GoogleGenAI({});
 const summaryJsonSchema = {
 	type: "object",
 	properties: {
+		global_video_analysis: {
+			type: "object",
+			description: "A mandatory analysis of the ENTIRE video to prove you watched the whole thing from start to finish.",
+			properties: {
+				first_third_summary: { type: "string", description: "Briefly summarize what happens in the first third of the video." },
+				middle_third_summary: { type: "string", description: "Briefly summarize what happens in the middle third of the video." },
+				final_third_summary: { type: "string", description: "Briefly summarize exactly what happens in the final few minutes/seconds of the video to prove you watched until the very end." }
+			},
+			required: ["first_third_summary", "middle_third_summary", "final_third_summary"]
+		},
 		recommended_shorts: {
 			type: "array",
 			description:
@@ -396,14 +469,19 @@ const summaryJsonSchema = {
 						type: "string",
 						description: "Timestamp format MM:SS",
 					},
-					duration_seconds: { type: "integer" },
+					duration_seconds: {
+						type: "integer",
+						minimum: 30,
+						maximum: 85,
+						description: "MUST BE STRICTLY BETWEEN 30 AND 85. NO EXCEPTIONS."
+					},
 					title_or_hook: {
 						type: "string",
 						description: "Catchy, viral hook headline that immediately grabs attention.",
 					},
 					clip_topic: {
 						type: "string",
-						description: "A single, crystal-clear topic that the entire clip revolves around. Must be directly related to the hook. Example: 'Why sleep deprivation destroys memory' or 'The hidden cost of free shipping'. ONE topic only — no compound subjects.",
+						description: "The main overarching topic of the clip. If multiple topics are introduced, summarize the entire thematic flow.",
 					},
 					rationale: {
 						type: "string",
@@ -415,13 +493,13 @@ const summaryJsonSchema = {
 					},
 					face_detection_intervals: {
 						type: "array",
-						description: "Intervals specifying when face detection should be active within this clip.",
+						description: "CRITICAL: Accurate, second-by-second intervals specifying when face detection should be active. Must cover the entire clip duration. NO SINGLE INTERVAL CAN EXCEED 5 SECONDS. You MUST break it down into many small chunks. IMPORTANT: Intervals MUST NOT overlap. The start_sec of the next interval must be exactly end_sec + 1 of the previous interval.",
 						items: {
 							type: "object",
 							properties: {
 								start_sec: { type: "integer", description: "Start second of this interval (relative to the clip's start)." },
 								end_sec: { type: "integer", description: "End second of this interval (relative to the clip's start)." },
-								detect_face: { type: "boolean", description: "True ONLY if exactly ONE person is clearly visible on the screen for the ENTIRE interval. Be extremely conservative. If there is any ambiguity, transition, or if a second person appears even for a fraction of a second, this MUST be false." }
+								detect_face: { type: "boolean", description: "TRUE ONLY if exactly ONE person is clearly and continuously visible on screen for every single frame of the ENTIRE interval. FALSE if there are multiple people, no people, transitions, B-roll, or ANY ambiguity, even for a split second." }
 							},
 							required: ["start_sec", "end_sec", "detect_face"]
 						}
@@ -441,7 +519,7 @@ const summaryJsonSchema = {
 			},
 		},
 	},
-	required: ["recommended_shorts"],
+	required: ["global_video_analysis", "recommended_shorts"],
 };
 
 export async function SummarizeUsingAI(videoUrl, prioritize = false) {
@@ -451,97 +529,55 @@ export async function SummarizeUsingAI(videoUrl, prioritize = false) {
 		}
 
 		const prompt = `
-		
-You are a world-class AI video editor, viral content strategist, and audience retention expert specializing in TikTok, YouTube Shorts, and Instagram Reels.
+[SYSTEM DIRECTIVE: STRICT ENFORCEMENT MODE]
+You are an elite AI Video Editor and Viral Content Strategist. Your primary directive is to extract hyper-viral, standalone short-form clips (TikTok, YouTube Shorts, Reels) from the provided video. 
 
-Your task is to analyze the complete video transcript and metadata, then identify 3 to 5 distinct clips (if the video is long enough) that have a very high probability of maximizing audience retention, watch time, engagement, and shareability. (If the video is short or lacks enough good segments, 1 or 2 clips is acceptable, but always aim for 3 to 5).
+FAILURE TO COMPLY WITH THE FOLLOWING STRICT RULES WILL RESULT IN TASK FAILURE.
 
-Each selected clip MUST work as a standalone short-form video without requiring additional context.
+--- CORE DIRECTIVES (NON-NEGOTIABLE) ---
+1. FULL VIDEO DISTRIBUTION (CRITICAL): You MUST watch and process the ENTIRE video from start to finish. To prove you didn't stop watching early, your selected clips MUST be distributed widely across the entire duration. Do NOT cluster all your clips in the first few minutes.
+2. INDEPENDENT TOPICS (CRITICAL): You MUST select 3 to 5 completely INDIVIDUAL and UNLINKED clips. 
+   - NEVER slice one continuous story or topic into multiple consecutive clips. 
+   - If a topic takes 60 seconds to explain, output ONE 60-second clip. Do NOT output two 30-second clips that play back-to-back.
+   - Clip 2 CANNOT start exactly where Clip 1 ended. Clips MUST be separated by significant time and context.
+3. TIME CONSTRAINTS: EVERY clip MUST be strictly between 30 and 85 seconds long. Clips shorter than 30 seconds or longer than 85 seconds are strictly forbidden. ZERO exceptions.
+4. TOPIC RESOLUTION & CONTINUITY: If a topic naturally flows into a related sub-topic, you MUST extend the clip (up to 85s max) to include it. Do not chop it into two separate clips. Keep the entire thought process together in a single clip.
+5. DYNAMIC FOCUS: The hook introduces the main subject. Keep the clip going until the thought completely resolves. Do not cut early.
 
-The duration for EACH clip MUST be under 85 seconds maximum.
-CRITICAL: Each clip must fully clear and resolve its topic from start to end within this 85-second window. With this extended duration, any topic should be able to be cleared easily. Do not leave the topic hanging or incomplete.
+--- SELECTION CRITERIA (STRICT ENFORCEMENT) ---
+A valid clip MUST:
+- Hook the viewer in the first 3 seconds (curiosity, controversy, emotion, urgency).
+- Be 100% understandable WITHOUT any external context.
+- End on a definitive payoff, revelation, punchline, or actionable conclusion.
 
---------------------------------------------------
-OBJECTIVE
---------------------------------------------------
+A valid clip MUST NOT contain:
+- Slow or boring introductions.
+- Greetings, housekeeping, or sponsor reads.
+- Dead air, rambling, or repeated information.
+- Abrupt endings with no payoff.
 
-Identify the strongest sections of the video based on storytelling quality, emotional impact, curiosity, entertainment value, educational value, or surprise.
+--- VISUAL ANALYSIS INSTRUCTIONS (CRITICAL) ---
+You are receiving the actual video file. You MUST visually inspect the video frames, do not just rely on audio or transcript context.
+1. WATCH THE CAMERA CUTS: You must actively look at the camera cuts, angles, and who is physically visible on screen.
+2. BE PAINFULLY ACCURATE: Your face tracking intervals are fed directly to an automatic AI camera cropping algorithm. If you set \`detect_face=TRUE\` when there are multiple people or B-roll, the camera will glitch and fail.
 
-Prioritize clips that naturally encourage viewers to keep watching until the end.
+--- OUTPUT & FORMATTING RULES ---
+1. SCHEMA COMPLIANCE: Your response MUST STRICTLY conform to the provided JSON schema. Do NOT add any extra fields. EVERY field is mandatory.
+2. TIMESTAMPS: \`start_time\` and \`end_time\` MUST use exactly "MM:SS" format and map precisely to the ORIGINAL video timestamps. 
+3. DURATION: \`duration_seconds\` MUST accurately reflect the difference between \`start_time\` and \`end_time\`.
+4. SECOND-BY-SECOND FACE DETECTION: \`face_detection_intervals\` MUST be visually accurate down to the EXACT SECOND.
+   - Break the clip down into small 1-3 second intervals if the camera angles change rapidly. Do NOT use lazy 30-second intervals.
+   - INTERVALS CANNOT OVERLAP: If interval 1 is 1 to 3, interval 2 MUST be 4 to 5. Do NOT do 1 to 3 and then 3 to 5.
+   - \`detect_face\` = TRUE: STRICTLY ONLY when exactly ONE person is clearly and continuously visible on screen for the ENTIRE interval.
+   - \`detect_face\` = FALSE: If there are multiple people, no people, camera transitions, screen shares, B-roll, or ANY ambiguity, you MUST set that specific interval to FALSE. Be aggressively conservative.
 
---------------------------------------------------
-SELECTION CRITERIA (Highest Priority First)
---------------------------------------------------
-
-Each chosen clip should satisfy as many of these criteria as possible:
-
-1. Opens with a compelling hook within the first 3 seconds.
-   The hook must immediately create curiosity, surprise, emotion, controversy, urgency, or a strong promise.
-   CRITICAL: Each clip must cover EXACTLY ONE clear topic that is directly related to its hook.
-   Do NOT select clips that jump between multiple subjects. The hook promises one thing — the clip must deliver exactly that one thing.
-
-2. Contains a complete narrative that clears the single topic from start to finish within the clip.
-
-3. Requires little or no external context.
-
-4. Maintains consistent engagement throughout.
-
-5. Contains no unnecessary filler, greetings, pauses, repetitions, or off-topic discussion.
-
-6. Ends on a satisfying payoff, revelation, punchline, or actionable insight.
-
-7. Is highly suitable for vertical short-form platforms.
-
-Avoid selecting clips that:
-
-- start slowly
-- require previous context
-- contain long introductions
-- include sponsor messages
-- include housekeeping
-- contain dead air
-- include repeated information
-- end abruptly without payoff
-
---------------------------------------------------
-TIMESTAMP NORMALIZATION
---------------------------------------------------
-
-Treat each selected clip as an independent video.
-
-Normalize timestamps so the first spoken word begins at:
-
-00:00:00.000
-
---------------------------------------------------
-OUTPUT REQUIREMENTS
---------------------------------------------------
-
-Your response MUST strictly conform to the provided response schema.
-
-Do NOT generate any fields that are not defined in the schema.
-
-Populate every required field.
-
-Requirements:
-
-• recommended_shorts MUST contain between 3 and 5 highly viral clips if the video is long enough. (If the video is short, 1 or 2 clips is acceptable, but always aim for 3 to 5).
-• Each selected clip duration MUST be under 85 seconds maximum and fully clear the topic.
-• start_time and end_time MUST use MM:SS format and refer to the timestamps in the ORIGINAL video.
-• duration_seconds MUST equal the actual clip length.
-• title_or_hook should be a concise, attention-grabbing headline suitable for TikTok, YouTube Shorts, or Instagram Reels.
-• rationale should explain why this segment was selected, referencing factors such as hook strength, audience retention, narrative completeness, emotional impact, educational value, surprise, shareability, or viral potential.
-• virality_score MUST be an integer from 0 to 100 assessing the probability that this clip will go viral based on the current algorithm trends.
-• face_detection_intervals MUST be an array that covers the entire duration of the clip. Each item should specify the start_sec, end_sec, and a boolean detect_face. IMPORTANT: You must be extremely precise and conservative with detect_face. It MUST be true ONLY if there is EXACTLY ONE person clearly visible on the screen for the ENTIRE interval. If there is any ambiguity, transition, or if a second person appears even for a fraction of a second, you MUST set detect_face to false for that time buffer. For example, if two people are visible from 0 to 4.5 seconds, and then exactly one person is visible from 4.5 to 7 seconds, you must be conservative and output false from 0 to 5 seconds, and true ONLY from 5 to 7 seconds. Never output true unless you are 100% certain only one person is on screen.
-
-Return ONLY the structured response defined by the provided schema.
-
+RETURN ONLY THE RAW, VALID JSON DATA. DO NOT WRAP IN MARKDOWN OR EXPLANATORY TEXT.
 `;
 
 		const interaction = await ai.interactions.create({
-			// model: "gemini-3.1-flash-lite",
+			model: "gemini-3.1-flash-lite",
 			// model: "gemini-2.5-pro",
-			model: "gemini-3.1-pro-preview",
+			// model: "gemini-3.1-pro-preview",
 			input: [
 				{
 					type: "video",
@@ -550,7 +586,7 @@ Return ONLY the structured response defined by the provided schema.
 				},
 				{
 					type: "text",
-					text: "You are an expert AI video editor and short-form content strategist.",
+					text: "You are an expert AI video editor and short-form content strategist. CRITICAL: You must actively listen to the audio and analyze the visual frames for the ENTIRE video from start to finish. Do not stop processing early. Whatever the full duration of the video is, you must process 100% of it before responding.",
 				},
 			],
 			system_instruction:

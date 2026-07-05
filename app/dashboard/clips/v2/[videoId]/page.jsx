@@ -52,7 +52,7 @@ export default function AIClipsPage({ params }) {
 				]);
 
 				if (!videoRes.ok) throw new Error("Failed to load video status");
-				
+
 				let creditsData = {};
 				if (creditsRes.ok) {
 					creditsData = await creditsRes.json();
@@ -187,13 +187,13 @@ export default function AIClipsPage({ params }) {
 				},
 				body: JSON.stringify({ preferences, regenerate: isRegenerating }),
 			});
-			
+
 			if (response.status === 402) {
 				const data = await response.json();
 				alert(data.error || "Insufficient credits.");
 				return;
 			}
-			
+
 			if (!response.ok) {
 				throw new Error(response.error || "Something went wrong");
 			}
@@ -207,14 +207,14 @@ export default function AIClipsPage({ params }) {
 					"SUCCESS: Opening completed project.",
 				]);
 				targetPhase = "done";
-				
+
 				// Re-fetch balance just in case it was a UI mismatch
 				fetch(`/api/credits`).then(res => res.json()).then(d => setUserBalance(d.balance)).catch(console.error);
 			} else {
 				setAlertVisible(true);
 				setTimeout(() => setAlertVisible(false), 4000);
 				targetPhase = "processing";
-				
+
 				// Optimistically deduct balance
 				if (userBalance !== null && creditsCost !== null) {
 					setUserBalance(userBalance - creditsCost);
@@ -267,7 +267,7 @@ export default function AIClipsPage({ params }) {
 					]);
 
 					setPhase("done");
-					
+
 					intentionallyClosed.current = true;
 					eventSource.close();
 				} else if (data.status === "FAILED") {
@@ -398,7 +398,7 @@ export default function AIClipsPage({ params }) {
       `}</style>
 
 			{/* SIDEBAR NAVIGATION PANEL (EXACT DESIGN MATCH) */}
-			
+
 
 			{/* MAIN LAYOUT WRAPPER PANELS */}
 			<main style={{ flex: 1, maxWidth: 1280, margin: "0 auto", width: "100%", padding: "32px 48px" }}>
@@ -416,19 +416,18 @@ export default function AIClipsPage({ params }) {
 							AI Clipping Factory
 						</h2>
 						<span
-							className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full uppercase border ${
-								isProcessing
+							className={`text-[10px] font-bold tracking-wider px-2 py-0.5 rounded-full uppercase border ${isProcessing
 									? "bg-[rgba(124,58,237,0.1)] text-[#a78bfa] border-[rgba(124,58,237,0.2)] animate-pulse"
 									: phase === "done"
-									? "bg-[rgba(74,222,128,0.1)] text-[#4ade80] border-[rgba(74,222,128,0.2)]"
-									: "bg-[#18181b] text-[#a1a1aa] border-[#27272a]"
-							}`}
+										? "bg-[rgba(74,222,128,0.1)] text-[#4ade80] border-[rgba(74,222,128,0.2)]"
+										: "bg-[#18181b] text-[#a1a1aa] border-[#27272a]"
+								}`}
 						>
 							{isProcessing
 								? "Pipeline Live"
 								: phase === "done"
-								? "Ready"
-								: "Staged Configuration"}
+									? "Ready"
+									: "Staged Configuration"}
 						</span>
 					</div>
 
@@ -524,11 +523,10 @@ export default function AIClipsPage({ params }) {
 									].map((item) => (
 										<label
 											key={item.id}
-											className={`flex items-center gap-3 border rounded-lg p-3 cursor-pointer select-none transition-colors group ${
-												preferences[item.id]
+											className={`flex items-center gap-3 border rounded-lg p-3 cursor-pointer select-none transition-colors group ${preferences[item.id]
 													? "bg-[rgba(124,58,237,0.05)] border-[rgba(124,58,237,0.5)]"
 													: "bg-[#18181b] border-[#27272a] hover:bg-[#27272a]"
-											}`}
+												}`}
 										>
 											<input
 												type="checkbox"
@@ -543,11 +541,10 @@ export default function AIClipsPage({ params }) {
 												className="sr-only"
 											/>
 											<div
-												className={`w-4 h-4 border rounded flex items-center justify-center transition-all ${
-													preferences[item.id]
+												className={`w-4 h-4 border rounded flex items-center justify-center transition-all ${preferences[item.id]
 														? "bg-[#7c3aed] text-white"
 														: "bg-[#27272a] bg-[#18181b]"
-												}`}
+													}`}
 											>
 												{preferences[item.id] && (
 													<svg
@@ -566,11 +563,10 @@ export default function AIClipsPage({ params }) {
 												)}
 											</div>
 											<span
-												className={`text-xs font-medium transition-colors ${
-													preferences[item.id]
+												className={`text-xs font-medium transition-colors ${preferences[item.id]
 														? "text-[#fafafa] font-semibold"
 														: "text-[#a1a1aa]"
-												}`}
+													}`}
 											>
 												{item.label}
 											</span>
@@ -581,11 +577,10 @@ export default function AIClipsPage({ params }) {
 								{/* Premium Prioritize Option */}
 								<div className="mb-6">
 									<label
-										className={`flex items-center gap-4 border rounded-xl p-4 cursor-pointer select-none transition-all group relative overflow-hidden ${
-											preferences.prioritize
+										className={`flex items-center gap-4 border rounded-xl p-4 cursor-pointer select-none transition-all group relative overflow-hidden ${preferences.prioritize
 												? "bg-gradient-to-r from-[rgba(245,158,11,0.1)] to-[rgba(217,119,6,0.1)] border-[#f59e0b] shadow-[0_0_15px_rgba(245,158,11,0.15)]"
 												: "bg-[#18181b] border-[#27272a] hover:bg-[#27272a] hover:border-[#3f3f46]"
-										}`}
+											}`}
 									>
 										{preferences.prioritize && (
 											<div className="absolute inset-0 bg-gradient-to-r from-transparent via-[rgba(245,158,11,0.1)] to-transparent -translate-x-full animate-[shimmer_2.5s_infinite]" />
@@ -602,11 +597,10 @@ export default function AIClipsPage({ params }) {
 											className="sr-only"
 										/>
 										<div
-											className={`w-5 h-5 border rounded-md flex items-center justify-center transition-all shrink-0 relative z-10 ${
-												preferences.prioritize
+											className={`w-5 h-5 border rounded-md flex items-center justify-center transition-all shrink-0 relative z-10 ${preferences.prioritize
 													? "bg-[#f59e0b] border-[#f59e0b] text-[#18181b]"
 													: "bg-[#27272a] border-[#3f3f46]"
-											}`}
+												}`}
 										>
 											{preferences.prioritize && (
 												<svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}>
@@ -616,9 +610,8 @@ export default function AIClipsPage({ params }) {
 										</div>
 										<div className="flex-1 relative z-10">
 											<div className="flex flex-wrap items-center gap-2">
-												<span className={`text-sm font-bold transition-colors ${
-													preferences.prioritize ? "text-[#f59e0b]" : "text-[#fafafa]"
-												}`}>
+												<span className={`text-sm font-bold transition-colors ${preferences.prioritize ? "text-[#f59e0b]" : "text-[#fafafa]"
+													}`}>
 													⚡ Prioritize AI Processing (Fast Mode)
 												</span>
 												<span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[rgba(245,158,11,0.15)] text-[#f59e0b] border border-[rgba(245,158,11,0.3)]">
@@ -642,11 +635,10 @@ export default function AIClipsPage({ params }) {
 									</div>
 									<div className="flex items-center gap-2">
 										<span className="text-[#a1a1aa] text-xs font-medium">Your Balance:</span>
-										<span className={`text-sm font-bold px-2 py-0.5 rounded border ${
-											userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0))
+										<span className={`text-sm font-bold px-2 py-0.5 rounded border ${userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0))
 												? "text-red-400 bg-red-400/10 border-red-400/20"
 												: "text-[#4ade80] bg-[#4ade80]/10 border-[#4ade80]/20"
-										}`}>
+											}`}>
 											{userBalance !== null ? userBalance : "-"}
 										</span>
 									</div>
@@ -655,11 +647,10 @@ export default function AIClipsPage({ params }) {
 								<button
 									onClick={startProcessing}
 									disabled={lambdaLoading || isInitialLoading || (userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0)))}
-									className={`w-full py-3 px-4 rounded font-bold text-sm tracking-wide transition-colors flex items-center justify-center gap-2 ${
-										lambdaLoading || isInitialLoading || (userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0)))
+									className={`w-full py-3 px-4 rounded font-bold text-sm tracking-wide transition-colors flex items-center justify-center gap-2 ${lambdaLoading || isInitialLoading || (userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0)))
 											? "bg-[var(--surface-bg)] text-[#a1a1aa] cursor-not-allowed border border-[#27272a]"
 											: "bg-[#7c3aed] hover:bg-[#6d28d9] text-white shadow-lg"
-									}`}
+										}`}
 								>
 									{lambdaLoading || isInitialLoading ? (
 										<>
@@ -713,9 +704,8 @@ export default function AIClipsPage({ params }) {
 									</div>
 									<span className="text-xs font-mono bg-[rgba(74,222,128,0.1)]rand-surfaceBg border border-[#27272a] px-2.5 py-1 rounded text-[#a78bfa] font-semibold">
 										{isProcessing
-											? `Stage ${currentStep + 1} of ${
-													pipelineSteps.length
-											  }`
+											? `Stage ${currentStep + 1} of ${pipelineSteps.length
+											}`
 											: "Completed"}
 									</span>
 								</div>
@@ -763,13 +753,12 @@ export default function AIClipsPage({ params }) {
 										{pipelineSteps.map((_, i) => (
 											<div
 												key={i}
-												className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${
-													i < currentStep
+												className={`h-1.5 flex-1 rounded-full transition-all duration-500 ${i < currentStep
 														? "bg-[#4ade80]"
 														: i === currentStep
-														? "bg-[rgba(74,222,128,0.1)]rand-primary"
-														: "bg-white border border-[#27272a]"
-												}`}
+															? "bg-[rgba(74,222,128,0.1)]rand-primary"
+															: "bg-white border border-[#27272a]"
+													}`}
 											/>
 										))}
 									</div>
@@ -827,11 +816,10 @@ export default function AIClipsPage({ params }) {
 								<button
 									disabled={isProcessing}
 									onClick={handleViewGeneratedVideo}
-									className={`w-full py-2.5 px-4 rounded font-bold text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${
-										isProcessing
+									className={`w-full py-2.5 px-4 rounded font-bold text-xs tracking-wide transition-colors flex items-center justify-center gap-1.5 ${isProcessing
 											? "bg-[rgba(74,222,128,0.1)]rand-surfaceBg border border-[#27272a] text-[#a1a1aa] cursor-not-allowed font-medium"
 											: "bg-[rgba(74,222,128,0.1)]rand-primary hover:bg-[rgba(74,222,128,0.1)]rand-primaryHover text-white font-semibold shadow-sm"
-									}`}
+										}`}
 								>
 									{isProcessing ? (
 										<>
@@ -872,10 +860,10 @@ export default function AIClipsPage({ params }) {
 								className="bg-[#27272a] hover:bg-[#3f3f46] border border-[#3f3f46] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors"
 							>
 								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-									<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-									<path d="M3 3v5h5"/>
+									<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+									<path d="M3 3v5h5" />
 								</svg>
-								Regenerate Clips
+								Generate more clips
 							</button>
 						</div>
 						<GeneratedClipPreview videoId={videoId} aiAnalysis={aiAnalysis} />

@@ -143,7 +143,12 @@ export const PLATFORMS = [
   },
 ];
 
-
+export const SPLIT_TEMPLATES = [
+  { id: "none", name: "No Split Screen", url: null, emoji: "📱" },
+  { id: "minecraft", name: "Minecraft Parkour", url: "https://fmp-641079926683-us-east-1-an.s3.us-east-1.amazonaws.com/templates/minecraft.mp4", emoji: "🧱" },
+  { id: "gta", name: "GTA V Gameplay", url: "https://fmp-641079926683-us-east-1-an.s3.us-east-1.amazonaws.com/templates/gta.mp4", emoji: "🚗" },
+  { id: "slime", name: "ASMR Slime", url: "https://fmp-641079926683-us-east-1-an.s3.us-east-1.amazonaws.com/templates/slime.mp4", emoji: "🧪" }
+];
 
 
 const DEFAULT_SUBTITLES = `[00:00:00] Was being in prison kind of fun? Um, fun?
@@ -473,7 +478,7 @@ const LiveTranscript = ({ playerRef, captions, fps, hookDurationFrames, onEditCa
 };
 
 // ── Editor ────────────────────────────────────────────────────────────────────
-export default function CaptionEditor({ videoId, initialJob }) {
+export default function CaptionEditor({ videoId, initialJob, initialHookText }) {
   const [subtitleInput, setSubtitleInput] = useState("");
   const [isSubtitlesLoading, setIsSubtitlesLoading] = useState(false);
   const [fontSize, setFontSize] = useState(56);
@@ -500,8 +505,8 @@ export default function CaptionEditor({ videoId, initialJob }) {
   const [bgMusicVolume, setBgMusicVolume] = useState(20);
   const [isUploadingBgMusic, setIsUploadingBgMusic] = useState(false);
   
-  const [hookEnabled, setHookEnabled] = useState(false);
-  const [hookText, setHookText] = useState("WAIT FOR IT...");
+  const [hookEnabled, setHookEnabled] = useState(initialHookText ? true : false);
+  const [hookText, setHookText] = useState(initialHookText || "WAIT FOR IT...");
   const [hookDurationSecs, setHookDurationSecs] = useState(3);
   const [hookFontSize, setHookFontSize] = useState(72);
   const [hookFontColor, setHookFontColor] = useState("#fbbf24");
@@ -511,6 +516,7 @@ export default function CaptionEditor({ videoId, initialJob }) {
   const [isMemeModalOpen, setIsMemeModalOpen] = useState(false);
   const [memeList, setMemeList] = useState([]);
   const [isLoadingMemes, setIsLoadingMemes] = useState(false);
+  const [splitTemplateId, setSplitTemplateId] = useState("none");
 
   // ── Load preferences on mount ───────────────────────────────────────────────
   useEffect(() => {
@@ -523,8 +529,8 @@ export default function CaptionEditor({ videoId, initialJob }) {
         if (p.font_size != null)     setFontSize(p.font_size);
         if (p.vertical_position != null) setVerticalPosition(p.vertical_position);
         if (p.bg_music_volume != null)   setBgMusicVolume(p.bg_music_volume);
-        if (p.hook_enabled != null)      setHookEnabled(p.hook_enabled);
-        if (p.hook_text)             setHookText(p.hook_text);
+        if (p.hook_enabled != null && !initialHookText) setHookEnabled(p.hook_enabled);
+        if (p.hook_text && !initialHookText) setHookText(p.hook_text);
         if (p.hook_duration_secs != null) setHookDurationSecs(p.hook_duration_secs);
         if (p.hook_font_size != null)    setHookFontSize(p.hook_font_size);
         if (p.hook_font_color)       setHookFontColor(p.hook_font_color);
@@ -825,6 +831,7 @@ export default function CaptionEditor({ videoId, initialJob }) {
     if (animationOverride !== "theme") {
       themeObj.animation = animationOverride;
     }
+    const splitTemplate = SPLIT_TEMPLATES.find(t => t.id === splitTemplateId) || null;
     return {
       videoUrl: preloadedVideoSrc || videoSrc,
       fontSize,
@@ -837,6 +844,7 @@ export default function CaptionEditor({ videoId, initialJob }) {
       brolls,
       bgMusicSrc,
       bgMusicVolume,
+      splitTemplate: splitTemplate?.url ? splitTemplate : null,
       hook: hookEnabled ? {
         text: hookText,
         durationSecs: hookDurationSecs,
@@ -846,7 +854,7 @@ export default function CaptionEditor({ videoId, initialJob }) {
         memeSrc: hookMemeSrc
       } : null
     };
-  }, [videoSrc, preloadedVideoSrc, fontSize, verticalPosition, captions, words, activeTheme, animationOverride, brolls, bgMusicSrc, bgMusicVolume, hookEnabled, hookText, hookDurationSecs, hookFontSize, hookFontColor, hookVerticalPosition, hookMemeSrc]);
+  }, [videoSrc, preloadedVideoSrc, fontSize, verticalPosition, captions, words, activeTheme, animationOverride, brolls, bgMusicSrc, bgMusicVolume, hookEnabled, hookText, hookDurationSecs, hookFontSize, hookFontColor, hookVerticalPosition, hookMemeSrc, splitTemplateId]);
 
   // ── Open platform picker ──────────────────────────────────────────────────────
   const openPostModal = () => {
@@ -1007,6 +1015,35 @@ export default function CaptionEditor({ videoId, initialJob }) {
                 leftLabel="0%" rightLabel="100%" onChange={setBgMusicVolume}
               />
             )}
+          </div>
+
+          <Divider />
+
+          {/* Split Screen Template */}
+          <div>
+            <SectionLabel>Split Screen Template</SectionLabel>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {SPLIT_TEMPLATES.map((tmpl) => (
+                <button
+                  key={tmpl.id}
+                  onClick={() => setSplitTemplateId(tmpl.id)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "10px 12px", borderRadius: 8,
+                    background: splitTemplateId === tmpl.id ? "rgba(99,102,241,0.15)" : "#27272a",
+                    border: `1px solid ${splitTemplateId === tmpl.id ? INDIGO : "#3f3f46"}`,
+                    color: splitTemplateId === tmpl.id ? "#fafafa" : "#a1a1aa",
+                    cursor: "pointer", transition: "all 0.2s ease", textAlign: "left"
+                  }}
+                >
+                  <span style={{ fontSize: 16 }}>{tmpl.emoji}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600 }}>{tmpl.name}</span>
+                </button>
+              ))}
+            </div>
+            <p style={{ fontSize: 10, color: "#71717a", margin: "8px 0 0 0", lineHeight: 1.4 }}>
+              Select a background video to play underneath your clip to boost audience retention.
+            </p>
           </div>
 
           <Divider />
