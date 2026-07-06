@@ -23,7 +23,7 @@ const generateThumbnail = (videoFile, seekTime = 1) => {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
-      
+
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         canvas.toBlob((blob) => {
@@ -44,7 +44,7 @@ const generateThumbnail = (videoFile, seekTime = 1) => {
 export default function VideoUploader() {
   const { isSignedIn, isLoaded } = useAuth();
   const router = useRouter();
-  
+
   const [isDragActive, setIsDragActive] = useState(false);
   const [file, setFile] = useState(null);
   const [videoDuration, setVideoDuration] = useState(0);
@@ -66,7 +66,7 @@ export default function VideoUploader() {
       if (res.ok) {
         const data = await res.json();
         setHistory(data.history || []);
-        setCredits(data.credits ?? 0); 
+        setCredits(data.credits ?? 0);
       }
     } catch (err) {
       console.error("Error retrieving dashboard data:", err);
@@ -92,7 +92,7 @@ export default function VideoUploader() {
       <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-950 p-6">
         <div className="w-full max-w-xl bg-neutral-900 border border-neutral-800 rounded-2xl p-8 text-center shadow-2xl relative overflow-hidden">
           <div className="absolute -top-10 -left-10 w-32 h-32 bg-lime-500/10 blur-3xl rounded-full"></div>
-          
+
           <div className="w-16 h-16 bg-neutral-800 border border-neutral-700 text-lime-400 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-inner">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -136,26 +136,26 @@ export default function VideoUploader() {
       alert('Please select a valid video file.');
       return;
     }
-  
-    const maxSize = 500 * 1024 * 1024;
+
+    const maxSize = 5 * 1024 * 1024 * 1024;
     if (selectedFile.size > maxSize) {
-      alert('File size limit exceeded. Max allowed is 500MB.');
+      alert('File size limit exceeded. Max allowed is 5GB.');
       return;
     }
-  
+
     const videoElement = document.createElement('video');
     videoElement.preload = 'metadata';
     videoElement.src = URL.createObjectURL(selectedFile);
-    
+
     videoElement.onloadedmetadata = () => {
       URL.revokeObjectURL(videoElement.src);
-      
+
       const estimatedCost = videoElement.duration / 1200;
       if (estimatedCost > credits) {
         alert(`Insufficient credit balance. This video requires ~${estimatedCost.toFixed(2)} credits, but you only have ${credits.toFixed(2)}.`);
         return;
       }
-  
+
       setVideoDuration(videoElement.duration);
       setFile(selectedFile);
     };
@@ -217,7 +217,7 @@ export default function VideoUploader() {
         if (event.lengthComputable) {
           const currentProgress = Math.round((event.loaded / event.total) * 100);
           setProgress(currentProgress);
-          
+
           const timeElapsed = (Date.now() - startTime) / 1000;
           if (timeElapsed > 0) {
             const bytesPerSecond = event.loaded / timeElapsed;
@@ -265,23 +265,23 @@ export default function VideoUploader() {
   return (
     <div className="min-h-screen bg-neutral-950 text-white p-6 md:p-12 w-full">
       <div className="max-w-6xl mx-auto flex flex-col gap-8">
-        
+
         {/* DASHBOARD HEADER & USAGE PANEL */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-neutral-900 border border-neutral-800 rounded-2xl p-6 gap-6 shadow-xl">
           <div>
             <h1 className="text-2xl font-bold tracking-tight">Creator Dashboard</h1>
             <p className="text-sm text-neutral-400 mt-1">Manage, compress, and process your raw video workspace compositions.</p>
           </div>
-          
+
           <div className="w-full md:w-72 bg-neutral-950 border border-neutral-800 p-4 rounded-xl">
             <div className="flex justify-between items-center text-xs mb-2">
               <span className="text-neutral-400 font-medium">Available Balance</span>
               <span className="text-lime-400 font-bold font-mono text-sm">{credits.toFixed(2)} Credits</span>
             </div>
-            
+
             <div className="w-full bg-neutral-800 h-2 rounded-full overflow-hidden mb-1">
-              <div 
-                className={`h-full transition-all duration-300 ${credits > 0 ? 'bg-lime-500 w-full' : 'bg-red-500 w-0'}`} 
+              <div
+                className={`h-full transition-all duration-300 ${credits > 0 ? 'bg-lime-500 w-full' : 'bg-red-500 w-0'}`}
               />
             </div>
             <p className="text-[11px] text-neutral-500">
@@ -292,23 +292,22 @@ export default function VideoUploader() {
 
         {/* INTERACTIVE WORKSPACE LAYOUT */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-          
+
           {/* LEFT SECTION: ENHANCED UPLOADER WINDOW */}
           <div className="lg:col-span-2 bg-neutral-900 border border-neutral-800 rounded-2xl p-6 shadow-xl">
             <h2 className="text-lg font-semibold text-white mb-4">Upload Production Assets</h2>
-            
+
             <div
               onDragOver={(e) => { e.preventDefault(); setIsDragActive(true); }}
               onDragLeave={() => setIsDragActive(false)}
               onDrop={(e) => { e.preventDefault(); setIsDragActive(false); if (e.dataTransfer.files?.[0]) handleFileSelection(e.dataTransfer.files[0]); }}
               onClick={() => !uploading && credits > 0 && fileInputRef.current.click()}
-              className={`relative flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-xl transition-all duration-300 ${
-                credits <= 0 
-                  ? 'border-neutral-800 bg-neutral-950/40 opacity-50 cursor-not-allowed'
-                  : isDragActive 
-                    ? 'border-lime-500 bg-lime-500/5 shadow-lg shadow-lime-500/5 cursor-pointer' 
-                    : 'border-neutral-700 bg-neutral-950/30 hover:border-lime-500/40 cursor-pointer'
-              }`}
+              className={`relative flex flex-col items-center justify-center w-full h-64 border-2 border-dashed rounded-xl transition-all duration-300 ${credits <= 0
+                ? 'border-neutral-800 bg-neutral-950/40 opacity-50 cursor-not-allowed'
+                : isDragActive
+                  ? 'border-lime-500 bg-lime-500/5 shadow-lg shadow-lime-500/5 cursor-pointer'
+                  : 'border-neutral-700 bg-neutral-950/30 hover:border-lime-500/40 cursor-pointer'
+                }`}
             >
               <input
                 ref={fileInputRef}
@@ -331,7 +330,7 @@ export default function VideoUploader() {
                     <p className="mb-1 text-sm text-neutral-200">
                       <span className="font-semibold text-lime-400">Click to browse</span> or drag files right here
                     </p>
-                    <p className="text-xs text-neutral-500">Max file restriction is 500MB</p>
+                    <p className="text-xs text-neutral-500">Max file restriction is 5GB</p>
                   </>
                 )}
               </div>
@@ -383,7 +382,7 @@ export default function VideoUploader() {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-white">Uploaded History</h2>
             </div>
-            
+
             {history.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center py-12 px-4 bg-neutral-950/40 border border-neutral-800 border-dashed rounded-xl">
                 <p className="text-xs text-neutral-500 italic max-w-[180px]">You haven't uploaded any videos yet.</p>
@@ -392,39 +391,39 @@ export default function VideoUploader() {
               <div className="space-y-3 max-h-[460px] overflow-y-auto pr-1">
                 {history.map((item) => (
                   <div key={item.id} className="group flex flex-col p-3 bg-neutral-950 border border-neutral-800 rounded-xl hover:border-neutral-700 transition-all duration-200">
-                    
+
                     {/* Visual Media Thumbnail + Information Block */}
                     <div className="flex gap-3 items-start">
                       {/* Video Container rendering true fallback preview image if generated */}
-                      <div 
-                        onClick={() => setActiveVideoUrl(item.video_url)} 
+                      <div
+                        onClick={() => setActiveVideoUrl(item.video_url)}
                         className="relative w-20 h-14 bg-neutral-900 rounded-lg overflow-hidden border border-neutral-800 cursor-pointer flex-shrink-0 group/thumb hover:border-lime-500/50 transition-colors flex items-center justify-center"
                       >
                         {item.thumbnail_url ? (
-                          <img 
-                            src={item.thumbnail_url} 
-                            alt="extracted frame content" 
+                          <img
+                            src={item.thumbnail_url}
+                            alt="extracted frame content"
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <video 
-                            src={item.video_url} 
-                            preload="metadata" 
-                            muted 
+                          <video
+                            src={item.video_url}
+                            preload="metadata"
+                            muted
                             className="w-full h-full object-cover pointer-events-none"
                           />
                         )}
                         {/* Play overlay button on hover */}
                         <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity">
                           <svg className="w-5 h-5 text-lime-400 drop-shadow" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M8 5v14l11-7z"/>
+                            <path d="M8 5v14l11-7z" />
                           </svg>
                         </div>
                       </div>
 
                       {/* Video Title Details */}
                       <div className="min-w-0 flex-1 flex flex-col justify-between h-14">
-                        <span 
+                        <span
                           onClick={() => setActiveVideoUrl(item.video_url)}
                           className="text-xs font-medium text-white truncate group-hover:text-lime-400 transition-colors cursor-pointer block"
                         >
@@ -437,7 +436,7 @@ export default function VideoUploader() {
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Make AI Clips Action Button Row */}
                     <div className="mt-3">
                       <button
@@ -462,23 +461,23 @@ export default function VideoUploader() {
           </div>
 
         </div>
-        
+
       </div>
 
       {/* POPUP VIDEO PLAYBACK MODAL */}
       {activeVideoUrl && (
-        <div 
+        <div
           className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn"
           onClick={() => setActiveVideoUrl(null)}
         >
-          <div 
+          <div
             className="bg-neutral-900 border border-neutral-800 rounded-2xl w-full max-w-3xl overflow-hidden shadow-2xl relative"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header / Dismiss Bar */}
             <div className="p-4 border-b border-neutral-800 flex justify-between items-center bg-neutral-950/50">
               <span className="text-xs font-mono text-neutral-400">Media Workspace Player</span>
-              <button 
+              <button
                 onClick={() => setActiveVideoUrl(null)}
                 className="text-neutral-400 hover:text-white transition-colors text-sm font-semibold px-2 py-1 rounded bg-neutral-800 border border-neutral-700"
               >
@@ -487,9 +486,9 @@ export default function VideoUploader() {
             </div>
             {/* Native HTML5 Player */}
             <div className="aspect-video w-full bg-black flex items-center justify-center">
-              <video 
-                src={activeVideoUrl} 
-                controls 
+              <video
+                src={activeVideoUrl}
+                controls
                 autoPlay
                 className="w-full h-full max-h-[70vh]"
               />

@@ -358,7 +358,7 @@ export default function StreamCutLanding() {
         <p style={s.sectionSub}>Upload, customise, export. No timeline. No tutorials needed.</p>
         <div style={s.howGrid}>
           {[
-            { icon: '⬆', title: 'Upload your clip', desc: 'Drag in any video file up to 500MB. We handle the transcoding automatically.' },
+            { icon: '⬆', title: 'Upload your clip', desc: 'Drag in any video file up to 5GB. We handle the transcoding automatically.' },
             { icon: '✂', title: 'Edit with one click', desc: 'Add captions, trim silences, resize for any platform, and drop in your brand kit.' },
             { icon: '↗', title: 'Export and publish', desc: 'Download in HD or publish directly to YouTube, TikTok, and Instagram in one click.' },
           ].map((step) => (
@@ -424,8 +424,8 @@ export default function StreamCutLanding() {
         </div>
       </section>
 
-      <PricingTable 
-        checkoutSuccessUrl="/purchase-success" 
+      <PricingTable
+        checkoutSuccessUrl="/purchase-success"
         checkoutCancelUrl="/#pricing"
       />
 

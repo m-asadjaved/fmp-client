@@ -3,13 +3,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth, SignInButton } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
-import { 
-  Bell, 
-  Cloud, 
-  Hourglass, 
-  Video, 
-  UploadCloud, 
-  Loader2, 
+import {
+  Bell,
+  Cloud,
+  Hourglass,
+  Video,
+  UploadCloud,
+  Loader2,
   ArrowRight,
   Sparkles,
   Lock,
@@ -21,9 +21,9 @@ import {
 
 // ─── Platform colour/icon map ─────────────────────────────────────────────────
 const PLATFORM_META = {
-  YouTube:          { color: '#ef4444', bg: '#fef2f2', border: '#fecaca', emoji: '▶️' },
-  TikTok:           { color: '#09090b', bg: '#f4f4f5', border: '#e4e4e7', emoji: '🎵' },
-  'Instagram Reels':{ color: '#e11d74', bg: '#fff1f7', border: '#fbcfe8', emoji: '📸' },
+  YouTube: { color: '#ef4444', bg: '#fef2f2', border: '#fecaca', emoji: '▶️' },
+  TikTok: { color: '#09090b', bg: '#f4f4f5', border: '#e4e4e7', emoji: '🎵' },
+  'Instagram Reels': { color: '#e11d74', bg: '#fff1f7', border: '#fbcfe8', emoji: '📸' },
 };
 const DEFAULT_PLATFORM_META = { color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe', emoji: '🎬' };
 
@@ -31,11 +31,11 @@ const DEFAULT_PLATFORM_META = { color: '#2563eb', bg: '#eff6ff', border: '#bfdbf
 function PostJobAlert({ job, onDismiss }) {
   // Extract platforms. Fallback to a single platform if it's the old schema
   const platforms = Array.isArray(job.platforms) ? job.platforms : (job.platform ? [job.platform] : []);
-  
+
   // Use the first platform's styling as the base theme for the card
   const mainPlat = platforms.length > 0 ? platforms[0] : null;
   const meta = PLATFORM_META[mainPlat] || DEFAULT_PLATFORM_META;
-  
+
   const platformNames = platforms.length > 0 ? platforms.join(', ') : 'Unknown Platform';
 
   return (
@@ -78,8 +78,8 @@ function PostJobAlert({ job, onDismiss }) {
           {job.scheduled_for ? `Your video is scheduled for ${platformNames}!` : `Your video is live-ready on ${platformNames}!`}
         </p>
         <p style={{ fontSize: 12, color: '#52525b', margin: '3px 0 10px', lineHeight: 1.5 }}>
-          {job.scheduled_for 
-            ? `It will automatically publish at ${new Date(job.scheduled_for).toLocaleString()}.` 
+          {job.scheduled_for
+            ? `It will automatically publish at ${new Date(job.scheduled_for).toLocaleString()}.`
             : `Rendering complete. Download your clip and upload it to publish.`}
         </p>
         {job.output_url && !job.scheduled_for && (
@@ -134,7 +134,7 @@ const generateThumbnail = (videoFile, seekTime = 1) => {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       const ctx = canvas.getContext('2d');
-      
+
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         canvas.toBlob((blob) => {
@@ -248,7 +248,7 @@ export default function Dashboard() {
       if (res.ok) {
         const data = await res.json();
         setHistory(data.history || []);
-        setCredits(data.credits ?? 0); 
+        setCredits(data.credits ?? 0);
       }
     } catch (err) {
       console.error("Error retrieving dashboard data:", err);
@@ -261,7 +261,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (isLoaded && isSignedIn) {
       fetchUploadHistory();
-      
+
       // Fetch dynamic cloud storage usage
       setLoadingStorage(true);
       fetch('/api/user/storage')
@@ -312,26 +312,26 @@ export default function Dashboard() {
       alert('Please select a valid video file.');
       return;
     }
-  
-    const maxSize = 500 * 1024 * 1024; // 500MB Limit
+
+    const maxSize = 5 * 1024 * 1024 * 1024; // 5GB Limit
     if (selectedFile.size > maxSize) {
-      alert('File size limit exceeded. Max allowed is 500MB.');
+      alert('File size limit exceeded. Max allowed is 5GB.');
       return;
     }
-  
+
     const videoElement = document.createElement('video');
     videoElement.preload = 'metadata';
     videoElement.src = URL.createObjectURL(selectedFile);
-    
+
     videoElement.onloadedmetadata = () => {
       URL.revokeObjectURL(videoElement.src);
-      
+
       const estimatedCost = videoElement.duration / 1200;
       if (estimatedCost > credits) {
         alert(`Insufficient credit balance. This video requires ~${estimatedCost.toFixed(2)} credits, but you only have ${credits.toFixed(2)}.`);
         return;
       }
-  
+
       setVideoDuration(videoElement.duration);
       setFile(selectedFile);
     };
@@ -389,7 +389,7 @@ export default function Dashboard() {
         if (event.lengthComputable) {
           const currentProgress = Math.round((event.loaded / event.total) * 100);
           setProgress(currentProgress);
-          
+
           const timeElapsed = (Date.now() - startTime) / 1000;
           if (timeElapsed > 0) {
             const bytesPerSecond = event.loaded / timeElapsed;
@@ -449,7 +449,7 @@ export default function Dashboard() {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100vh", background: "#09090b", padding: 24, fontFamily: "'Inter', sans-serif" }}>
         <div style={{ width: "100%", maxWidth: 420, background: "#18181b", border: "1px solid #27272a", borderRadius: 16, padding: 32, textAlign: "center", boxShadow: "0 24px 64px rgba(0,0,0,0.6)", position: "relative", overflow: "hidden" }}>
-          
+
           <div style={{ width: 56, height: 56, background: "rgba(124, 58, 237, 0.1)", border: "1px solid rgba(124, 58, 237, 0.2)", color: "#a78bfa", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>
             <Lock size={28} />
           </div>
@@ -500,7 +500,7 @@ export default function Dashboard() {
 
       {/* DASHBOARD GRID CONTENT */}
       <main style={{ flex: 1, padding: "32px 40px", overflowY: "auto", background: "#09090b" }}>
-        
+
         {/* TOP STATUS HEADER BAR */}
         <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32, paddingBottom: 16, borderBottom: "1px solid #27272a" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -516,14 +516,14 @@ export default function Dashboard() {
                 <Bell size={20} />
                 {notifications.some(n => !n.acknowledged) && <span style={{ position: "absolute", top: 2, right: 4, width: 8, height: 8, background: "#ef4444", borderRadius: "50%", border: "2px solid #09090b" }}></span>}
               </button>
-              
+
               {showNotificationsDropdown && (
                 <div style={{ position: "absolute", top: "100%", right: 0, marginTop: 12, width: 340, background: "#18181b", border: "1px solid #27272a", borderRadius: 12, boxShadow: "0 12px 48px rgba(0,0,0,0.5)", zIndex: 1000, overflow: "hidden" }}>
                   <div style={{ padding: "16px 20px", borderBottom: "1px solid #27272a", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#131316" }}>
                     <h4 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#fafafa" }}>Notifications</h4>
                     <button style={{ background: "transparent", border: "none", color: "#a78bfa", fontSize: 11, fontWeight: 600, cursor: "pointer" }} onClick={() => {
-                       fetch('/api/user/notifications', { method: 'PATCH', body: JSON.stringify({ markAll: true }) })
-                         .then(() => setNotifications(prev => prev.map(n => ({...n, acknowledged: true}))));
+                      fetch('/api/user/notifications', { method: 'PATCH', body: JSON.stringify({ markAll: true }) })
+                        .then(() => setNotifications(prev => prev.map(n => ({ ...n, acknowledged: true }))));
                     }}>Mark all read</button>
                   </div>
                   <div style={{ maxHeight: 360, overflowY: "auto" }}>
@@ -545,7 +545,7 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-            
+
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <div style={{ textAlign: "right" }}>
                 <p style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#fafafa" }}>Creator Account</p>
@@ -560,7 +560,7 @@ export default function Dashboard() {
 
         {/* ANALYTICS UPPER BALANCES METRICS ROW */}
         <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24, marginBottom: 32 }}>
-          
+
           {/* Card 1: Storage */}
           <div style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 16, padding: 24, boxShadow: "0 8px 32px rgba(0,0,0,0.2)" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
@@ -597,7 +597,7 @@ export default function Dashboard() {
               </h3>
             )}
             <div style={{ width: "100%", background: "#27272a", height: 6, borderRadius: 4, overflow: "hidden" }}>
-              <div 
+              <div
                 style={{ background: "#ec4899", height: "100%", borderRadius: 4, transition: "width 0.3s", width: `${loadingCredits ? 0 : Math.min((credits / 100) * 100, 100)}%` }}
               />
             </div>
@@ -617,7 +617,7 @@ export default function Dashboard() {
             ) : (
               <h3 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800, color: "#fafafa" }}>{history.length}</h3>
             )}
-            
+
             <div style={{ display: "flex", alignItems: "center", opacity: loadingHistory ? 0.3 : 1 }}>
               <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#3f3f46", border: "2px solid #18181b", zIndex: 3 }}></div>
               <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#52525b", border: "2px solid #18181b", marginLeft: -8, zIndex: 2 }}></div>
@@ -632,7 +632,7 @@ export default function Dashboard() {
 
         {/* CREATION HUB & DRAG DROP WORKSPACE */}
         <section style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 32, background: "#18181b", border: "1px solid #27272a", borderRadius: 16, padding: 32, marginBottom: 32, alignItems: "center" }}>
-          
+
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
               <h3 style={{ margin: "0 0 8px", fontSize: 20, fontWeight: 800, color: "#fafafa" }}>Create New Project</h3>
@@ -640,7 +640,7 @@ export default function Dashboard() {
                 Transform long production footage into highly engaging vertical highlights using our integrated AI transcription models.
               </p>
             </div>
-            
+
             <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "rgba(124, 58, 237, 0.1)", color: "#c4b5fd", padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, width: "fit-content", border: "1px solid rgba(124, 58, 237, 0.2)" }}>
               <Sparkles size={14} style={{ color: "#a78bfa" }} />
               <span>Powered by ClipAI Turbo</span>
@@ -649,8 +649,8 @@ export default function Dashboard() {
             <div style={{ marginTop: 8 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#a1a1aa", marginBottom: 8 }}>Paste Video Link</label>
               <div style={{ display: "flex", gap: 8, maxWidth: 500 }}>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={videoLink}
                   onChange={(e) => setVideoLink(e.target.value)}
                   placeholder="YouTube, Twitch, or Vimeo URL"
@@ -694,7 +694,7 @@ export default function Dashboard() {
               <div style={{ background: "#18181b", padding: 12, borderRadius: "50%", color: "#a1a1aa", marginBottom: 12, border: "1px solid #27272a" }}>
                 <UploadCloud size={24} />
               </div>
-              
+
               {credits <= 0 ? (
                 <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#ef4444" }}>Credit Balance Expired</p>
               ) : (
@@ -785,16 +785,16 @@ export default function Dashboard() {
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 24 }}>
               {history.map((item) => (
                 <div key={item.id || item.video_id} style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column", transition: "transform 0.2s, box-shadow 0.2s" }} onMouseOver={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 12px 24px rgba(0,0,0,0.4)"; }} onMouseOut={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}>
-                  
+
                   {/* Aspect Previews Area box */}
-                  <div 
+                  <div
                     onClick={() => setActiveVideoUrl(item.video_url)}
                     style={{ position: "relative", aspectRatio: "16/9", background: "#000", cursor: "pointer", overflow: "hidden" }}
                   >
                     {item.thumbnail_url ? (
-                      <img 
-                        src={item.thumbnail_url} 
-                        alt="extracted frame content" 
+                      <img
+                        src={item.thumbnail_url}
+                        alt="extracted frame content"
                         style={{ width: "100%", height: "100%", objectFit: "cover", transition: "transform 0.3s" }}
                         onMouseOver={e => e.currentTarget.style.transform = "scale(1.05)"}
                         onMouseOut={e => e.currentTarget.style.transform = "scale(1)"}
@@ -804,7 +804,7 @@ export default function Dashboard() {
                         <Video size={24} style={{ color: "rgba(255,255,255,0.2)" }} />
                       </div>
                     )}
-                    
+
                     <span style={{ position: "absolute", bottom: 8, right: 8, background: "rgba(0,0,0,0.75)", color: "#fff", fontSize: 10, fontFamily: "monospace", padding: "2px 6px", borderRadius: 4 }}>
                       {formatDuration(item.duration)}
                     </span>
@@ -819,7 +819,7 @@ export default function Dashboard() {
                   {/* Operational Information Meta Segment */}
                   <div style={{ padding: 16, flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                     <div style={{ marginBottom: 16 }}>
-                      <h4 
+                      <h4
                         onClick={() => setActiveVideoUrl(item.video_url)}
                         style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 800, color: "#fafafa", cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
                       >
@@ -831,7 +831,7 @@ export default function Dashboard() {
                     </div>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <button 
+                      <button
                         onClick={() => handleMakeClips(item)}
                         style={{ width: "100%", background: "#27272a", color: "#fafafa", border: "1px solid #3f3f46", padding: "8px 0", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "background 0.2s" }}
                         onMouseOver={e => e.currentTarget.style.background = "#3f3f46"}
@@ -869,18 +869,18 @@ export default function Dashboard() {
 
       {/* POPUP NATIVE VIDEO PLAYBACK MODAL WINDOW OVERLAY */}
       {activeVideoUrl && (
-        <div 
+        <div
           style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
           onClick={() => setActiveVideoUrl(null)}
         >
-          <div 
+          <div
             style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 16, width: "100%", maxWidth: 800, overflow: "hidden", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Navigation Control Header bar */}
             <div style={{ padding: "16px 20px", borderBottom: "1px solid #27272a", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#09090b" }}>
               <span style={{ fontSize: 12, fontFamily: "monospace", color: "#a1a1aa", fontWeight: 600 }}>Media Workspace Player</span>
-              <button 
+              <button
                 onClick={() => setActiveVideoUrl(null)}
                 style={{ background: "#27272a", border: "1px solid #3f3f46", color: "#a1a1aa", cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 6, transition: "color 0.2s" }}
                 onMouseOver={e => e.currentTarget.style.color = "#fff"}
@@ -889,12 +889,12 @@ export default function Dashboard() {
                 Close ✕
               </button>
             </div>
-            
+
             {/* Render Context Viewport screen */}
             <div style={{ aspectRatio: "16/9", width: "100%", background: "#000", display: "flex", alignItems: "center", justifyItems: "center" }}>
-              <video 
-                src={activeVideoUrl} 
-                controls 
+              <video
+                src={activeVideoUrl}
+                controls
                 autoPlay
                 style={{ width: "100%", height: "100%", maxHeight: "70vh" }}
               />

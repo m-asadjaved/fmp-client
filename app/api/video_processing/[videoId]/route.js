@@ -500,14 +500,14 @@ const summaryJsonSchema = {
 							properties: {
 								start_sec: { type: "integer", description: "Start second of this interval (relative to the clip's start)." },
 								end_sec: { type: "integer", description: "End second of this interval (relative to the clip's start)." },
-								has_active_speaker: { type: "boolean", description: "TRUE if there is a person speaking on screen. FALSE if it's B-roll, gameplay, or no one is visible." },
-								speaker_bounding_box: {
+								is_focus_a_face: { type: "boolean", description: "TRUE if the main focal point is a person's face. FALSE if the focal point is an object, gameplay action, or something else." },
+								focus_bounding_box: {
 									type: "array",
-									description: "If has_active_speaker is TRUE, provide the [ymin, xmin, ymax, xmax] 2D coordinates of the active speaker's face. Coordinates MUST be normalized from 0 to 1000. Example: [200, 400, 350, 550]. If FALSE, return an empty array [].",
+									description: "Provide the [ymin, xmin, ymax, xmax] 2D coordinates of the MAIN focal point that will attract the most viewer attention in this interval. Coordinates MUST be normalized from 0 to 1000. Example: [200, 400, 350, 550].",
 									items: { type: "integer" }
 								}
 							},
-							required: ["start_sec", "end_sec", "has_active_speaker", "speaker_bounding_box"]
+							required: ["start_sec", "end_sec", "is_focus_a_face", "focus_bounding_box"]
 						}
 					},
 				},
@@ -570,11 +570,12 @@ You are receiving the actual video file. You MUST visually inspect the video fra
 1. SCHEMA COMPLIANCE: Your response MUST STRICTLY conform to the provided JSON schema. Do NOT add any extra fields. EVERY field is mandatory.
 2. TIMESTAMPS: \`start_time\` and \`end_time\` MUST use exactly "MM:SS" format and map precisely to the ORIGINAL video timestamps. 
 3. DURATION: \`duration_seconds\` MUST accurately reflect the difference between \`start_time\` and \`end_time\`.
-4. SECOND-BY-SECOND ACTIVE SPEAKER TRACKING: \`face_detection_intervals\` MUST be visually accurate down to the EXACT SECOND.
-   - Break the clip down into small 1-3 second intervals if the camera angles change rapidly. Do NOT use lazy 30-second intervals.
+4. SECOND-BY-SECOND FOCAL POINT TRACKING: \`face_detection_intervals\` MUST be visually accurate down to the EXACT SECOND.
+   - Break the clip down into small 1-3 second intervals if the camera angles or the main action changes rapidly. Do NOT use lazy 30-second intervals.
    - INTERVALS CANNOT OVERLAP: If interval 1 is 1 to 3, interval 2 MUST be 4 to 5. Do NOT do 1 to 3 and then 3 to 5.
-   - \`has_active_speaker\` = TRUE: When a person is actively speaking on screen.
-   - \`speaker_bounding_box\`: If there are multiple people on screen (e.g. 5 people), you MUST output the [ymin, xmin, ymax, xmax] 2D coordinates (0-1000 scale) of the ONE person who is currently speaking. This tells our downstream auto-cropper who to focus on. If \`has_active_speaker\` is FALSE, return an empty array [].
+   - Analyze both the AUDIO and the VIDEO to figure out who or what the MAIN CHARACTER/ACTION is.
+   - \`is_focus_a_face\`: Set to TRUE if the main focal point is a person's face. Set to FALSE if the focus should be an object (like a car, product, hands, or gameplay).
+   - \`focus_bounding_box\`: You MUST output the [ymin, xmin, ymax, xmax] 2D coordinates (0-1000 scale) of the MAIN subject that will attract the most viewer attention. This tells our downstream auto-cropper where to zoom in.
 
 RETURN ONLY THE RAW, VALID JSON DATA. DO NOT WRAP IN MARKDOWN OR EXPLANATORY TEXT.
 `;

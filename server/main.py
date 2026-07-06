@@ -362,16 +362,16 @@ def main():
                 break
 
             current_sec_in_clip = fi / fps
-            detect_face = True
-            active_speaker_bbox = None
+            is_focus_a_face = True
+            focus_bbox = None
             is_new_interval = False
             
             for int_idx, interval in enumerate(face_intervals):
                 # interval.get("end_sec", 9999) handles cases where end_sec might be missing
                 if interval.get("start_sec", 0) <= current_sec_in_clip <= interval.get("end_sec", 9999):
-                    # Support both old 'detect_face' and new 'has_active_speaker'
-                    detect_face = interval.get("has_active_speaker", interval.get("detect_face", True))
-                    active_speaker_bbox = interval.get("speaker_bounding_box", None)
+                    # Support both old 'detect_face' and new 'is_focus_a_face'
+                    is_focus_a_face = interval.get("is_focus_a_face", interval.get("has_active_speaker", interval.get("detect_face", True)))
+                    focus_bbox = interval.get("focus_bounding_box", interval.get("speaker_bounding_box", None))
                     if int_idx != current_interval_idx:
                         is_new_interval = True
                         current_interval_idx = int_idx
@@ -380,15 +380,25 @@ def main():
             ts_ms = int((config["startAt"] + current_sec_in_clip) * 1000)
             audio_volume = audio_volume_per_frame[fi] if fi < len(audio_volume_per_frame) else 0.0
             
-            if detect_face:
-                tracker.update(frame, fi, ts_ms, audio_volume=audio_volume, speaker_bbox=active_speaker_bbox, is_new_interval=is_new_interval)
+            target_cx = None
+
+            if is_focus_a_face:
+                tracker.update(frame, fi, ts_ms, audio_volume=audio_volume, speaker_bbox=focus_bbox, is_new_interval=is_new_interval)
+                if tracker.face_visible:
+                    target_cx = tracker.talking_cx
             else:
                 # Force tracker to skip and behave as if face is not visible
                 tracker.face_visible = False
                 tracker._missing = tracker._memory_limit + 1  # clear any lingering smooth-coast memory
 
-            if tracker.face_visible:
-                camera.set_target(tracker.talking_cx)
+            # Fallback: If MediaPipe failed or it's not a face, but Gemini gave us a focus coordinate, zoom there!
+            if target_cx is None and focus_bbox and len(focus_bbox) == 4:
+                gem_xmin, gem_xmax = focus_bbox[1], focus_bbox[3]
+                target_cx_norm = (gem_xmin + gem_xmax) / 2000.0  # Convert 0-1000 scale to 0.0-1.0
+                target_cx = int(target_cx_norm * vw)
+
+            if target_cx is not None:
+                camera.set_target(target_cx)
                 crop_x = camera.step()
                 out_frame = frame[0:vh, crop_x:crop_x + tw]
             else:
