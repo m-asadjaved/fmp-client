@@ -494,15 +494,20 @@ const summaryJsonSchema = {
 					},
 					face_detection_intervals: {
 						type: "array",
-						description: "CRITICAL: Accurate, second-by-second intervals specifying when face detection should be active. Must cover the entire clip duration. NO SINGLE INTERVAL CAN EXCEED 5 SECONDS. You MUST break it down into many small chunks. IMPORTANT: Intervals MUST NOT overlap. The start_sec of the next interval must be exactly end_sec + 1 of the previous interval.",
+						description: "CRITICAL: Accurate, second-by-second intervals specifying who the active speaker is. Must cover the entire clip duration. NO SINGLE INTERVAL CAN EXCEED 5 SECONDS. You MUST break it down into many small chunks. IMPORTANT: Intervals MUST NOT overlap. The start_sec of the next interval must be exactly end_sec + 1 of the previous interval.",
 						items: {
 							type: "object",
 							properties: {
 								start_sec: { type: "integer", description: "Start second of this interval (relative to the clip's start)." },
 								end_sec: { type: "integer", description: "End second of this interval (relative to the clip's start)." },
-								detect_face: { type: "boolean", description: "TRUE ONLY if exactly ONE person is clearly and continuously visible on screen for every single frame of the ENTIRE interval. FALSE if there are multiple people, no people, transitions, B-roll, or ANY ambiguity, even for a split second." }
+								has_active_speaker: { type: "boolean", description: "TRUE if there is a person speaking on screen. FALSE if it's B-roll, gameplay, or no one is visible." },
+								speaker_bounding_box: {
+									type: "array",
+									description: "If has_active_speaker is TRUE, provide the [ymin, xmin, ymax, xmax] 2D coordinates of the active speaker's face. Coordinates MUST be normalized from 0 to 1000. Example: [200, 400, 350, 550]. If FALSE, return an empty array [].",
+									items: { type: "integer" }
+								}
 							},
-							required: ["start_sec", "end_sec", "detect_face"]
+							required: ["start_sec", "end_sec", "has_active_speaker", "speaker_bounding_box"]
 						}
 					},
 				},
@@ -536,9 +541,8 @@ You are an elite AI Video Editor and Viral Content Strategist. Your primary dire
 FAILURE TO COMPLY WITH THE FOLLOWING STRICT RULES WILL RESULT IN TASK FAILURE.
 
 --- CORE DIRECTIVES (NON-NEGOTIABLE) ---
-1. FULL VIDEO DISTRIBUTION (CRITICAL): You MUST watch and process the ENTIRE video from start to finish. To prove you didn't stop watching early, your selected clips MUST be distributed widely across the entire duration. Do NOT cluster all your clips in the first few minutes.
-2. INDEPENDENT TOPICS (CRITICAL): You MUST select 3 to 5 completely INDIVIDUAL and UNLINKED clips. 
-   - NEVER slice one continuous story or topic into multiple consecutive clips. 
+1. FULL VIDEO DISTRIBUTION (CRITICAL): You MUST watch and process the ENTIRE video from start to finish.
+2. INDEPENDENT TOPICS (CRITICAL): For testing purposes, you MUST select EXACTLY 1 highly viral clip. Do not generate more than 1 clip.
    - If a topic takes 60 seconds to explain, output ONE 60-second clip. Do NOT output two 30-second clips that play back-to-back.
    - Clip 2 CANNOT start exactly where Clip 1 ended. Clips MUST be separated by significant time and context.
 3. TIME CONSTRAINTS: EVERY clip MUST be strictly between 30 and 85 seconds long. Clips shorter than 30 seconds or longer than 85 seconds are strictly forbidden. ZERO exceptions.
@@ -566,11 +570,11 @@ You are receiving the actual video file. You MUST visually inspect the video fra
 1. SCHEMA COMPLIANCE: Your response MUST STRICTLY conform to the provided JSON schema. Do NOT add any extra fields. EVERY field is mandatory.
 2. TIMESTAMPS: \`start_time\` and \`end_time\` MUST use exactly "MM:SS" format and map precisely to the ORIGINAL video timestamps. 
 3. DURATION: \`duration_seconds\` MUST accurately reflect the difference between \`start_time\` and \`end_time\`.
-4. SECOND-BY-SECOND FACE DETECTION: \`face_detection_intervals\` MUST be visually accurate down to the EXACT SECOND.
+4. SECOND-BY-SECOND ACTIVE SPEAKER TRACKING: \`face_detection_intervals\` MUST be visually accurate down to the EXACT SECOND.
    - Break the clip down into small 1-3 second intervals if the camera angles change rapidly. Do NOT use lazy 30-second intervals.
    - INTERVALS CANNOT OVERLAP: If interval 1 is 1 to 3, interval 2 MUST be 4 to 5. Do NOT do 1 to 3 and then 3 to 5.
-   - \`detect_face\` = TRUE: STRICTLY ONLY when exactly ONE person is clearly and continuously visible on screen for the ENTIRE interval.
-   - \`detect_face\` = FALSE: If there are multiple people, no people, camera transitions, screen shares, B-roll, or ANY ambiguity, you MUST set that specific interval to FALSE. Be aggressively conservative.
+   - \`has_active_speaker\` = TRUE: When a person is actively speaking on screen.
+   - \`speaker_bounding_box\`: If there are multiple people on screen (e.g. 5 people), you MUST output the [ymin, xmin, ymax, xmax] 2D coordinates (0-1000 scale) of the ONE person who is currently speaking. This tells our downstream auto-cropper who to focus on. If \`has_active_speaker\` is FALSE, return an empty array [].
 
 RETURN ONLY THE RAW, VALID JSON DATA. DO NOT WRAP IN MARKDOWN OR EXPLANATORY TEXT.
 `;

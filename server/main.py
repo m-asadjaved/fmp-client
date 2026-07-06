@@ -74,6 +74,7 @@ class AutoSpeakerTracker:
         self._last_cx        = float(fw / 2)
         self._missing        = 0
         self._memory_limit   = int(fps * cfg.get("memory_sec", 1.5))
+        self.locked_center   = None
 
         opts = FaceLandmarkerOpts(
             base_options=BaseOptions(model_asset_path=MODEL_PATH),
@@ -86,27 +87,57 @@ class AutoSpeakerTracker:
         self.landmarker = FaceLandmarker.create_from_options(opts)
         print(f"✅ Tracker ready (detect every {self.detect_every} frames)")
 
-    def _score_face(self, lms, idx):
+    def _score_face(self, lms, idx, audio_volume=1.0, speaker_bbox=None, locked_center=None):
         raw_gap = abs(lms[LOWER_LIP].y - lms[UPPER_LIP].y) * self.fh
         lip_ema = self.alpha_lip * raw_gap + (1 - self.alpha_lip) * self._lip_ema.get(idx, 0.0)
         self._lip_ema[idx] = lip_ema
 
-        xs = [lm.x * self.fw for lm in lms]
-        ys = [lm.y * self.fh for lm in lms]
-        fw_ = max(xs) - min(xs)
-        fh_ = max(ys) - min(ys)
+        xs = [lm.x for lm in lms]
+        ys = [lm.y for lm in lms]
+        fw_norm = max(xs) - min(xs)
+        fh_norm = max(ys) - min(ys)
+        
+        fw_px = fw_norm * self.fw
+        fh_px = fh_norm * self.fh
 
-        if fw_ < self.fw * 0.05 or fh_ < self.fh * 0.03:
-            return None, None          # edge sliver — discard
+        if fw_px < self.fw * 0.05 or fh_px < self.fh * 0.03:
+            return None, None, None, None
 
-        cx    = (min(xs) + max(xs)) / 2
-        area  = fw_ * fh_
-        score = (lip_ema * 3.0 if lip_ema >= self.threshold else 0.0) + (area ** 0.5) * 0.01
-        return score, cx
+        cx_norm = (min(xs) + max(xs)) / 2.0
+        cy_norm = (min(ys) + max(ys)) / 2.0
+        cx_px = cx_norm * self.fw
 
-    def update(self, bgr_frame, frame_idx, ts_ms):
+        area = fw_px * fh_px
+        
+        # Step 1: Audio Volume Correlation
+        # Only reward lip movement if there is actual audio volume playing
+        effective_lip_score = lip_ema * 3.0 * audio_volume if lip_ema >= self.threshold else 0.0
+        score = effective_lip_score + (area ** 0.5) * 0.01
+
+        # Step 2: Identity Locking
+        # If we already locked onto a speaker, heavily reward the face closest to the lock
+        if locked_center is not None:
+            lock_dist = ((cx_norm - locked_center[0])**2 + (cy_norm - locked_center[1])**2)**0.5
+            if lock_dist < 0.15:
+                score += (0.2 - lock_dist) * 2000.0  # Massive boost to maintain lock
+        
+        # Step 3: Gemini Bounding Box Bias (New intervals)
+        elif speaker_bbox and len(speaker_bbox) == 4:
+            gem_ymin, gem_xmin, gem_ymax, gem_xmax = [v / 1000.0 for v in speaker_bbox]
+            gem_cx = (gem_xmin + gem_xmax) / 2.0
+            gem_cy = (gem_ymin + gem_ymax) / 2.0
+            dist = ((cx_norm - gem_cx)**2 + (cy_norm - gem_cy)**2)**0.5
+            score += (1.5 - dist) * 500.0
+
+        return score, cx_px, cx_norm, cy_norm
+
+    def update(self, bgr_frame, frame_idx, ts_ms, audio_volume=1.0, speaker_bbox=None, is_new_interval=False):
         if frame_idx % self.detect_every != 0:
             return
+
+        # Clear identity lock if a new Gemini interval tells us to find a new speaker
+        if is_new_interval:
+            self.locked_center = None
 
         rgb    = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB)
         result = self.landmarker.detect_for_video(
@@ -119,17 +150,36 @@ class AutoSpeakerTracker:
                 self.talking_cx   = int(round(self._cx_ema))
             else:
                 self.face_visible = False
+                self.locked_center = None
             return
 
         self._missing = 0
-        best_score, best_cx = -1.0, None
+        self.face_visible = True
+        best_score = -1.0
+        best_cx    = self._last_cx
+        best_norm_cx = None
+        best_norm_cy = None
 
-        for i, lms in enumerate(result.face_landmarks):
-            score, cx = self._score_face(lms, i)
-            if score is not None and score > best_score:
-                best_score, best_cx = score, cx
+        for idx, lms in enumerate(result.face_landmarks):
+            score, cx_px, norm_cx, norm_cy = self._score_face(
+                lms, idx, 
+                audio_volume=audio_volume,
+                speaker_bbox=speaker_bbox, 
+                locked_center=getattr(self, 'locked_center', None)
+            )
+            if score is None: continue
 
-        if best_cx is None:
+            if score > best_score:
+                best_score = score
+                best_cx    = cx_px
+                best_norm_cx = norm_cx
+                best_norm_cy = norm_cy
+                
+        # Lock identity to the winner
+        if best_norm_cx is not None:
+            self.locked_center = (best_norm_cx, best_norm_cy)
+
+        if best_score < 0:
             self.face_visible = False
             return
 
@@ -193,9 +243,18 @@ class StableCameraMotion:
 def main():
     print("🚀 Starting video processing task...")
 
-    payload_str = os.environ.get("PROCESSING_PAYLOAD")
+    payload_s3_key = os.environ.get("PAYLOAD_S3_KEY")
+    payload_s3_bucket = os.environ.get("PAYLOAD_S3_BUCKET")
+    
+    if payload_s3_key and payload_s3_bucket:
+        print(f"📥 Downloading payload from s3://{payload_s3_bucket}/{payload_s3_key} ...")
+        response = s3_client.get_object(Bucket=payload_s3_bucket, Key=payload_s3_key)
+        payload_str = response['Body'].read().decode('utf-8')
+    else:
+        payload_str = os.environ.get("PROCESSING_PAYLOAD")
+        
     if not payload_str:
-        raise ValueError("❌ 'PROCESSING_PAYLOAD' env var missing.")
+        raise ValueError("❌ Neither S3 payload config nor 'PROCESSING_PAYLOAD' env var found.")
 
     payload          = json.loads(payload_str)
     bucket           = payload["s3_bucket"]
@@ -251,6 +310,23 @@ def main():
                .filter("aresample", 16000)
                .output(tmp_audio, acodec="flac", ac=1)
                .overwrite_output().run(quiet=True))
+               
+        # Step 1: Audio Volume Correlation
+        print("🔊 Analyzing audio waveform for active speaker detection...")
+        tmp_wav = f"/tmp/_audio_analysis_{int(time.time())}.wav"
+        (ffmpeg.input(config["inputVideo"])
+               .filter("atrim",    start=config["startAt"], duration=config["duration"])
+               .filter("asetpts",  "PTS-STARTPTS")
+               .output(tmp_wav, ac=1, ar=16000)
+               .overwrite_output().run(quiet=True))
+               
+        import wave
+        audio_volume_per_frame = []
+        with wave.open(tmp_wav, 'rb') as w:
+            framerate = w.getframerate()
+            nframes = w.getnframes()
+            audio_data = w.readframes(nframes)
+            audio_arr = np.frombuffer(audio_data, dtype=np.int16).astype(np.float32)
 
         # 4. Video setup ───────────────────────────────────────────────────
         cap = cv2.VideoCapture(config["inputVideo"])
@@ -278,6 +354,7 @@ def main():
         print("🎬 Processing frames ...")
         
         face_intervals = clip_info.get("face_detection_intervals", [])
+        current_interval_idx = -1
 
         for fi in range(total_frames):
             ret, frame = cap.read()
@@ -286,17 +363,25 @@ def main():
 
             current_sec_in_clip = fi / fps
             detect_face = True
+            active_speaker_bbox = None
+            is_new_interval = False
             
-            for interval in face_intervals:
+            for int_idx, interval in enumerate(face_intervals):
                 # interval.get("end_sec", 9999) handles cases where end_sec might be missing
                 if interval.get("start_sec", 0) <= current_sec_in_clip <= interval.get("end_sec", 9999):
-                    detect_face = interval.get("detect_face", True)
+                    # Support both old 'detect_face' and new 'has_active_speaker'
+                    detect_face = interval.get("has_active_speaker", interval.get("detect_face", True))
+                    active_speaker_bbox = interval.get("speaker_bounding_box", None)
+                    if int_idx != current_interval_idx:
+                        is_new_interval = True
+                        current_interval_idx = int_idx
                     break
 
             ts_ms = int((config["startAt"] + current_sec_in_clip) * 1000)
+            audio_volume = audio_volume_per_frame[fi] if fi < len(audio_volume_per_frame) else 0.0
             
             if detect_face:
-                tracker.update(frame, fi, ts_ms)
+                tracker.update(frame, fi, ts_ms, audio_volume=audio_volume, speaker_bbox=active_speaker_bbox, is_new_interval=is_new_interval)
             else:
                 # Force tracker to skip and behave as if face is not visible
                 tracker.face_visible = False
@@ -308,14 +393,23 @@ def main():
                 out_frame = frame[0:vh, crop_x:crop_x + tw]
             else:
                 camera.step()           # keep clock ticking for smooth resume
-                canvas   = np.zeros((vh, tw, 3), dtype=np.uint8)
+                
+                # 1. Create fast blurred background (lower blur intensity)
+                bg_small = cv2.resize(frame, (tw // 4, vh // 4))
+                bg_blurred = cv2.GaussianBlur(bg_small, (15, 15), 0)
+                bg_blurred = cv2.resize(bg_blurred, (tw, vh))
+                
+                # 2. Resize original frame to fit width (maintains aspect ratio)
                 scale    = tw / vw
                 new_h    = int(vh * scale)
                 resized  = cv2.resize(frame, (tw, new_h))
+                
+                # 3. Paste over blurred background
                 y_off    = max(0, (vh - new_h) // 2)
                 paste_h  = min(new_h, vh - y_off)
-                canvas[y_off:y_off + paste_h, 0:tw] = resized[:paste_h]
-                out_frame = canvas
+                bg_blurred[y_off:y_off + paste_h, 0:tw] = resized[:paste_h]
+                
+                out_frame = bg_blurred
 
             out.write(out_frame)
 
