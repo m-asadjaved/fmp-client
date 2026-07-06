@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Player } from "@remotion/player";
 import { parseMedia } from "@remotion/media-parser";
@@ -395,7 +396,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
       })}
 
       {/* ── Platform Modal ── */}
-      {showPlatformModal && (
+      {showPlatformModal && typeof document !== "undefined" && createPortal(
         <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ background: "#18181b", border: "1px solid #3f3f46", borderRadius: 20, padding: "32px 28px", width: 460, maxWidth: "calc(100vw - 32px)", boxShadow: "0 32px 80px rgba(0,0,0,0.6)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
@@ -424,11 +425,12 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
               {selectedPlatforms.length > 0 ? (scheduleDate ? `Schedule for ${selectedPlatforms.length} platform(s)` : `Post to ${selectedPlatforms.length} platform(s)`) : "Select a platform"}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Post Progress Overlay ── */}
-      {postStage && selectedPlatforms.length > 0 && (
+      {postStage && selectedPlatforms.length > 0 && typeof document !== "undefined" && createPortal(
         <div style={{ position: "fixed", inset: 0, zIndex: 3000, background: "rgba(0,0,0,0.88)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28 }}>
           <div style={{ fontSize: 20, fontWeight: 800, color: "#fafafa" }}>{postStage === "uploading" && "Uploading video..."}{postStage === "processing" && "Processing & encoding..."}{postStage === "done" && (scheduleDate ? "Scheduled! 🎉" : "Posted! 🎉")}</div>
           <div style={{ width: 360, maxWidth: "80vw" }}>
@@ -437,12 +439,13 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}><span style={{ fontSize: 12, fontWeight: 700, color: postStage === "done" ? "#4ade80" : "#a5b4fc" }}>{postProgress}%</span></div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
 
       <style>{`
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes spin { 100% { transform: rotate(360deg); } }
         .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
       `}</style>

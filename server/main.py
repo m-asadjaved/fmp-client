@@ -201,6 +201,7 @@ def main():
     bucket           = payload["s3_bucket"]
     input_key        = payload["s3_input_key"]
     output_key       = payload["s3_output_key"]
+    audio_output_key = payload["s3_audio_output_key"]
     clip_info        = payload["clip_info"]
     webhook_url      = payload["webhook_url"]
     user_id          = payload["user_id"]
@@ -347,7 +348,7 @@ def main():
         # 7. Upload ────────────────────────────────────────────────────────
         print(f"📤 Uploading to s3://{bucket}/{output_key} ...")
         s3_client.upload_file(config["outputReel"], bucket, output_key)
-        s3_client.upload_file(tmp_audio, bucket, f"processed_audio/{req_id}.flac")
+        s3_client.upload_file(tmp_audio, bucket, audio_output_key)
         region = s3_client.meta.region_name
         constant_url = f"https://{bucket}.s3.{region}.amazonaws.com/{output_key}"
         print(f"🔗 URL: {constant_url}")

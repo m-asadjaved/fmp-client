@@ -518,6 +518,14 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
   const [isLoadingMemes, setIsLoadingMemes] = useState(false);
   const [splitTemplateId, setSplitTemplateId] = useState("none");
 
+  // Sync prop changes (e.g. when navigating between clips without unmounting)
+  useEffect(() => {
+    if (initialHookText) {
+      setHookEnabled(true);
+      setHookText(initialHookText);
+    }
+  }, [initialHookText]);
+
   // ── Load preferences on mount ───────────────────────────────────────────────
   useEffect(() => {
     fetch('/api/preferences')

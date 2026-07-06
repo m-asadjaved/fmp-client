@@ -294,7 +294,7 @@ export async function POST(request, context) {
 						}));
 						throw new Error("Video archive expired. Background re-upload started! Please try again in 1 minute.");
 					}
-					
+
 					const new_raw_data = safeParseJSON(ai_response_raw);
 
 					if (
@@ -380,6 +380,7 @@ export async function POST(request, context) {
 								s3_bucket: AWS_BUCKET_NAME,
 								s3_input_key: `raw_videos/${videoId}.mp4`,
 								s3_output_key: `processed_videos/output-${videoId}-${globalIndex}.mp4`,
+								s3_audio_output_key: `processed_audio/${videoId}-${globalIndex}.flac`,
 								webhook_url: WEBHOOK_URL_VIDEO_STATUS,
 								clip_info,
 								full_subtitles: '',
