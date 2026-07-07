@@ -20,8 +20,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy your actual script and the MediaPipe asset into the image
-COPY main.py .
+COPY editor_engine.py .
 COPY face_landmarker.task /var/task/face_landmarker.task
 
 # Set the entry point to run your main script
-CMD ["python", "main.py"]
+CMD ["python", "editor_engine.py"]

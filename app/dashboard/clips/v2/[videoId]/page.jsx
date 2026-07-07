@@ -92,9 +92,10 @@ export default function AIClipsPage({ params }) {
 	}, [videoId]);
 
 	// ─── Features Configuration State ───────────────────────────────────────────
+	const [hoveredOption, setHoveredOption] = useState(null);
 	const [preferences, setPreferences] = useState({
 		faceDetection: true,
-		bRoll: false,
+		backgroundBlur: true,
 		soundEffects: false,
 		vfx: false,
 		useAI: true,
@@ -137,12 +138,12 @@ export default function AIClipsPage({ params }) {
 			});
 		}
 
-		if (preferences.bRoll) {
+		if (preferences.backgroundBlur) {
 			steps.push({
-				title: "Contextual B-Roll Insertion",
-				desc: "Sourcing and stitching supplemental context layers.",
+				title: "Background Blur Compositing",
+				desc: "Rendering cinematic blurred letterboxing for wide frames.",
 				icon: "🎞️",
-				statusText: "Stitching Contextual B-Roll Layers...",
+				statusText: "Applying Cinematic Blur...",
 			});
 		}
 
@@ -394,7 +395,19 @@ export default function AIClipsPage({ params }) {
         @keyframes shimmer {
           100% { transform: translateX(100%); }
         }
+        @keyframes walkRight {
+          0% { transform: translateX(-40px); }
+          50% { transform: translateX(40px); }
+          100% { transform: translateX(-40px); }
+        }
+        @keyframes trackRight {
+          0% { transform: translateX(-40px); }
+          50% { transform: translateX(40px); }
+          100% { transform: translateX(-40px); }
+        }
         .animate-fadeIn { animation: fadeIn 0.4s ease-out forwards; }
+        .walk-right { animation: walkRight 4s ease-in-out infinite; }
+        .track-right { animation: trackRight 4s ease-in-out infinite; }
       `}</style>
 
 			{/* SIDEBAR NAVIGATION PANEL (EXACT DESIGN MATCH) */}
@@ -498,79 +511,112 @@ export default function AIClipsPage({ params }) {
 								</div>
 
 								{/* Interactive Checkbox Layout Grid */}
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 items-start">
 									{[
 										{
 											id: "faceDetection",
-											label: "Adding Face Detection",
+											label: "AI Face Tracking",
+											desc: "Keeps speaker centered in 9:16 frame.",
 										},
 										{
-											id: "bRoll",
-											label: "Adding B-Roll Contextual Video Layers",
+											id: "backgroundBlur",
+											label: "Cinematic Letterboxing",
+											desc: "Blurs the wide background for group shots.",
 										},
-										{
-											id: "soundEffects",
-											label: "Layering Dynamic Sound Effects",
-										},
-										{
-											id: "vfx",
-											label: "Injecting Motion VFX Assets",
-										},
-										{
-											id: "useAI",
-											label: "Utilize AI Transcription (Whisper NLP)",
-										},
+										// commented out other options
+										// { id: "soundEffects", label: "Layering Dynamic Sound Effects" },
+										// { id: "vfx", label: "Injecting Motion VFX Assets" },
+										// { id: "useAI", label: "Utilize AI Transcription (Whisper NLP)" },
 									].map((item) => (
-										<label
-											key={item.id}
-											className={`flex items-center gap-3 border rounded-lg p-3 cursor-pointer select-none transition-colors group ${preferences[item.id]
-													? "bg-[rgba(124,58,237,0.05)] border-[rgba(124,58,237,0.5)]"
-													: "bg-[#18181b] border-[#27272a] hover:bg-[#27272a]"
-												}`}
-										>
-											<input
-												type="checkbox"
-												checked={preferences[item.id]}
-												onChange={(e) =>
-													setPreferences((prev) => ({
-														...prev,
-														[item.id]:
-															e.target.checked,
-													}))
-												}
-												className="sr-only"
-											/>
-											<div
-												className={`w-4 h-4 border rounded flex items-center justify-center transition-all ${preferences[item.id]
-														? "bg-[#7c3aed] text-white"
-														: "bg-[#27272a] bg-[#18181b]"
+										<div key={item.id} className="relative flex flex-col gap-2">
+											<label
+												className={`flex items-start gap-3 border rounded-lg p-3 cursor-pointer select-none transition-colors group relative z-10 ${preferences[item.id]
+														? "bg-[rgba(124,58,237,0.05)] border-[rgba(124,58,237,0.5)]"
+														: "bg-[#18181b] border-[#27272a] hover:bg-[#27272a]"
 													}`}
 											>
-												{preferences[item.id] && (
-													<svg
-														className="w-3 h-3 text-white"
-														fill="none"
-														viewBox="0 0 24 24"
-														stroke="currentColor"
-														strokeWidth={4}
+												<input
+													type="checkbox"
+													checked={preferences[item.id]}
+													onChange={(e) =>
+														setPreferences((prev) => ({
+															...prev,
+															[item.id]: e.target.checked,
+														}))
+													}
+													className="sr-only"
+												/>
+												<div
+													className={`mt-0.5 w-4 h-4 border rounded flex items-center justify-center transition-all shrink-0 ${preferences[item.id]
+															? "bg-[#7c3aed] text-white border-[#7c3aed]"
+															: "border-[#3f3f46] bg-[#18181b]"
+														}`}
+												>
+													{preferences[item.id] && (
+														<svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={4}>
+															<path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+														</svg>
+													)}
+												</div>
+												<div className="flex flex-col">
+													<span
+														className={`text-xs transition-colors ${preferences[item.id]
+																? "text-[#fafafa] font-bold"
+																: "text-[#a1a1aa] font-medium"
+															}`}
 													>
-														<path
-															strokeLinecap="round"
-															strokeLinejoin="round"
-															d="M5 13l4 4L19 7"
-														/>
+														{item.label}
+													</span>
+													<span className="text-[10px] text-[#71717a] mt-0.5 leading-tight">{item.desc}</span>
+												</div>
+												<div className="flex-1" />
+												<div 
+													className="w-5 h-5 rounded-full border border-[#3f3f46] bg-[#27272a] flex items-center justify-center text-[#a1a1aa] hover:text-white hover:border-[#7c3aed] transition-colors shrink-0 relative"
+													onMouseEnter={() => setHoveredOption(item.id)}
+													onMouseLeave={() => setHoveredOption(null)}
+												>
+													<svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+														<path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 													</svg>
-												)}
-											</div>
-											<span
-												className={`text-xs font-medium transition-colors ${preferences[item.id]
-														? "text-[#fafafa] font-semibold"
-														: "text-[#a1a1aa]"
-													}`}
-											>
-												{item.label}
-											</span>
-										</label>
+
+													{/* Floating Absolute Hint Popover */}
+													{hoveredOption === item.id && (
+														<div className="absolute bottom-[calc(100%+12px)] right-0 md:-right-4 w-[280px] bg-[#18181b] border border-[#27272a] rounded-lg p-3 animate-fadeIn shadow-2xl pointer-events-none z-50 text-left">
+															{item.id === 'faceDetection' && (
+																<>
+																	<div className="w-full h-[120px] bg-[#09090b] rounded flex items-center justify-center relative overflow-hidden border border-[#27272a] mb-3">
+																		<div className="w-6 h-6 rounded-full bg-[#52525b] absolute top-[30px] left-[100px] walk-right" />
+																		<div className="w-12 h-12 rounded-t-lg bg-[#52525b] absolute top-[58px] left-[88px] walk-right" />
+																		<div className="absolute top-0 bottom-0 w-[67px] border-2 border-white/20 bg-white/5 track-right" style={{ left: '50%', marginLeft: '-33px' }} />
+																	</div>
+																	<h4 className="text-sm font-semibold text-[#fafafa] mb-1">Face Tracking Preview</h4>
+																	<p className="text-xs text-[#a1a1aa] leading-relaxed normal-case">
+																		Maintains subject focus by dynamically cropping the video to keep the speaker centered.
+																	</p>
+																</>
+															)}
+															{item.id === 'backgroundBlur' && (
+																<>
+																	<div className="w-full h-[120px] bg-[#09090b] rounded flex items-center justify-center relative overflow-hidden border border-[#27272a] mb-3">
+																		<div className="w-[67px] h-[120px] bg-black border-x border-[#27272a] relative flex items-center justify-center overflow-hidden">
+																			<div className="absolute inset-0 bg-blue-500/20 blur-[6px] scale-125" />
+																			<div className="w-full h-[38px] bg-[#3f3f46] relative z-10 border-y border-[#52525b]" />
+																		</div>
+																	</div>
+																	<h4 className="text-sm font-semibold text-[#fafafa] mb-1">Letterboxing Preview</h4>
+																	<p className="text-xs text-[#a1a1aa] leading-relaxed normal-case">
+																		Fills the empty space of wide videos with a cinematic blurred background.
+																	</p>
+																</>
+															)}
+															
+															{/* Tooltip caret (triangle) pointing down */}
+															<div className="absolute -bottom-1.5 right-2 md:right-5 w-3 h-3 bg-[#18181b] border-b border-r border-[#27272a] transform rotate-45" />
+														</div>
+													)}
+												</div>
+											</label>
+										</div>
 									))}
 								</div>
 

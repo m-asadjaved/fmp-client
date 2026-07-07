@@ -19,7 +19,8 @@ const supabase = createClient(
 function safeParseJSON(value) {
 	if (typeof value === "object" && value !== null) return value;
 	try {
-		return JSON.parse(value);
+		const cleaned = String(value).trim().replace(/^```json\s*/i, "").replace(/```$/, "");
+		return JSON.parse(cleaned);
 	} catch {
 		throw new Error("AI response is not valid JSON. Cannot proceed.");
 	}
@@ -274,7 +275,7 @@ export async function POST(request, context) {
 						const videoUrlToProcess = videoRow.gemini_file_uri || `${AWS_BUCKET_URL}/raw_videos/${videoId}.mp4`;
 						ai_response_raw = await SummarizeUsingAI(
 							videoUrlToProcess,
-							preferences?.prioritize
+							preferences
 						);
 					} catch (aiErr) {
 						console.error("Gemini processing failed (possibly expired URI):", aiErr);
@@ -366,7 +367,11 @@ export async function POST(request, context) {
 					const clip_info = {
 						start_time: clip.start_time,
 						duration_seconds: clip.duration_seconds,
-						face_detection_intervals: clip.face_detection_intervals || [],
+						edits: clip.edits || [],
+						// Dummy interval to prevent AWS Lambda from crashing with "list index out of range"
+						face_detection_intervals: [
+							{ start_sec: 0, end_sec: 9999, is_focus_a_face: true, focus_bounding_box: [0, 0, 1000, 1000] }
+						]
 					};
 
 					const lambdaResponse = await fetch(
@@ -444,16 +449,6 @@ const ai = new GoogleGenAI({});
 const summaryJsonSchema = {
 	type: "object",
 	properties: {
-		global_video_analysis: {
-			type: "object",
-			description: "A mandatory analysis of the ENTIRE video to prove you watched the whole thing from start to finish.",
-			properties: {
-				first_third_summary: { type: "string", description: "Briefly summarize what happens in the first third of the video." },
-				middle_third_summary: { type: "string", description: "Briefly summarize what happens in the middle third of the video." },
-				final_third_summary: { type: "string", description: "Briefly summarize exactly what happens in the final few minutes/seconds of the video to prove you watched until the very end." }
-			},
-			required: ["first_third_summary", "middle_third_summary", "final_third_summary"]
-		},
 		recommended_shorts: {
 			type: "array",
 			description:
@@ -492,22 +487,25 @@ const summaryJsonSchema = {
 						type: "integer",
 						description: "A score from 0 to 100 representing the viral potential of this clip.",
 					},
-					face_detection_intervals: {
+					edits: {
 						type: "array",
-						description: "CRITICAL: Accurate, second-by-second intervals specifying who the active speaker is. Must cover the entire clip duration. NO SINGLE INTERVAL CAN EXCEED 5 SECONDS. You MUST break it down into many small chunks. IMPORTANT: Intervals MUST NOT overlap. The start_sec of the next interval must be exactly end_sec + 1 of the previous interval.",
+						description: "An array of editing commands (cuts, zooms, tracking) that make up this clip. The total duration of all edits combined should equal duration_seconds. These are sequential chunks of video.",
 						items: {
 							type: "object",
 							properties: {
-								start_sec: { type: "integer", description: "Start second of this interval (relative to the clip's start)." },
-								end_sec: { type: "integer", description: "End second of this interval (relative to the clip's start)." },
-								is_focus_a_face: { type: "boolean", description: "TRUE if the main focal point is a person's face. FALSE if the focal point is an object, gameplay action, or something else." },
-								focus_bounding_box: {
+								source_start_sec: { type: "number", description: "Start second in the original video for this cut." },
+								source_end_sec: { type: "number", description: "End second in the original video for this cut." },
+								action: { type: "string", description: "The editing action to apply. Options: 'track_face', 'static_zoom', 'fit_screen'." },
+								zoom_level: { type: "number", description: "Zoom multiplier. 1.0 is standard, 1.5 is 50% zoom in." },
+								speaker_bbox_hint: {
 									type: "array",
-									description: "Provide the [ymin, xmin, ymax, xmax] 2D coordinates of the MAIN focal point that will attract the most viewer attention in this interval. Coordinates MUST be normalized from 0 to 1000. Example: [200, 400, 350, 550].",
-									items: { type: "integer" }
-								}
+									description: "If action is 'track_face', provide [ymin, xmin, ymax, xmax] 0-1000 scale.",
+									items: { type: "number" }
+								},
+								target_center_x: { type: "number", description: "If action is 'static_zoom', center X coordinate (0.0 to 1.0)." },
+								target_center_y: { type: "number", description: "If action is 'track_face' or 'static_zoom', center Y coordinate (0.0 to 1.0) indicating vertical position." }
 							},
-							required: ["start_sec", "end_sec", "is_focus_a_face", "focus_bounding_box"]
+							required: ["source_start_sec", "source_end_sec", "action", "zoom_level"]
 						}
 					},
 				},
@@ -520,19 +518,20 @@ const summaryJsonSchema = {
 					"clip_topic",
 					"rationale",
 					"virality_score",
-					"face_detection_intervals",
+					"edits",
 				],
 			},
 		},
 	},
-	required: ["global_video_analysis", "recommended_shorts"],
+	required: ["recommended_shorts"],
 };
 
-export async function SummarizeUsingAI(videoUrl, prioritize = false) {
+export async function SummarizeUsingAI(videoUrl, preferences = {}) {
 	try {
-		if (!videoUrl) {
-			throw new Error("Video URL is required");
-		}
+		if (!videoUrl) throw new Error("Video URL is required");
+
+		const useFaceDetection = preferences?.faceDetection ?? true;
+		const prioritize = preferences?.prioritize ?? false;
 
 		const prompt = `
 [SYSTEM DIRECTIVE: STRICT ENFORCEMENT MODE]
@@ -542,9 +541,10 @@ FAILURE TO COMPLY WITH THE FOLLOWING STRICT RULES WILL RESULT IN TASK FAILURE.
 
 --- CORE DIRECTIVES (NON-NEGOTIABLE) ---
 1. FULL VIDEO DISTRIBUTION (CRITICAL): You MUST watch and process the ENTIRE video from start to finish.
-2. INDEPENDENT TOPICS (CRITICAL): For testing purposes, you MUST select EXACTLY 1 highly viral clip. Do not generate more than 1 clip.
-   - If a topic takes 60 seconds to explain, output ONE 60-second clip. Do NOT output two 30-second clips that play back-to-back.
-   - Clip 2 CANNOT start exactly where Clip 1 ended. Clips MUST be separated by significant time and context.
+2. INDEPENDENT TOPICS & CLIP COUNT (CRITICAL): 
+   - You MUST generate EXACTLY 1 to 2 standalone viral clips from the video. Do not generate more than 2 clips.
+   - Each clip MUST complete at least 1 full topic or thought from start to finish. If a topic takes 60 seconds to explain, output ONE 60-second clip. Do NOT chop it abruptly.
+   - Clips CANNOT start exactly where the previous clip ended. Clips MUST be separated by significant time and context.
 3. TIME CONSTRAINTS: EVERY clip MUST be strictly between 30 and 85 seconds long. Clips shorter than 30 seconds or longer than 85 seconds are strictly forbidden. ZERO exceptions.
 4. TOPIC RESOLUTION & CONTINUITY: If a topic naturally flows into a related sub-topic, you MUST extend the clip (up to 85s max) to include it. Do not chop it into two separate clips. Keep the entire thought process together in a single clip.
 5. DYNAMIC FOCUS: The hook introduces the main subject. Keep the clip going until the thought completely resolves. Do not cut early.
@@ -570,44 +570,45 @@ You are receiving the actual video file. You MUST visually inspect the video fra
 1. SCHEMA COMPLIANCE: Your response MUST STRICTLY conform to the provided JSON schema. Do NOT add any extra fields. EVERY field is mandatory.
 2. TIMESTAMPS: \`start_time\` and \`end_time\` MUST use exactly "MM:SS" format and map precisely to the ORIGINAL video timestamps. 
 3. DURATION: \`duration_seconds\` MUST accurately reflect the difference between \`start_time\` and \`end_time\`.
-4. SECOND-BY-SECOND FOCAL POINT TRACKING: \`face_detection_intervals\` MUST be visually accurate down to the EXACT SECOND.
-   - Break the clip down into small 1-3 second intervals if the camera angles or the main action changes rapidly. Do NOT use lazy 30-second intervals.
-   - INTERVALS CANNOT OVERLAP: If interval 1 is 1 to 3, interval 2 MUST be 4 to 5. Do NOT do 1 to 3 and then 3 to 5.
-   - Analyze both the AUDIO and the VIDEO to figure out who or what the MAIN CHARACTER/ACTION is.
-   - \`is_focus_a_face\`: Set to TRUE if the main focal point is a person's face. Set to FALSE if the focus should be an object (like a car, product, hands, or gameplay).
-   - \`focus_bounding_box\`: You MUST output the [ymin, xmin, ymax, xmax] 2D coordinates (0-1000 scale) of the MAIN subject that will attract the most viewer attention. This tells our downstream auto-cropper where to zoom in.
+4. TIMELINE EDITING INSTRUCTIONS: \`edits\` MUST contain an array of editing commands that dictate the final video cut.
+   - You can generate as many edits as needed to make the clip dynamic and perfectly timed.
+   - Break the clip down into sequential chunks using \`source_start_sec\` and \`source_end_sec\` from the ORIGINAL video.
+${useFaceDetection ? `   - EXTREMELY ACCURATE FACE TRACKING: If a person is speaking, use \`action: "track_face"\` and provide an EXTREMELY ACCURATE \`speaker_bbox_hint\` (0-1000 scale: [ymin, xmin, ymax, xmax]) for the MAIN CHARACTER. You must identify exactly who is talking.
+   - VERTICAL CENTERING: When using \`track_face\`, you MUST also provide \`target_center_y\` (0.0 to 1.0 scale) indicating where the speaker's face is vertically in the original video. E.g., if their head is in the top third, use 0.3. This helps center them perfectly!
+   - CRITICAL ZOOMING: If there is only 1 main character visible, you MUST zoom in on their face by setting a \`zoom_level\` of 1.3 to 1.5 to make it engaging. However, if there are multiple important people/faces on screen together, you must adjust the \`zoom_level\` down (e.g. 1.0 to 1.2) so that everyone is visible in the frame.
+   - FIT SCREEN FOR GROUPS: If there are multiple important people spread across the wide screen (like a panel of judges or a group), and you cannot fit them all in a vertical crop, you MUST use \`action: "fit_screen"\`. This will automatically shrink the video and add a blurred background so everyone is perfectly visible. (No zoom_level or tracking needed for \`fit_screen\`).
+   - If you want to show an object, reaction, or gameplay, use \`action: "static_zoom"\` and provide \`target_center_x\` and \`target_center_y\` (0.0 to 1.0 scale, e.g. 0.5 for middle).` : `   - NO FACE TRACKING: Face detection is disabled. You MUST NOT use \`action: "track_face"\`.
+   - FIT SCREEN: You MUST use \`action: "fit_screen"\` to automatically shrink the wide 16:9 video and add a blurred background so the whole frame is visible in a 9:16 layout.
+   - If you want to show an object or gameplay with a standard crop, you may use \`action: "static_zoom"\` and provide \`target_center_x\` and \`target_center_y\` (0.0 to 1.0 scale, e.g. 0.5 for middle) with a zoom_level of 1.0.`}
+   - Use \`zoom_level\` dynamically for other actions. 1.0 is standard vertical crop.
+   - Analyze both the AUDIO and the VIDEO to figure out precisely who the MAIN CHARACTER/ACTION is for every cut.
 
 RETURN ONLY THE RAW, VALID JSON DATA. DO NOT WRAP IN MARKDOWN OR EXPLANATORY TEXT.
 `;
 
-		const interaction = await ai.interactions.create({
-			model: "gemini-3.1-flash-lite",
-			// model: "gemini-2.5-pro",
-			// model: "gemini-3.1-pro-preview",
-			input: [
+		const response = await ai.models.generateContent({
+			// model: "gemini-2.5-pro", // or gemini-2.5-flash / whatever tier you're targeting
+			model: "gemini-2.5-flash", // or gemini-2.5-flash / whatever tier you're targeting
+			contents: [
 				{
-					type: "video",
-					uri: videoUrl,
-					mime_type: "video/mp4",
-				},
-				{
-					type: "text",
-					text: "You are an expert AI video editor and short-form content strategist. CRITICAL: You must actively listen to the audio and analyze the visual frames for the ENTIRE video from start to finish. Do not stop processing early. Whatever the full duration of the video is, you must process 100% of it before responding.",
+					role: "user",
+					parts: [
+						{ fileData: { fileUri: videoUrl, mimeType: "video/mp4" } },
+						{ text: "You are an expert AI video editor and short-form content strategist. CRITICAL: You must actively listen to the audio and analyze the visual frames for the ENTIRE video from start to finish. Do not stop processing early." },
+					],
 				},
 			],
-			system_instruction:
-				prompt,
-			response_format: {
-				type: "text",
-				mime_type: "application/json",
-				schema: summaryJsonSchema,
+			config: {
+				systemInstruction: prompt, // your big prompt string
+				responseMimeType: "application/json",
+				responseSchema: summaryJsonSchema,
+				// service tier: check current SDK config field name — see note below
 			},
-			service_tier: prioritize ? "standard" : "flex",
 		});
 
-		console.log(interaction.output_text);
-
-		return interaction.output_text;
+		const text = response.text; // or response.candidates[0].content.parts[0].text depending on SDK version
+		console.log(text);
+		return text;
 	} catch (error) {
 		console.error("Gemini API Error:", error);
 		throw error;
