@@ -272,13 +272,18 @@ export async function POST(request, context) {
 				} else {
 					let ai_response_raw;
 					try {
-						const videoUrlToProcess = videoRow.gemini_file_uri || `${AWS_BUCKET_URL}/raw_videos/${videoId}.mp4`;
+						const videoUrlToProcess = videoRow.gemini_file_uri;
+
+						if (!videoUrlToProcess) {
+							throw new Error("Gemini File URI is missing. Cannot process AWS URL directly via fileData.");
+						}
+
 						ai_response_raw = await SummarizeUsingAI(
 							videoUrlToProcess,
 							preferences
 						);
 					} catch (aiErr) {
-						console.error("Gemini processing failed (possibly expired URI):", aiErr);
+						console.error("Gemini processing failed (possibly expired URI or missing URI):", aiErr);
 						// "Touch" the S3 file to re-trigger the upload Lambda
 						const s3 = new S3Client({
 							region: process.env.AWS_REGION || "us-east-1",
@@ -473,7 +478,7 @@ const summaryJsonSchema = {
 					},
 					title_or_hook: {
 						type: "string",
-						description: "Catchy, viral hook headline that immediately grabs attention.",
+						description: "Catchy, viral hook headline. MUST be extremely short, only 3 to 5 words maximum.",
 					},
 					clip_topic: {
 						type: "string",
@@ -496,14 +501,21 @@ const summaryJsonSchema = {
 								source_start_sec: { type: "number", description: "Start second in the original video for this cut." },
 								source_end_sec: { type: "number", description: "End second in the original video for this cut." },
 								action: { type: "string", description: "The editing action to apply. Options: 'track_face', 'static_zoom', 'fit_screen'." },
-								zoom_level: { type: "number", description: "Zoom multiplier. 1.0 is standard, 1.5 is 50% zoom in." },
+								zoom_level: { type: "number", description: "Zoom multiplier. 1.0 is standard, 1.2 is zoomed in. Do not exceed 1.2." },
 								speaker_bbox_hint: {
 									type: "array",
 									description: "If action is 'track_face', provide [ymin, xmin, ymax, xmax] 0-1000 scale.",
 									items: { type: "number" }
 								},
 								target_center_x: { type: "number", description: "If action is 'static_zoom', center X coordinate (0.0 to 1.0)." },
-								target_center_y: { type: "number", description: "If action is 'track_face' or 'static_zoom', center Y coordinate (0.0 to 1.0) indicating vertical position." }
+								target_center_y: { type: "number", description: "If action is 'track_face' or 'static_zoom', center Y coordinate (0.0 to 1.0) indicating vertical position." },
+								visual_effects: {
+									type: "object",
+									description: "Optional visual effects to apply to this clip chunk.",
+									properties: {
+										color_filter: { type: "string", description: "Color filter to apply. Options: 'none', 'grayscale', 'high_contrast', 'sepia'. Default is 'none'." }
+									}
+								}
 							},
 							required: ["source_start_sec", "source_end_sec", "action", "zoom_level"]
 						}
@@ -532,10 +544,34 @@ export async function SummarizeUsingAI(videoUrl, preferences = {}) {
 
 		const useFaceDetection = preferences?.faceDetection ?? true;
 		const prioritize = preferences?.prioritize ?? false;
+		const category = preferences?.category || "podcast";
+
+		let categoryGuidelines = "";
+		if (category === "podcast") {
+			categoryGuidelines = `
+--- PODCAST / INTERVIEW GUIDELINES ---
+- Focus heavily on interesting conversations, hot takes, or funny moments.
+- If it's a wide shot with 2 or more people in the frame interacting, you MUST use \`action: "fit_screen"\` so the audience can see everyone's reactions. Do NOT use \`track_face\` if multiple people are on screen together.
+- If the camera cuts to a close-up of just 1 person speaking, use \`action: "track_face"\`.`;
+		} else if (category === "gameplay") {
+			categoryGuidelines = `
+--- GAMEPLAY / STREAMING GUIDELINES ---
+- Focus on high-action moments, funny fails, or extreme reactions.
+- Use \`action: "fit_screen"\` for most of the gameplay to preserve the UI and game action.
+- Only use \`action: "track_face"\` if there is a webcam face that takes up a large portion of the screen and is doing a crazy reaction.`;
+		} else {
+			categoryGuidelines = `
+--- GENERAL VIDEO GUIDELINES ---
+- Find the most engaging moments.
+- If multiple people are in the frame, use \`action: "fit_screen"\` to keep them all visible.`;
+		}
 
 		const prompt = `
 [SYSTEM DIRECTIVE: STRICT ENFORCEMENT MODE]
 You are an elite AI Video Editor and Viral Content Strategist. Your primary directive is to extract hyper-viral, standalone short-form clips (TikTok, YouTube Shorts, Reels) from the provided video. 
+
+The video category is: ${category.toUpperCase()}.
+${categoryGuidelines}
 
 FAILURE TO COMPLY WITH THE FOLLOWING STRICT RULES WILL RESULT IN TASK FAILURE.
 
@@ -573,22 +609,26 @@ You are receiving the actual video file. You MUST visually inspect the video fra
 4. TIMELINE EDITING INSTRUCTIONS: \`edits\` MUST contain an array of editing commands that dictate the final video cut.
    - You can generate as many edits as needed to make the clip dynamic and perfectly timed.
    - Break the clip down into sequential chunks using \`source_start_sec\` and \`source_end_sec\` from the ORIGINAL video.
-${useFaceDetection ? `   - EXTREMELY ACCURATE FACE TRACKING: If a person is speaking, use \`action: "track_face"\` and provide an EXTREMELY ACCURATE \`speaker_bbox_hint\` (0-1000 scale: [ymin, xmin, ymax, xmax]) for the MAIN CHARACTER. You must identify exactly who is talking.
-   - VERTICAL CENTERING: When using \`track_face\`, you MUST also provide \`target_center_y\` (0.0 to 1.0 scale) indicating where the speaker's face is vertically in the original video. E.g., if their head is in the top third, use 0.3. This helps center them perfectly!
-   - CRITICAL ZOOMING: If there is only 1 main character visible, you MUST zoom in on their face by setting a \`zoom_level\` of 1.3 to 1.5 to make it engaging. However, if there are multiple important people/faces on screen together, you must adjust the \`zoom_level\` down (e.g. 1.0 to 1.2) so that everyone is visible in the frame.
-   - FIT SCREEN FOR GROUPS: If there are multiple important people spread across the wide screen (like a panel of judges or a group), and you cannot fit them all in a vertical crop, you MUST use \`action: "fit_screen"\`. This will automatically shrink the video and add a blurred background so everyone is perfectly visible. (No zoom_level or tracking needed for \`fit_screen\`).
+   - MILLISECOND PRECISION CUTS (CRITICAL): You MUST provide \`source_start_sec\` and \`source_end_sec\` with high decimal precision (e.g., 2.300, 5.401) to perfectly match camera cuts. DO NOT round to whole seconds if the camera cuts mid-second!
+   - CUT ON ACTION: If a wide shot of multiple people is on screen from 2.300s to 5.400s, use \`action: "fit_screen"\` for that EXACT duration. If the video suddenly cuts to 1 person at 5.401s, immediately start a NEW edit chunk at 5.401s with \`action: "track_face"\` or \`"static_zoom"\`.
+${useFaceDetection ? `   - EXTREMELY ACCURATE FACE TRACKING: If a single person is speaking and they are the ONLY important person on screen, use \`action: "track_face"\` and provide an EXTREMELY ACCURATE \`speaker_bbox_hint\` (0-1000 scale: [ymin, xmin, ymax, xmax]) for the MAIN CHARACTER.
+   - VERTICAL CENTERING: When using \`track_face\`, you MUST also provide \`target_center_y\` (0.0 to 1.0 scale) indicating where the speaker's face is vertically in the original video.
+   - CRITICAL ZOOMING: If there is only 1 main character visible, you MUST zoom in slightly on their face by setting a \`zoom_level\` of 1.1 to 1.2 to make it engaging. DO NOT EXCEED 1.2 as it will crop their head off!
+   - FIT SCREEN FOR GROUPS (CRITICAL): If there are 2 OR MORE people in the current frame, you MUST NOT track a single face. You MUST use \`action: "fit_screen"\` to show the whole video instead of only 1 person. This ensures no one gets cut out during group conversations or podcasts.
    - If you want to show an object, reaction, or gameplay, use \`action: "static_zoom"\` and provide \`target_center_x\` and \`target_center_y\` (0.0 to 1.0 scale, e.g. 0.5 for middle).` : `   - NO FACE TRACKING: Face detection is disabled. You MUST NOT use \`action: "track_face"\`.
    - FIT SCREEN: You MUST use \`action: "fit_screen"\` to automatically shrink the wide 16:9 video and add a blurred background so the whole frame is visible in a 9:16 layout.
    - If you want to show an object or gameplay with a standard crop, you may use \`action: "static_zoom"\` and provide \`target_center_x\` and \`target_center_y\` (0.0 to 1.0 scale, e.g. 0.5 for middle) with a zoom_level of 1.0.`}
    - Use \`zoom_level\` dynamically for other actions. 1.0 is standard vertical crop.
+   - LANGUAGE INSTRUCTION: If the video is spoken in Hindi or Urdu, you MUST write the \`title_or_hook\` strictly in Roman Hindi or Roman Urdu (written using English letters). NEVER use Devanagari or Arabic scripts.
+   - VISUAL EFFECTS: You can set \`visual_effects.color_filter\` to "grayscale", "high_contrast", or "sepia" to emphasize emotional beats, flashbacks, or dramatic moments.
    - Analyze both the AUDIO and the VIDEO to figure out precisely who the MAIN CHARACTER/ACTION is for every cut.
 
 RETURN ONLY THE RAW, VALID JSON DATA. DO NOT WRAP IN MARKDOWN OR EXPLANATORY TEXT.
 `;
 
 		const response = await ai.models.generateContent({
-			// model: "gemini-2.5-pro", // or gemini-2.5-flash / whatever tier you're targeting
-			model: "gemini-2.5-flash", // or gemini-2.5-flash / whatever tier you're targeting
+			// model: "gemini-2.5-pro",
+			model: "gemini-2.5-flash",
 			contents: [
 				{
 					role: "user",

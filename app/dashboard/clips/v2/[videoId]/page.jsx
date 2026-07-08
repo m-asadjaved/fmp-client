@@ -94,6 +94,7 @@ export default function AIClipsPage({ params }) {
 	// ─── Features Configuration State ───────────────────────────────────────────
 	const [hoveredOption, setHoveredOption] = useState(null);
 	const [preferences, setPreferences] = useState({
+		category: "podcast",
 		faceDetection: true,
 		backgroundBlur: true,
 		soundEffects: false,
@@ -508,6 +509,27 @@ export default function AIClipsPage({ params }) {
 										Configure Workspace Automated Engine
 										Layers
 									</span>
+								</div>
+
+								{/* Category Selection Dropdown */}
+								<div className="mb-5 flex flex-col gap-2">
+									<label className="text-sm font-bold text-[#fafafa]">
+										Video Content Category
+									</label>
+									<select
+										value={preferences.category}
+										onChange={(e) => setPreferences((prev) => ({ ...prev, category: e.target.value }))}
+										className="w-full bg-[#09090b] border border-[#27272a] rounded-lg px-4 py-3 text-sm text-[#fafafa] font-medium focus:outline-none focus:border-[#7c3aed] transition-colors appearance-none cursor-pointer"
+										style={{ backgroundImage: "url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20width%3D%2224%22%20height%3D%2224%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20fill%3D%22none%22%20stroke%3D%22%23a1a1aa%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')", backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", backgroundSize: "16px" }}
+									>
+										<option value="podcast">Podcast / Interview / Talking Head</option>
+										<option value="gameplay">Gameplay / Streaming</option>
+										<option value="vlog">Vlog / Real Life</option>
+										<option value="educational">Educational / Tutorial</option>
+									</select>
+									<p className="text-xs text-[#a1a1aa]">
+										This helps the AI engine understand what kind of video it is watching to make better editing decisions.
+									</p>
 								</div>
 
 								{/* Interactive Checkbox Layout Grid */}

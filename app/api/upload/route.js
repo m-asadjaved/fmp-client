@@ -72,22 +72,6 @@ export async function POST(request) {
       return NextResponse.json({ error: "File size exceeds the 3GB limit for users." }, { status: 403 });
     }
 
-    // 1. Calculate Credit Cost
-    const credits_cost = Number((duration / 1200).toFixed(4));
-
-    // 2. Deduct Credits (Fails early if user has insufficient credits)
-    try {
-      const { error: deductionError } = await supabase.rpc('deduct_credits', {
-        p_user_id: userId,
-        p_amount: credits_cost,
-        p_description: `Uploaded video: ${filename} (${duration}s)`
-      });
-
-      if (deductionError) throw new Error(deductionError.message);
-    } catch (err) {
-      return NextResponse.json({ error: `Credit deduction failed: ${err.message}` }, { status: 400 });
-    }
-
     const videoId = uuidv4();
     const fileExtension = filename.split('.').pop();
     const uniqueFilename = `raw_videos/${videoId}.${fileExtension}`;
@@ -111,8 +95,8 @@ export async function POST(request) {
           file_size: fileSize,
           duration: duration,
           video_url: videoUrl,
-          thumbnail_url: thumbnailUrl, // Added tracking target path reference here
-          credits_used: credits_cost, 
+          thumbnail_url: thumbnailUrl,
+          credits_used: 0, 
           video_id: videoId 
         },
       ])

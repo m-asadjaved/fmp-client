@@ -54,9 +54,12 @@ class AutoSpeakerTracker:
         self.detect_every = max(1, int(fps * cfg["detect_every_sec"]))
         self._lip_ema = {}
         self._cx_ema = float(fw / 2)
+        self._cy_ema = float(fh / 2)
         self.face_visible = False
         self.talking_cx = fw // 2
+        self.talking_cy = fh // 2
         self._last_cx = float(fw / 2)
+        self._last_cy = float(fh / 2)
         self._missing = 0
         self._memory_limit = int(fps * cfg.get("memory_sec", 1.5))
         self.locked_center = None
@@ -83,7 +86,9 @@ class AutoSpeakerTracker:
         fw_px = fw_norm * self.fw
         fh_px = fh_norm * self.fh
 
-        if fw_px < self.fw * 0.05 or fh_px < self.fh * 0.03:
+        min_w = max(self.fw * 0.02, 20)
+        min_h = max(self.fh * 0.02, 20)
+        if fw_px < min_w or fh_px < min_h:
             return None, None, None, None
 
         cx_norm = (min(xs) + max(xs)) / 2.0
@@ -103,7 +108,7 @@ class AutoSpeakerTracker:
             gem_cx = (gem_xmin + gem_xmax) / 2.0
             gem_cy = (gem_ymin + gem_ymax) / 2.0
             dist = ((cx_norm - gem_cx)**2 + (cy_norm - gem_cy)**2)**0.5
-            score += (1.5 - dist) * 500.0
+            score += (1.5 - dist) * 2000.0  # was 500.0 — make it decisive, not just a nudge
 
         return score, cx_px, cx_norm, cy_norm
 
@@ -148,9 +153,12 @@ class AutoSpeakerTracker:
             return
 
         self._cx_ema = self.alpha_cx * best_cx + (1 - self.alpha_cx) * self._cx_ema
+        self._cy_ema = self.alpha_cx * (best_norm_cy * self.fh) + (1 - self.alpha_cx) * self._cy_ema
         self._last_cx = self._cx_ema
+        self._last_cy = self._cy_ema
         self.face_visible = True
         self.talking_cx = int(round(self._cx_ema))
+        self.talking_cy = int(round(self._cy_ema))
 
     def close(self):
         self.landmarker.close()
@@ -281,7 +289,8 @@ def main():
             crop_w = int(out_w / zoom_level)
             crop_h = int(out_h / zoom_level)
 
-            camera = StableCameraMotion(fw=vw, fh=vh, tw=crop_w, smooth=0.06, dead_zone_px=40, snap_frac=0.35)
+            camera_x = StableCameraMotion(fw=vw, fh=vh, tw=crop_w, smooth=0.06, dead_zone_px=40, snap_frac=0.35)
+            camera_y = StableCameraMotion(fw=vh, fh=vw, tw=crop_h, smooth=0.06, dead_zone_px=40, snap_frac=0.35)
             
             tmp_clip_video = f"/tmp/clip_{idx}_{int(time.time())}.mp4"
             tmp_clip_audio = f"/tmp/clip_{idx}_{int(time.time())}.wav"
@@ -339,21 +348,39 @@ def main():
                 else:
                     if action == "track_face":
                         bbox = edit.get("speaker_bbox_hint")
-                        # Force new interval on first frame to reset lock
                         tracker.update(frame, fi, ts_ms, audio_volume=audio_volume, speaker_bbox=bbox, is_new_interval=(fi==0))
+
                         if tracker.face_visible:
-                            camera.set_target(tracker.talking_cx)
+                            camera_x.set_target(tracker.talking_cx)
+                            camera_y.set_target(tracker.talking_cy)
+                            crop_x = camera_x.step()
+                            crop_y = camera_y.step()
+                            crop_x = np.clip(crop_x, 0, vw - crop_w)
+                            crop_y = np.clip(crop_y, 0, vh - crop_h)
+                            cropped_frame = frame[crop_y:crop_y + crop_h, crop_x:crop_x + crop_w]
+                            out_frame = cv2.resize(cropped_frame, (out_w, out_h), interpolation=cv2.INTER_LINEAR) if zoom_level != 1.0 else cropped_frame
                         else:
-                            camera.step()
+                            # No confident face this frame — do NOT freeze at stale center.
+                            # Fall back to a safe fit_screen render so nobody looks "randomly zoomed".
+                            scale = out_w / vw
+                            new_h = int(vh * scale)
+                            resized = cv2.resize(frame, (out_w, new_h))
+                            y_offset = (out_h - new_h) // 2
+                            out_frame = np.zeros((out_h, out_w, 3), dtype=np.uint8)
+                            out_frame[y_offset:y_offset+new_h, 0:out_w] = resized
                     elif action == "static_zoom":
                         target_x_norm = edit.get("target_center_x", 0.5)
-                        camera.set_target(int(target_x_norm * vw))
+                        target_y_norm = edit.get("target_center_y", 0.5)
+                        camera_x.set_target(int(target_x_norm * vw))
+                        camera_y.set_target(int(target_y_norm * vh))
                     
-                    crop_x = camera.step()
+                    crop_x = camera_x.step()
                     
-                    # Y cropping logic: default to center or top-aligned based on JSON
-                    target_y_norm = edit.get("target_center_y", 0.5)
-                    crop_y = int((target_y_norm * vh) - (crop_h / 2))
+                    # Y cropping logic: uses tracking_cy for faces, or JSON target for static
+                    crop_y = camera_y.step()
+                    
+                    # Ensure boundaries
+                    crop_x = np.clip(crop_x, 0, vw - crop_w)
                     crop_y = np.clip(crop_y, 0, vh - crop_h)
 
                     cropped_frame = frame[crop_y:crop_y + crop_h, crop_x:crop_x + crop_w]
@@ -363,6 +390,55 @@ def main():
                         out_frame = cv2.resize(cropped_frame, (out_w, out_h), interpolation=cv2.INTER_LINEAR)
                     else:
                         out_frame = cropped_frame
+
+                # === NEW EFFECTS LAYER ===
+                visual_effects = edit.get("visual_effects", {})
+                color_filter = visual_effects.get("color_filter", "none")
+                
+                if color_filter == "grayscale":
+                    gray = cv2.cvtColor(out_frame, cv2.COLOR_BGR2GRAY)
+                    out_frame = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
+                elif color_filter == "high_contrast":
+                    out_frame = cv2.convertScaleAbs(out_frame, alpha=1.3, beta=10)
+                elif color_filter == "sepia":
+                    kernel = np.array([[0.272, 0.534, 0.131],
+                                       [0.349, 0.686, 0.168],
+                                       [0.393, 0.769, 0.189]])
+                    out_frame = cv2.transform(out_frame, kernel)
+                    out_frame = np.clip(out_frame, 0, 255).astype(np.uint8)
+                
+                # === NEW OVERLAYS LAYER ===
+                overlays = edit.get("overlays", [])
+                for overlay in overlays:
+                    o_type = overlay.get("type")
+                    content = overlay.get("content", "")
+                    
+                    if o_type == "text":
+                        pos_y = overlay.get("position_y", 0.5)
+                        text_y = int(out_h * pos_y)
+                        
+                        # Add a simple text with black outline for visibility
+                        font = cv2.FONT_HERSHEY_DUPLEX
+                        font_scale = 1.5
+                        thickness = 3
+                        
+                        # Get text size to center it
+                        (text_w, text_h), _ = cv2.getTextSize(content, font, font_scale, thickness)
+                        text_x = (out_w - text_w) // 2
+                        
+                        # Outline
+                        cv2.putText(out_frame, content, (text_x, text_y), font, font_scale, (0, 0, 0), thickness + 2)
+                        # Text (Yellow)
+                        cv2.putText(out_frame, content, (text_x, text_y), font, font_scale, (0, 255, 255), thickness)
+                        
+                    elif o_type == "b_roll":
+                        # Simulate B-Roll with a semi-transparent overlay and text
+                        overlay_img = out_frame.copy()
+                        cv2.rectangle(overlay_img, (0, out_h//3), (out_w, 2*out_h//3), (0, 0, 0), -1)
+                        cv2.addWeighted(overlay_img, 0.6, out_frame, 0.4, 0, out_frame)
+                        
+                        font = cv2.FONT_HERSHEY_SIMPLEX
+                        cv2.putText(out_frame, f"[ B-ROLL: {content} ]", (20, out_h//2), font, 1.0, (255, 255, 255), 2)
 
                 out.write(out_frame)
 
@@ -391,25 +467,29 @@ def main():
         tmp_stitched_video = f"/tmp/stitched_video_{int(time.time())}.mp4"
         files_to_cleanup.append(tmp_stitched_video)
 
-        # Concatenate video streams without re-encoding
-        (ffmpeg.input(concat_file_path, format='concat', safe=0)
-               .output(tmp_stitched_video, c='copy')
-               .overwrite_output().run(quiet=True))
-               
-        # Concatenate audio streams and convert to FLAC for Remotion
-        (ffmpeg.input(concat_audio_path, format='concat', safe=0)
-               .output(output_audio, acodec="flac", ac=1)
-               .overwrite_output().run(quiet=True))
-
-        print("⚡ Compositing final render with audio ...")
-        v = ffmpeg.input(tmp_stitched_video)
-        a = ffmpeg.input(output_audio)
-
-        (ffmpeg.output(v, a, output_reel,
-                        vcodec="libx264", preset="slow", crf=18, pix_fmt="yuv420p",
-                        profile="high", level="4.2", acodec="aac", audio_bitrate="320k",
-                        ar=48000, movflags="+faststart", threads=0)
-               .overwrite_output().run(quiet=True))
+        try:
+            # Concatenate video streams without re-encoding
+            (ffmpeg.input(concat_file_path, format='concat', safe=0)
+                   .output(tmp_stitched_video, c='copy')
+                   .overwrite_output().run(capture_stdout=True, capture_stderr=True))
+                   
+            # Concatenate audio streams and convert to FLAC for Remotion
+            (ffmpeg.input(concat_audio_path, format='concat', safe=0)
+                   .output(output_audio, acodec="flac", ac=1)
+                   .overwrite_output().run(capture_stdout=True, capture_stderr=True))
+    
+            print("⚡ Compositing final render with audio ...")
+            v = ffmpeg.input(tmp_stitched_video)
+            a = ffmpeg.input(output_audio)
+    
+            (ffmpeg.output(v, a, output_reel,
+                            vcodec="libx264", preset="slow", crf=18, pix_fmt="yuv420p",
+                            profile="high", level="4.2", acodec="aac", audio_bitrate="320k",
+                            ar=48000, movflags="+faststart", threads=0)
+                   .overwrite_output().run(capture_stdout=True, capture_stderr=True))
+        except ffmpeg.Error as e:
+            print(f"FFmpeg Error Stderr:\n{e.stderr.decode('utf-8')}")
+            raise
 
         print(f"🎉 Done → {output_reel}")
 

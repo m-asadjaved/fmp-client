@@ -325,13 +325,7 @@ export default function Dashboard() {
 
     videoElement.onloadedmetadata = () => {
       URL.revokeObjectURL(videoElement.src);
-
-      const estimatedCost = videoElement.duration / 1200;
-      if (estimatedCost > credits) {
-        alert(`Insufficient credit balance. This video requires ~${estimatedCost.toFixed(2)} credits, but you only have ${credits.toFixed(2)}.`);
-        return;
-      }
-
+      
       setVideoDuration(videoElement.duration);
       setFile(selectedFile);
     };
@@ -402,10 +396,14 @@ export default function Dashboard() {
         }
       };
 
-      xhr.onload = () => {
+      xhr.onload = async () => {
         if (xhr.status === 200) {
           alert('Asset parsed and recorded successfully!');
+          
           setFile(null);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
           setHistory((prev) => [dbRecord, ...prev]);
           fetchUploadHistory();
         } else {
@@ -673,38 +671,34 @@ export default function Dashboard() {
               style={{ display: "none" }}
               accept="video/*"
               onChange={(e) => e.target.files?.[0] && handleFileSelection(e.target.files[0])}
-              disabled={uploading || credits <= 0}
+              disabled={uploading}
             />
 
             <div
               onDragOver={(e) => { e.preventDefault(); setIsDragActive(true); }}
               onDragLeave={() => setIsDragActive(false)}
               onDrop={(e) => { e.preventDefault(); setIsDragActive(false); if (e.dataTransfer.files?.[0]) handleFileSelection(e.dataTransfer.files[0]); }}
-              onClick={() => !uploading && credits > 0 && fileInputRef.current.click()}
+              onClick={() => !uploading && fileInputRef.current.click()}
               style={{
                 height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
                 background: isDragActive ? "rgba(124, 58, 237, 0.05)" : "#09090b",
                 border: `2px dashed ${isDragActive ? "#7c3aed" : "#3f3f46"}`,
-                borderRadius: 12, cursor: credits <= 0 ? "not-allowed" : "pointer",
-                padding: 24, transition: "all 0.2s", opacity: credits <= 0 ? 0.5 : 1
+                borderRadius: 12, cursor: "pointer",
+                padding: 24, transition: "all 0.2s", opacity: 1
               }}
-              onMouseOver={e => { if (credits > 0 && !isDragActive) e.currentTarget.style.borderColor = "#52525b"; }}
-              onMouseOut={e => { if (credits > 0 && !isDragActive) e.currentTarget.style.borderColor = "#3f3f46"; }}
+              onMouseOver={e => { if (!isDragActive) e.currentTarget.style.borderColor = "#52525b"; }}
+              onMouseOut={e => { if (!isDragActive) e.currentTarget.style.borderColor = "#3f3f46"; }}
             >
               <div style={{ background: "#18181b", padding: 12, borderRadius: "50%", color: "#a1a1aa", marginBottom: 12, border: "1px solid #27272a" }}>
                 <UploadCloud size={24} />
               </div>
 
-              {credits <= 0 ? (
-                <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: "#ef4444" }}>Credit Balance Expired</p>
-              ) : (
-                <>
-                  <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#fafafa" }}>Upload Video Asset</p>
-                  <p style={{ margin: 0, fontSize: 12, color: "#a1a1aa" }}>
-                    Drag & drop or <span style={{ color: "#a78bfa", fontWeight: 600 }}>browse files</span>
-                  </p>
-                </>
-              )}
+              <>
+                <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#fafafa" }}>Upload Video Asset</p>
+                <p style={{ margin: 0, fontSize: 12, color: "#a1a1aa" }}>
+                  Drag & drop or <span style={{ color: "#a78bfa", fontWeight: 600 }}>browse files</span>
+                </p>
+              </>
             </div>
           </div>
         </section>
