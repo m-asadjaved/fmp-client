@@ -8,7 +8,7 @@ http:
   url: http://localhost:3000/api/webhook/clips
   body:
     type: json
-    data: '{"req_id": "8f24891f-73b1-4dc8-8f74-c56ed66b9cfb", "status": "completed", "video_url": "https://fmp-641079926683-us-east-1-an.s3.us-east-1.amazonaws.com/processed_videos/output-c129c740-0b6b-4b5a-830e-24a2bf47ec7a-0.mp4", "user_id": "user_3Faw6rpqzBEgmofDh9aeO0XUvtA", "error": null}'
+    data: '{"req_id": "da5dab18-6130-4c7e-ade3-8e3514c488bb", "status": "completed", "video_url": "https://fmp-641079926683-us-east-1-an.s3.us-east-1.amazonaws.com/processed_videos/output-fd038b4f-c482-4764-be79-51edf5aeecf5-0.mp4", "user_id": "user_3Faw6rpqzBEgmofDh9aeO0XUvtA", "error": null}'
   auth: inherit
 
 settings:

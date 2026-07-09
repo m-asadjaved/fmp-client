@@ -7,25 +7,8 @@ import json
 import requests
 import boto3
 import wave
+from collections import deque
 
-# ─── MEDIAPIPE INITIALIZATION ─────────────────────────────────────────────────
-import mediapipe as mp
-from mediapipe.tasks.python import vision as mp_vision
-
-BaseOptions         = mp.tasks.BaseOptions
-FaceLandmarker      = mp.tasks.vision.FaceLandmarker
-FaceLandmarkerOpts  = mp.tasks.vision.FaceLandmarkerOptions
-VisionRunningMode   = mp.tasks.vision.RunningMode
-
-# Swap to /var/task/face_landmarker.task in production ECS/Lambda
-MODEL_PATH = os.environ.get("MODEL_PATH", "face_landmarker.task")
-print(f"✅ MediaPipe {mp.__version__} ready | model: {MODEL_PATH}")
-
-UPPER_LIP = 13
-LOWER_LIP = 14
-
-# Initialize AWS S3 Client
-s3_client = boto3.client('s3')
 
 # ─── HELPERS ──────────────────────────────────────────────────────────────────
 def time_str_to_seconds(t):
@@ -44,160 +27,30 @@ def send_status_webhook(url, status, video_url=None, user_id=None, req_id=None, 
     except Exception as e:
         print(f"❌ Webhook failed: {e}")
 
-# ─── FACE TRACKER ─────────────────────────────────────────────────────────────
-class AutoSpeakerTracker:
-    def __init__(self, fw, fh, fps, cfg):
-        self.fw, self.fh = fw, fh
-        self.threshold = cfg["lip_threshold_px"]
-        self.alpha_lip = cfg["lip_ema_alpha"]
-        self.alpha_cx = cfg.get("cx_ema_alpha", 0.15)
-        self.detect_every = max(1, int(fps * cfg["detect_every_sec"]))
-        self._lip_ema = {}
-        self._cx_ema = float(fw / 2)
-        self._cy_ema = float(fh / 2)
-        self.face_visible = False
-        self.talking_cx = fw // 2
-        self.talking_cy = fh // 2
-        self._last_cx = float(fw / 2)
-        self._last_cy = float(fh / 2)
-        self._missing = 0
-        self._memory_limit = int(fps * cfg.get("memory_sec", 1.5))
-        self.locked_center = None
 
-        opts = FaceLandmarkerOpts(
-            base_options=BaseOptions(model_asset_path=MODEL_PATH),
-            running_mode=VisionRunningMode.VIDEO,
-            num_faces=cfg["max_faces"],
-            min_face_detection_confidence=0.4,
-            min_face_presence_confidence=0.4,
-            min_tracking_confidence=0.4,
-        )
-        self.landmarker = FaceLandmarker.create_from_options(opts)
-
-    def _score_face(self, lms, idx, audio_volume=1.0, speaker_bbox=None, locked_center=None):
-        raw_gap = abs(lms[LOWER_LIP].y - lms[UPPER_LIP].y) * self.fh
-        lip_ema = self.alpha_lip * raw_gap + (1 - self.alpha_lip) * self._lip_ema.get(idx, 0.0)
-        self._lip_ema[idx] = lip_ema
-
-        xs = [lm.x for lm in lms]
-        ys = [lm.y for lm in lms]
-        fw_norm = max(xs) - min(xs)
-        fh_norm = max(ys) - min(ys)
-        fw_px = fw_norm * self.fw
-        fh_px = fh_norm * self.fh
-
-        min_w = max(self.fw * 0.02, 20)
-        min_h = max(self.fh * 0.02, 20)
-        if fw_px < min_w or fh_px < min_h:
-            return None, None, None, None
-
-        cx_norm = (min(xs) + max(xs)) / 2.0
-        cy_norm = (min(ys) + max(ys)) / 2.0
-        cx_px = cx_norm * self.fw
-
-        area = fw_px * fh_px
-        effective_lip_score = lip_ema * 3.0 * audio_volume if lip_ema >= self.threshold else 0.0
-        score = effective_lip_score + (area ** 0.5) * 0.01
-
-        if locked_center is not None:
-            lock_dist = ((cx_norm - locked_center[0])**2 + (cy_norm - locked_center[1])**2)**0.5
-            if lock_dist < 0.15:
-                score += (0.2 - lock_dist) * 2000.0
-        elif speaker_bbox and len(speaker_bbox) == 4:
-            gem_ymin, gem_xmin, gem_ymax, gem_xmax = [v / 1000.0 for v in speaker_bbox]
-            gem_cx = (gem_xmin + gem_xmax) / 2.0
-            gem_cy = (gem_ymin + gem_ymax) / 2.0
-            dist = ((cx_norm - gem_cx)**2 + (cy_norm - gem_cy)**2)**0.5
-            score += (1.5 - dist) * 2000.0  # was 500.0 — make it decisive, not just a nudge
-
-        return score, cx_px, cx_norm, cy_norm
-
-    def update(self, bgr_frame, frame_idx, ts_ms, audio_volume=1.0, speaker_bbox=None, is_new_interval=False):
-        if frame_idx % self.detect_every != 0: return
-        if is_new_interval: self.locked_center = None
-        
-        rgb = cv2.cvtColor(bgr_frame, cv2.COLOR_BGR2RGB)
-        result = self.landmarker.detect_for_video(mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb), ts_ms)
-
-        if not result.face_landmarks:
-            self._missing += 1
-            if self._missing <= self._memory_limit:
-                self.face_visible = True
-                self.talking_cx = int(round(self._cx_ema))
-            else:
-                self.face_visible = False
-                self.locked_center = None
-            return
-
-        self._missing = 0
-        self.face_visible = True
-        best_score = -1.0
-        best_cx = self._last_cx
-        best_norm_cx = None
-        best_norm_cy = None
-
-        for idx, lms in enumerate(result.face_landmarks):
-            score, cx_px, norm_cx, norm_cy = self._score_face(lms, idx, audio_volume=audio_volume, speaker_bbox=speaker_bbox, locked_center=getattr(self, 'locked_center', None))
-            if score is None: continue
-            if score > best_score:
-                best_score = score
-                best_cx = cx_px
-                best_norm_cx = norm_cx
-                best_norm_cy = norm_cy
-                
-        if best_norm_cx is not None:
-            self.locked_center = (best_norm_cx, best_norm_cy)
-
-        if best_score < 0:
-            self.face_visible = False
-            return
-
-        self._cx_ema = self.alpha_cx * best_cx + (1 - self.alpha_cx) * self._cx_ema
-        self._cy_ema = self.alpha_cx * (best_norm_cy * self.fh) + (1 - self.alpha_cx) * self._cy_ema
-        self._last_cx = self._cx_ema
-        self._last_cy = self._cy_ema
-        self.face_visible = True
-        self.talking_cx = int(round(self._cx_ema))
-        self.talking_cy = int(round(self._cy_ema))
-
-    def close(self):
-        self.landmarker.close()
-
-
-# ─── STABLE CAMERA ────────────────────────────────────────────────────────────
-class StableCameraMotion:
-    def __init__(self, fw, fh, tw, smooth=0.07, dead_zone_px=35, snap_frac=0.35):
-        self.fw = fw
-        self.tw = tw
-        self.dead_zone = dead_zone_px
-        self.snap_dist = fw * snap_frac
-        self.smooth = smooth
-        self._x = float(fw // 2 - tw // 2)
-        self._target = self._x
-
-    def set_target(self, face_cx):
-        ideal = float(np.clip(face_cx - self.tw // 2, 0, self.fw - self.tw))
-        dist = abs(ideal - self._target)
-        if dist < self.dead_zone: return
-        if dist > self.snap_dist:
-            self._x = ideal; self._target = ideal
-            return
-        self._target = ideal
-
-    def step(self):
-        self._x += self.smooth * (self._target - self._x)
-        return int(np.clip(round(self._x), 0, self.fw - self.tw))
+# Initialize AWS S3 Client
+s3_client = boto3.client('s3')
 
 # ─── AUDIO VOLUME HELPER ──────────────────────────────────────────────────────
-def get_audio_volume(tmp_input, start_sec, duration_sec):
-    """Extracts audio for a specific chunk and returns a volume array per frame"""
+def get_audio_energy_at(audio_arr, sample_rate, t_sec, window_sec=0.15):
+    """RMS energy in a small window centered on t_sec."""
+    center = int(t_sec * sample_rate)
+    half = int(window_sec * sample_rate / 2)
+    start = max(0, center - half)
+    end = min(len(audio_arr), center + half)
+    if end <= start:
+        return 0.0
+    chunk = audio_arr[start:end]
+    return float(np.sqrt(np.mean(chunk.astype(np.float64) ** 2)))
+
+def extract_audio_array(tmp_input, start_sec, duration_sec, sample_rate=16000):
+    """Extracts audio for a specific chunk and returns raw samples as np.float32 array"""
     tmp_wav = f"/tmp/_audio_analysis_{int(time.time()*1000)}.wav"
     (ffmpeg.input(tmp_input)
            .filter("atrim", start=start_sec, duration=duration_sec)
            .filter("asetpts", "PTS-STARTPTS")
-           .output(tmp_wav, ac=1, ar=16000)
+           .output(tmp_wav, ac=1, ar=sample_rate)
            .overwrite_output().run(quiet=True))
-    
     try:
         with wave.open(tmp_wav, 'rb') as w:
             nframes = w.getnframes()
@@ -259,17 +112,29 @@ def main():
         fps = cap.get(cv2.CAP_PROP_FPS)
         vw = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         vh = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        video_duration_sec = frame_count / fps if fps > 0 else 0
+
+        print(f"🎥 Source video: {vw}x{vh} @ {fps}fps | frames={frame_count} | duration≈{video_duration_sec:.1f}s")
+
+        max_requested_sec = max(float(e["source_end_sec"]) for e in edits)
+        if max_requested_sec > video_duration_sec + 1.0:
+            raise ValueError(
+                f"Edits request up to {max_requested_sec:.1f}s but downloaded video "
+                f"'{input_key}' is only {video_duration_sec:.1f}s ({frame_count} frames @ {fps}fps). "
+                f"The S3 raw video and the Gemini-analyzed video are out of sync — "
+                f"check gemini_file_uri vs raw_videos/{{videoId}}.mp4."
+            )
         
         # Output is standard 9:16 vertical video
-        out_w = int(vh * 9 / 16) 
+        out_w = int(vh * 9 / 16)
+        # Ensure dimensions are even numbers (required by h264/mp4v codecs)
+        if out_w % 2 != 0:
+            out_w += 1
         out_h = vh
 
         print(f"🎥 Source video: {vw}x{vh} @ {fps}fps. Target output: {out_w}x{out_h}")
 
-        tracker = AutoSpeakerTracker(vw, vh, fps, {
-            "lip_threshold_px": 2.5, "lip_ema_alpha": 0.4, "cx_ema_alpha": 0.12, 
-            "max_faces": 4, "detect_every_sec": 0.5, "memory_sec": 1.5
-        })
 
         clip_video_files = []
         clip_audio_files = []
@@ -279,19 +144,8 @@ def main():
             start_sec = float(edit["source_start_sec"])
             end_sec = float(edit["source_end_sec"])
             duration_sec = end_sec - start_sec
-            action = edit.get("action", "track_face")
-            zoom_level = float(edit.get("zoom_level", 1.0))
-            
-            print(f"🎬 Processing Edit {idx+1}/{len(edits)}: {start_sec}s - {end_sec}s | Action: {action} | Zoom: {zoom_level}")
+            print(f"🎬 Processing Edit {idx+1}/{len(edits)}: {start_sec}s - {end_sec}s")
 
-            # Define crop dimensions for this clip based on zoom
-            # E.g. Zoom 1.5 makes the crop box 1.5x smaller, which looks "zoomed in" when resized to out_w, out_h
-            crop_w = int(out_w / zoom_level)
-            crop_h = int(out_h / zoom_level)
-
-            camera_x = StableCameraMotion(fw=vw, fh=vh, tw=crop_w, smooth=0.06, dead_zone_px=40, snap_frac=0.35)
-            camera_y = StableCameraMotion(fw=vh, fh=vw, tw=crop_h, smooth=0.06, dead_zone_px=40, snap_frac=0.35)
-            
             tmp_clip_video = f"/tmp/clip_{idx}_{int(time.time())}.mp4"
             tmp_clip_audio = f"/tmp/clip_{idx}_{int(time.time())}.wav"
             
@@ -306,13 +160,14 @@ def main():
             clip_audio_files.append(tmp_clip_audio)
 
             # Get volume array for lip sync tracking
-            audio_arr = get_audio_volume(tmp_input, start_sec, duration_sec)
+            audio_arr = extract_audio_array(tmp_input, start_sec, duration_sec)
 
             # Setup video writer for this clip chunk
             out = cv2.VideoWriter(tmp_clip_video, cv2.VideoWriter_fourcc(*'mp4v'), fps, (out_w, out_h))
             
             cap.set(cv2.CAP_PROP_POS_FRAMES, int(start_sec * fps))
             frames_to_read = int(duration_sec * fps)
+            frames_written = 0
 
             # Process frame by frame
             for fi in range(frames_to_read):
@@ -320,133 +175,43 @@ def main():
                 if not ret: break
 
                 ts_ms = int((start_sec + (fi / fps)) * 1000)
-                vol_idx = min(fi * 16000 // int(fps), len(audio_arr) - 1)
-                audio_volume = audio_arr[vol_idx] if len(audio_arr) > 0 else 0.0
+                t_in_clip = fi / fps
+                audio_energy = get_audio_energy_at(audio_arr, 16000, t_in_clip)
 
-                if action == "fit_screen":
-                    # Resize original frame to fit width (maintaining 16:9 aspect ratio)
-                    scale = out_w / vw
-                    new_h = int(vh * scale)
-                    resized = cv2.resize(frame, (out_w, new_h))
-                    y_offset = (out_h - new_h) // 2
-                    
-                    if use_bg_blur:
-                        # Fast blurred background from the center crop of the frame
-                        center_x = vw // 2
-                        half_w = out_w // 2
-                        if out_w <= vw:
-                            bg = frame[:, center_x-half_w : center_x-half_w+out_w]
-                        else:
-                            bg = cv2.resize(frame, (out_w, out_h))
-                        # Blur it heavily
-                        out_frame = cv2.GaussianBlur(bg, (51, 51), 0)
+                # Resize original frame to fit width (maintaining 16:9 aspect ratio)
+                scale = out_w / vw
+                new_h = int(vh * scale)
+                resized = cv2.resize(frame, (out_w, new_h))
+                y_offset = (out_h - new_h) // 2
+                
+                if use_bg_blur:
+                    # Fast blurred background from the center crop of the frame
+                    center_x = vw // 2
+                    half_w = out_w // 2
+                    if out_w <= vw:
+                        bg = frame[:, center_x-half_w : center_x-half_w+out_w]
                     else:
-                        out_frame = np.zeros((out_h, out_w, 3), dtype=np.uint8)
-                    
-                    # Overlay resized frame onto the background
-                    out_frame[y_offset:y_offset+new_h, 0:out_w] = resized
+                        bg = cv2.resize(frame, (out_w, out_h))
+                    # Blur it heavily
+                    out_frame = cv2.GaussianBlur(bg, (51, 51), 0)
                 else:
-                    if action == "track_face":
-                        bbox = edit.get("speaker_bbox_hint")
-                        tracker.update(frame, fi, ts_ms, audio_volume=audio_volume, speaker_bbox=bbox, is_new_interval=(fi==0))
-
-                        if tracker.face_visible:
-                            camera_x.set_target(tracker.talking_cx)
-                            camera_y.set_target(tracker.talking_cy)
-                            crop_x = camera_x.step()
-                            crop_y = camera_y.step()
-                            crop_x = np.clip(crop_x, 0, vw - crop_w)
-                            crop_y = np.clip(crop_y, 0, vh - crop_h)
-                            cropped_frame = frame[crop_y:crop_y + crop_h, crop_x:crop_x + crop_w]
-                            out_frame = cv2.resize(cropped_frame, (out_w, out_h), interpolation=cv2.INTER_LINEAR) if zoom_level != 1.0 else cropped_frame
-                        else:
-                            # No confident face this frame — do NOT freeze at stale center.
-                            # Fall back to a safe fit_screen render so nobody looks "randomly zoomed".
-                            scale = out_w / vw
-                            new_h = int(vh * scale)
-                            resized = cv2.resize(frame, (out_w, new_h))
-                            y_offset = (out_h - new_h) // 2
-                            out_frame = np.zeros((out_h, out_w, 3), dtype=np.uint8)
-                            out_frame[y_offset:y_offset+new_h, 0:out_w] = resized
-                    elif action == "static_zoom":
-                        target_x_norm = edit.get("target_center_x", 0.5)
-                        target_y_norm = edit.get("target_center_y", 0.5)
-                        camera_x.set_target(int(target_x_norm * vw))
-                        camera_y.set_target(int(target_y_norm * vh))
-                    
-                    crop_x = camera_x.step()
-                    
-                    # Y cropping logic: uses tracking_cy for faces, or JSON target for static
-                    crop_y = camera_y.step()
-                    
-                    # Ensure boundaries
-                    crop_x = np.clip(crop_x, 0, vw - crop_w)
-                    crop_y = np.clip(crop_y, 0, vh - crop_h)
-
-                    cropped_frame = frame[crop_y:crop_y + crop_h, crop_x:crop_x + crop_w]
-                    
-                    # Resize cropped frame back to out_w, out_h so all clips have exact same dimensions for concatenation
-                    if zoom_level != 1.0:
-                        out_frame = cv2.resize(cropped_frame, (out_w, out_h), interpolation=cv2.INTER_LINEAR)
-                    else:
-                        out_frame = cropped_frame
-
-                # === NEW EFFECTS LAYER ===
-                visual_effects = edit.get("visual_effects", {})
-                color_filter = visual_effects.get("color_filter", "none")
+                    out_frame = np.zeros((out_h, out_w, 3), dtype=np.uint8)
                 
-                if color_filter == "grayscale":
-                    gray = cv2.cvtColor(out_frame, cv2.COLOR_BGR2GRAY)
-                    out_frame = cv2.cvtColor(gray, cv2.COLOR_GRAY2BGR)
-                elif color_filter == "high_contrast":
-                    out_frame = cv2.convertScaleAbs(out_frame, alpha=1.3, beta=10)
-                elif color_filter == "sepia":
-                    kernel = np.array([[0.272, 0.534, 0.131],
-                                       [0.349, 0.686, 0.168],
-                                       [0.393, 0.769, 0.189]])
-                    out_frame = cv2.transform(out_frame, kernel)
-                    out_frame = np.clip(out_frame, 0, 255).astype(np.uint8)
-                
-                # === NEW OVERLAYS LAYER ===
-                overlays = edit.get("overlays", [])
-                for overlay in overlays:
-                    o_type = overlay.get("type")
-                    content = overlay.get("content", "")
-                    
-                    if o_type == "text":
-                        pos_y = overlay.get("position_y", 0.5)
-                        text_y = int(out_h * pos_y)
-                        
-                        # Add a simple text with black outline for visibility
-                        font = cv2.FONT_HERSHEY_DUPLEX
-                        font_scale = 1.5
-                        thickness = 3
-                        
-                        # Get text size to center it
-                        (text_w, text_h), _ = cv2.getTextSize(content, font, font_scale, thickness)
-                        text_x = (out_w - text_w) // 2
-                        
-                        # Outline
-                        cv2.putText(out_frame, content, (text_x, text_y), font, font_scale, (0, 0, 0), thickness + 2)
-                        # Text (Yellow)
-                        cv2.putText(out_frame, content, (text_x, text_y), font, font_scale, (0, 255, 255), thickness)
-                        
-                    elif o_type == "b_roll":
-                        # Simulate B-Roll with a semi-transparent overlay and text
-                        overlay_img = out_frame.copy()
-                        cv2.rectangle(overlay_img, (0, out_h//3), (out_w, 2*out_h//3), (0, 0, 0), -1)
-                        cv2.addWeighted(overlay_img, 0.6, out_frame, 0.4, 0, out_frame)
-                        
-                        font = cv2.FONT_HERSHEY_SIMPLEX
-                        cv2.putText(out_frame, f"[ B-ROLL: {content} ]", (20, out_h//2), font, 1.0, (255, 255, 255), 2)
+                # Overlay resized frame onto the background
+                out_frame[y_offset:y_offset+new_h, 0:out_w] = resized
+
+
 
                 out.write(out_frame)
+                frames_written += 1
 
             out.release()
-            clip_video_files.append(tmp_clip_video)
+            if frames_written > 0:
+                clip_video_files.append(tmp_clip_video)
+            else:
+                print(f"⚠️ Warning: Edit {idx+1} produced 0 frames and was skipped.")
 
         cap.release()
-        tracker.close()
 
         # ─── CONCATENATE CLIPS ───
         print("⚡ Concatenating all processed clips ...")

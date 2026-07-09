@@ -379,27 +379,31 @@ export async function POST(request, context) {
 						]
 					};
 
+					let req_body = JSON.stringify({
+						req_id: videoReqData.id,
+						user_id: userId,
+						s3_bucket: AWS_BUCKET_NAME,
+						s3_input_key: `raw_videos/${videoId}.mp4`,
+						s3_output_key: `processed_videos/output-${videoId}-${globalIndex}.mp4`,
+						s3_audio_output_key: `processed_audio/${videoId}-${globalIndex}.flac`,
+						webhook_url: WEBHOOK_URL_VIDEO_STATUS,
+						clip_info,
+						full_subtitles: '',
+						preferences: {
+							...preferences,
+							hook_text: clip.title_or_hook || preferences?.hook_text,
+							hook_enabled: clip.title_or_hook ? true : preferences?.hook_enabled,
+						},
+					});
+
+					console.log(req_body);
+
 					const lambdaResponse = await fetch(
 						AWS_LAMBDA_START_VIDEO_PROCESSING_TASK_URL,
 						{
 							method: "POST",
 							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({
-								req_id: videoReqData.id,
-								user_id: userId,
-								s3_bucket: AWS_BUCKET_NAME,
-								s3_input_key: `raw_videos/${videoId}.mp4`,
-								s3_output_key: `processed_videos/output-${videoId}-${globalIndex}.mp4`,
-								s3_audio_output_key: `processed_audio/${videoId}-${globalIndex}.flac`,
-								webhook_url: WEBHOOK_URL_VIDEO_STATUS,
-								clip_info,
-								full_subtitles: '',
-								preferences: {
-									...preferences,
-									hook_text: clip.title_or_hook || preferences?.hook_text,
-									hook_enabled: clip.title_or_hook ? true : preferences?.hook_enabled,
-								},
-							}),
+							body: req_body,
 						}
 					);
 
@@ -480,44 +484,29 @@ const summaryJsonSchema = {
 						type: "string",
 						description: "Catchy, viral hook headline. MUST be extremely short, only 3 to 5 words maximum.",
 					},
-					clip_topic: {
-						type: "string",
-						description: "The main overarching topic of the clip. If multiple topics are introduced, summarize the entire thematic flow.",
-					},
-					rationale: {
-						type: "string",
-						description: "Explanation of why this segment makes the best standalone short-form clip.",
-					},
 					virality_score: {
 						type: "integer",
-						description: "A score from 0 to 100 representing the viral potential of this clip.",
+						description: "A score from 0 to 100 representing the viral potential of this clip. Highly viral clips should be 90+.",
+					},
+					description: {
+						type: "string",
+						description: "A short, engaging YouTube description for this clip."
+					},
+					tags: {
+						type: "array",
+						description: "An array of 5-10 relevant hashtags/keywords.",
+						items: { type: "string" }
 					},
 					edits: {
 						type: "array",
-						description: "An array of editing commands (cuts, zooms, tracking) that make up this clip. The total duration of all edits combined should equal duration_seconds. These are sequential chunks of video.",
+						description: "An array of editing commands that make up this clip. The total duration of all edits combined MUST equal duration_seconds. You CAN jump around in time (Non-Linear Editing). You can put a clip from 5:00 at the start as a hook, or trim out dead air between sentences.",
 						items: {
 							type: "object",
 							properties: {
-								source_start_sec: { type: "number", description: "Start second in the original video for this cut." },
-								source_end_sec: { type: "number", description: "End second in the original video for this cut." },
-								action: { type: "string", description: "The editing action to apply. Options: 'track_face', 'static_zoom', 'fit_screen'." },
-								zoom_level: { type: "number", description: "Zoom multiplier. 1.0 is standard, 1.2 is zoomed in. Do not exceed 1.2." },
-								speaker_bbox_hint: {
-									type: "array",
-									description: "If action is 'track_face', provide [ymin, xmin, ymax, xmax] 0-1000 scale.",
-									items: { type: "number" }
-								},
-								target_center_x: { type: "number", description: "If action is 'static_zoom', center X coordinate (0.0 to 1.0)." },
-								target_center_y: { type: "number", description: "If action is 'track_face' or 'static_zoom', center Y coordinate (0.0 to 1.0) indicating vertical position." },
-								visual_effects: {
-									type: "object",
-									description: "Optional visual effects to apply to this clip chunk.",
-									properties: {
-										color_filter: { type: "string", description: "Color filter to apply. Options: 'none', 'grayscale', 'high_contrast', 'sepia'. Default is 'none'." }
-									}
-								}
+								source_start_sec: { type: "number", description: "CRITICAL: Must be in TOTAL SECONDS. (e.g. 10:21 is 621.0, NOT 1021.0). Do not just remove the colon." },
+								source_end_sec: { type: "number", description: "CRITICAL: Must be in TOTAL SECONDS. (e.g. 10:21 is 621.0, NOT 1021.0). Do not just remove the colon." }
 							},
-							required: ["source_start_sec", "source_end_sec", "action", "zoom_level"]
+							required: ["source_start_sec", "source_end_sec"]
 						}
 					},
 				},
@@ -527,9 +516,9 @@ const summaryJsonSchema = {
 					"end_time",
 					"duration_seconds",
 					"title_or_hook",
-					"clip_topic",
-					"rationale",
 					"virality_score",
+					"description",
+					"tags",
 					"edits",
 				],
 			},
@@ -542,111 +531,148 @@ export async function SummarizeUsingAI(videoUrl, preferences = {}) {
 	try {
 		if (!videoUrl) throw new Error("Video URL is required");
 
-		const useFaceDetection = preferences?.faceDetection ?? true;
-		const prioritize = preferences?.prioritize ?? false;
 		const category = preferences?.category || "podcast";
 
-		let categoryGuidelines = "";
-		if (category === "podcast") {
-			categoryGuidelines = `
---- PODCAST / INTERVIEW GUIDELINES ---
-- Focus heavily on interesting conversations, hot takes, or funny moments.
-- If it's a wide shot with 2 or more people in the frame interacting, you MUST use \`action: "fit_screen"\` so the audience can see everyone's reactions. Do NOT use \`track_face\` if multiple people are on screen together.
-- If the camera cuts to a close-up of just 1 person speaking, use \`action: "track_face"\`.`;
-		} else if (category === "gameplay") {
-			categoryGuidelines = `
---- GAMEPLAY / STREAMING GUIDELINES ---
-- Focus on high-action moments, funny fails, or extreme reactions.
-- Use \`action: "fit_screen"\` for most of the gameplay to preserve the UI and game action.
-- Only use \`action: "track_face"\` if there is a webcam face that takes up a large portion of the screen and is doing a crazy reaction.`;
-		} else {
-			categoryGuidelines = `
---- GENERAL VIDEO GUIDELINES ---
-- Find the most engaging moments.
-- If multiple people are in the frame, use \`action: "fit_screen"\` to keep them all visible.`;
-		}
+		// ── Category-specific editorial mindset ───────────────────────────────
+		const categoryBlocks = {
+			podcast: `
+YOU ARE EDITING A PODCAST / INTERVIEW.
+Think like a seasoned podcast clip editor. Your audience scrolls fast — you have 1.5 seconds to stop the thumb.
+Editorial Mindset:
+  - You are hunting for the ONE moment in this conversation that will make someone say "wait, what did he just say?" or "I need to send this to my friend."
+  - The best podcast clips are NOT the whole interview — they are the 45-second bomb that makes the whole thing worth watching.
+  - Listen for: controversial statements, personal confessions, shocking statistics, strong opinions, funny stories, or rapid-fire debates.
+Camera Framing Decisions (think like a human editor):
+  - Always use "fit_screen" to show the full context.`,
+
+			gameplay: `
+YOU ARE EDITING A GAMEPLAY / STREAMING VIDEO.
+Think like a viral gaming clip editor. You want clips that make people go "HOW did he do that?" or "I can't stop laughing."
+Editorial Mindset:
+  - Hunt for: insane clutch moments, embarrassing fails, screaming reactions, unexpected plot twists in the game, or moments the streamer breaks character.
+  - The game action and the streamer's face together make the best clips — the reaction without context is boring.
+Camera Framing Decisions:
+  - Always use "fit_screen" to show the game and streamer together.`,
+
+			general: `
+YOU ARE EDITING A GENERAL VIDEO.
+Think like a content strategist. Find the moment with the highest shareability.
+Camera Framing Decisions:
+  - Always use "fit_screen".`
+		};
+
+		const categoryBlock = categoryBlocks[category] || categoryBlocks["general"];
 
 		const prompt = `
-[SYSTEM DIRECTIVE: STRICT ENFORCEMENT MODE]
-You are an elite AI Video Editor and Viral Content Strategist. Your primary directive is to extract hyper-viral, standalone short-form clips (TikTok, YouTube Shorts, Reels) from the provided video. 
+You are a professional short-form video editor with 10 years of experience making viral content for TikTok, YouTube Shorts, and Instagram Reels. You have a sharp editorial eye and you think deeply before making any cut.
 
-The video category is: ${category.toUpperCase()}.
-${categoryGuidelines}
+Your task: watch this video, think like a real editor, and produce a frame-accurate editing plan to extract 5 to 10 killer viral clips (or between 1 to 5 if the video is too short).
 
-FAILURE TO COMPLY WITH THE FOLLOWING STRICT RULES WILL RESULT IN TASK FAILURE.
+${categoryBlock}
 
---- CORE DIRECTIVES (NON-NEGOTIABLE) ---
-1. FULL VIDEO DISTRIBUTION (CRITICAL): You MUST watch and process the ENTIRE video from start to finish.
-2. INDEPENDENT TOPICS & CLIP COUNT (CRITICAL): 
-   - You MUST generate EXACTLY 1 to 2 standalone viral clips from the video. Do not generate more than 2 clips.
-   - Each clip MUST complete at least 1 full topic or thought from start to finish. If a topic takes 60 seconds to explain, output ONE 60-second clip. Do NOT chop it abruptly.
-   - Clips CANNOT start exactly where the previous clip ended. Clips MUST be separated by significant time and context.
-3. TIME CONSTRAINTS: EVERY clip MUST be strictly between 30 and 85 seconds long. Clips shorter than 30 seconds or longer than 85 seconds are strictly forbidden. ZERO exceptions.
-4. TOPIC RESOLUTION & CONTINUITY: If a topic naturally flows into a related sub-topic, you MUST extend the clip (up to 85s max) to include it. Do not chop it into two separate clips. Keep the entire thought process together in a single clip.
-5. DYNAMIC FOCUS: The hook introduces the main subject. Keep the clip going until the thought completely resolves. Do not cut early.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1 — WATCH AND FEEL THE VIDEO (Editor's instinct)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Watch the ENTIRE video from start to finish — do not skip anything. As you watch, think like a real editor:
 
---- SELECTION CRITERIA (STRICT ENFORCEMENT) ---
-A valid clip MUST:
-- Hook the viewer in the first 3 seconds (curiosity, controversy, emotion, urgency).
-- Be 100% understandable WITHOUT any external context.
-- End on a definitive payoff, revelation, punchline, or actionable conclusion.
+  → What moment made you lean forward?
+  → What moment would you screenshot and send to a friend?
+  → What moment would make someone stop scrolling mid-video?
+  → Where does the energy spike? Where does it drop off?
+  → Which single sentence, if played in isolation, would make a stranger want to watch the full video?
 
-A valid clip MUST NOT contain:
-- Slow or boring introductions.
-- Greetings, housekeeping, or sponsor reads.
-- Dead air, rambling, or repeated information.
-- Abrupt endings with no payoff.
+Jot down (mentally) the timestamps and your gut reaction to each candidate moment. Be specific. A good editor knows exactly WHY a clip works — not just that it "seems interesting."
 
---- VISUAL ANALYSIS INSTRUCTIONS (CRITICAL) ---
-You are receiving the actual video file. You MUST visually inspect the video frames, do not just rely on audio or transcript context.
-1. WATCH THE CAMERA CUTS: You must actively look at the camera cuts, angles, and who is physically visible on screen.
-2. BE PAINFULLY ACCURATE: Your face tracking intervals are fed directly to an automatic AI camera cropping algorithm. If you set \`detect_face=TRUE\` when there are multiple people or B-roll, the camera will glitch and fail.
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2 — SELECT YOUR CLIPS (Editorial judgment)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+A great clip has three parts, like a story:
+  HOOK     → The first 3 seconds must create instant curiosity, shock, controversy, or emotion.
+  BUILD-UP → The middle must maintain tension, humor, or engagement. No dead air, no filler.
+  PAYOFF   → The ending must deliver: a punchline, a revelation, a strong opinion, a conclusion. Never cut early.
 
---- OUTPUT & FORMATTING RULES ---
-1. SCHEMA COMPLIANCE: Your response MUST STRICTLY conform to the provided JSON schema. Do NOT add any extra fields. EVERY field is mandatory.
-2. TIMESTAMPS: \`start_time\` and \`end_time\` MUST use exactly "MM:SS" format and map precisely to the ORIGINAL video timestamps. 
-3. DURATION: \`duration_seconds\` MUST accurately reflect the difference between \`start_time\` and \`end_time\`.
-4. TIMELINE EDITING INSTRUCTIONS: \`edits\` MUST contain an array of editing commands that dictate the final video cut.
-   - You can generate as many edits as needed to make the clip dynamic and perfectly timed.
-   - Break the clip down into sequential chunks using \`source_start_sec\` and \`source_end_sec\` from the ORIGINAL video.
-   - MILLISECOND PRECISION CUTS (CRITICAL): You MUST provide \`source_start_sec\` and \`source_end_sec\` with high decimal precision (e.g., 2.300, 5.401) to perfectly match camera cuts. DO NOT round to whole seconds if the camera cuts mid-second!
-   - CUT ON ACTION: If a wide shot of multiple people is on screen from 2.300s to 5.400s, use \`action: "fit_screen"\` for that EXACT duration. If the video suddenly cuts to 1 person at 5.401s, immediately start a NEW edit chunk at 5.401s with \`action: "track_face"\` or \`"static_zoom"\`.
-${useFaceDetection ? `   - EXTREMELY ACCURATE FACE TRACKING: If a single person is speaking and they are the ONLY important person on screen, use \`action: "track_face"\` and provide an EXTREMELY ACCURATE \`speaker_bbox_hint\` (0-1000 scale: [ymin, xmin, ymax, xmax]) for the MAIN CHARACTER.
-   - VERTICAL CENTERING: When using \`track_face\`, you MUST also provide \`target_center_y\` (0.0 to 1.0 scale) indicating where the speaker's face is vertically in the original video.
-   - CRITICAL ZOOMING: If there is only 1 main character visible, you MUST zoom in slightly on their face by setting a \`zoom_level\` of 1.1 to 1.2 to make it engaging. DO NOT EXCEED 1.2 as it will crop their head off!
-   - FIT SCREEN FOR GROUPS (CRITICAL): If there are 2 OR MORE people in the current frame, you MUST NOT track a single face. You MUST use \`action: "fit_screen"\` to show the whole video instead of only 1 person. This ensures no one gets cut out during group conversations or podcasts.
-   - If you want to show an object, reaction, or gameplay, use \`action: "static_zoom"\` and provide \`target_center_x\` and \`target_center_y\` (0.0 to 1.0 scale, e.g. 0.5 for middle).` : `   - NO FACE TRACKING: Face detection is disabled. You MUST NOT use \`action: "track_face"\`.
-   - FIT SCREEN: You MUST use \`action: "fit_screen"\` to automatically shrink the wide 16:9 video and add a blurred background so the whole frame is visible in a 9:16 layout.
-   - If you want to show an object or gameplay with a standard crop, you may use \`action: "static_zoom"\` and provide \`target_center_x\` and \`target_center_y\` (0.0 to 1.0 scale, e.g. 0.5 for middle) with a zoom_level of 1.0.`}
-   - Use \`zoom_level\` dynamically for other actions. 1.0 is standard vertical crop.
-   - LANGUAGE INSTRUCTION: If the video is spoken in Hindi or Urdu, you MUST write the \`title_or_hook\` strictly in Roman Hindi or Roman Urdu (written using English letters). NEVER use Devanagari or Arabic scripts.
-   - VISUAL EFFECTS: You can set \`visual_effects.color_filter\` to "grayscale", "high_contrast", or "sepia" to emphasize emotional beats, flashbacks, or dramatic moments.
-   - Analyze both the AUDIO and the VIDEO to figure out precisely who the MAIN CHARACTER/ACTION is for every cut.
+TIMESTAMP ALIGNMENT:
+  Your clip has an overall start_time and duration_seconds, but your edits can pull from anywhere.
+  
+  NON-LINEAR EDITING IS ALLOWED AND ENCOURAGED!
+  You have full control over the final video timeline. The Python engine will stitch these edits in the EXACT order you provide them.
+  
+  Want to create a viral hook?
+    Take a crazy 3-second moment from the middle of the video (e.g., source: 300.0 to 303.0).
+    Make it the VERY FIRST item in your "edits" array.
+    Then jump back to the context (e.g., source: 152.0 to 160.0).
+  
+  Want to trim dead air or a cough?
+    Just leave a gap! e.g., edit 1: [152.0→155.0], edit 2: [157.0→160.0]. The 2 seconds of silence (155-157) are deleted!
+  
+  MATH CHECK:
+  The sum of all (source_end_sec - source_start_sec) for every edit in your array MUST equal the clip's duration_seconds.
 
-RETURN ONLY THE RAW, VALID JSON DATA. DO NOT WRAP IN MARKDOWN OR EXPLANATORY TEXT.
+A clip FAILS if it:
+  ✗ Opens with "Hi guys" or "So today" or "Welcome back" — this is death on short-form.
+  ✗ Ends before the actual point is made — the viewer will feel cheated.
+  ✗ Contains more than 2-3 seconds of silence or filler.
+  ✗ Needs other context from the video to make sense on its own.
+  ✗ Is shorter than 30 seconds or longer than 85 seconds.
+
+Output EXACTLY 5 to 10 clips:
+  - If the video is too short, you may output between 1 and 5 clips.
+  - All clips must be on completely different topics and have a significant time gap between them in the video. Do not output two back-to-back clips or two thematically similar clips.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3 — BUILD THE EDIT TIMELINE (Non-Linear Editing Enabled!)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Now build the "edits" array. This is your shot list — the exact frame-by-frame instructions your editing software will execute.
+
+TIMESTAMP FORMAT (CRITICAL):
+  All source_start_sec and source_end_sec values MUST BE IN TOTAL SECONDS.
+  To convert MM:SS to seconds, you must multiply the minutes by 60 and add the seconds!
+  For example, 10 minutes and 21 seconds (10:21) is 10 * 60 + 21 = 621.0 seconds. 
+  NEVER just remove the colon (e.g., 10:21 is NOT 1021.0). 
+  Use decimal precision (e.g., 621.450).
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4 — FINAL REVIEW (Don't skip this)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Before you write a single character of JSON, do this review in your head:
+
+  [ ] Did I use non-linear editing effectively? (Hooks from the middle, trimming dead air)
+  [ ] Sum of all edit durations == clip's duration_seconds?
+  [ ] Did I place the most explosive moment first in the edits array?
+
+  [ ] Is every clip between 30 and 85 seconds?
+  [ ] Are my clips on different topics with a large time gap between them?
+  [ ] Is my title_or_hook 3-5 words only?
+  [ ] If the language is Hindi or Urdu: is title_or_hook in Roman script (English letters), not Devanagari or Arabic?
+
+Only output the JSON after passing this review.
+
+Output ONLY a raw valid JSON object. No markdown, no code fences, no explanation.
 `;
 
+		const userMessage = "You are a professional video editor. Watch this entire video from beginning to end — don't skip anything. Use your editorial instincts to identify the best 5 to 10 moments that would go viral as short-form content. If the video is too short, provide between 1 and 5 clips instead. Then build a precise, frame-accurate edit timeline for each clip. Before outputting, verify your timestamp math: the sum of your edits must exactly equal duration_seconds, and you should actively use Non-Linear Editing to jump-cut out boring pauses or reorder hooks.";
+
 		const response = await ai.models.generateContent({
-			// model: "gemini-2.5-pro",
 			model: "gemini-2.5-flash",
 			contents: [
 				{
 					role: "user",
 					parts: [
 						{ fileData: { fileUri: videoUrl, mimeType: "video/mp4" } },
-						{ text: "You are an expert AI video editor and short-form content strategist. CRITICAL: You must actively listen to the audio and analyze the visual frames for the ENTIRE video from start to finish. Do not stop processing early." },
+						{ text: userMessage },
 					],
 				},
 			],
 			config: {
-				systemInstruction: prompt, // your big prompt string
+				systemInstruction: prompt,
 				responseMimeType: "application/json",
 				responseSchema: summaryJsonSchema,
-				// service tier: check current SDK config field name — see note below
+				thinkingConfig: { thinkingBudget: -1 }, // -1 = let Gemini decide how much thinking this task needs
 			},
 		});
 
-		const text = response.text; // or response.candidates[0].content.parts[0].text depending on SDK version
+		const text = response.text;
 		console.log(text);
 		return text;
 	} catch (error) {
