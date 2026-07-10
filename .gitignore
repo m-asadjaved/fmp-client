@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Ignore every mp4 file even if they are in sub directories
+*/!*.mp4
+server/face_detector/*.mp4
