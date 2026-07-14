@@ -2,474 +2,385 @@
 
 import React from 'react';
 import { SignInButton, UserButton, useAuth, PricingTable } from '@clerk/nextjs';
+import { Link, Sparkles, Share, Play } from 'lucide-react';
 
-const SAMPLES = [
-  { cat: 'Podcast', title: 'Weekly creator roundup — Episode 42', user: '@alexmakes', views: '14k', color: '#2563eb', span: 'span 7' },
-  { cat: 'Product Ad', title: 'Summer collection launch — 15s reel', user: '@mirabrand', views: '31k', color: '#e11d48', span: 'span 5' },
-  { cat: 'Tutorial', title: 'How I built my SaaS in 30 days', user: '@jdevs', views: '88k', color: '#3b82f6', span: 'span 4' },
-  { cat: 'Short Film', title: 'Cinematic travel vlog — Tokyo 2026', user: '@sanavisuals', views: '52k', color: '#7c3aed', span: 'span 8' },
-  { cat: 'Course Promo', title: 'Free Figma masterclass — signup teaser', user: '@kdesign', views: '19k', color: '#059669', span: 'span 6' },
-  { cat: 'Newsletter', title: 'Turning my email list into a video series', user: '@rwritesnow', views: '7k', color: '#d97706', span: 'span 6' },
-];
+import { LandingFeatures } from '../components/ui/LandingFeatures';
+import { LandingShowcase } from '../components/ui/LandingShowcase';
+import { LandingFaq } from '../components/ui/LandingFaq';
+import { LandingTools } from '../components/ui/LandingTools';
+import { LandingBlog } from '../components/ui/LandingBlog';
+import { LandingFooter } from '../components/ui/LandingFooter';
 
-const THUMB_COLORS = ['#eff6ff', '#fff7ed', '#fff1f2', '#f0f9ff', '#f5f3ff', '#f0fdf4'];
-
-const FEATURES = [
-  { icon: '✂️', title: 'AI Auto-Captions', desc: 'Transcribe audio in 30+ languages instantly with flawless burn-in stylized text overlays.' },
-  { icon: '⬜', title: 'Smart canvas resize', desc: 'Auto-reframe any video composition into 9:16 Shorts, 1:1 square, or 16:9 widescreen formats.' },
-  { icon: '🔌', title: 'Creator plugin store', desc: 'Supercharge edits with background removers, realistic AI voiceovers, and sound effects libraries.' },
-  { icon: '🗂', title: 'Cloud project library', desc: 'Save project files securely online. Edit, collaborate, and cut from any machine, anywhere.' },
-];
-
-const PRICING_TIERS = [
-  {
-    name: 'Free',
-    price: '$0',
-    desc: 'Perfect for casual creators getting started.',
-    buttonText: 'Start for free',
-    popular: false,
-    features: ['720p HD Video Exports', 'Watermark on videos', '10 mins AI Captions / mo', '2GB Secure Cloud Storage', 'Access to standard plugins']
-  },
-  {
-    name: 'Pro Premium',
-    price: '$24',
-    period: '/mo',
-    desc: 'Our most popular plan for professional creators.',
-    buttonText: 'Upgrade to Pro',
-    popular: true,
-    features: ['Up to 4K Ultra HD Exports', 'No Watermark', '300 mins AI Captions / mo', '100GB Premium Storage', 'Unlimited Pro Plugin Store', 'Priority cloud rendering speed']
-  },
-  {
-    name: 'Team / Business',
-    price: '$49',
-    period: '/mo',
-    desc: 'Built for agencies, brands, and content teams.',
-    buttonText: 'Get Team access',
-    popular: false,
-    features: ['Everything in Pro Premium Plan', 'Shared team folders & assets', '1,200 mins AI Captions / mo', '500GB Team Cloud Storage', 'Dedicated account representative', 'Custom brand kits & fonts']
-  }
-];
-
-const FAQS = [
-  { q: 'Will my rendered videos have watermarks?', a: 'Videos created on our Free plan include a small brand watermark. Upgrading to the Pro Premium or Team plan removes all watermarks completely from your content.' },
-  { q: 'How do the AI Caption minutes work?', a: 'Every billing month, your allowance resets. Minutes are calculated based on the length of the audio track you upload for automated translation or subtitle generation.' },
-  { q: 'Can I cancel or change my plan later?', a: 'Yes, absolutely. You can upgrade, downgrade, or cancel your subscription straight from your account billing portal at any time with zero cancellation penalties.' }
-];
-
-const s = {
-  root: { background: '#ffffff', color: '#09090b', minHeight: '100vh', fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
-  nav: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2.5rem', height: 64, background: '#ffffff', borderBottom: '1px solid #e4e4e7', position: 'sticky', top: 0, zIndex: 50 },
-  logo: { display: 'flex', alignItems: 'center', gap: 8 },
-  lmark: { width: 30, height: 30, background: '#2563eb', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 900, fontSize: 15, color: '#ffffff', border: '1px solid #3b82f6' },
-  ltext: { fontSize: 16, fontWeight: 800, letterSpacing: '-0.4px', color: '#09090b' },
-  navLinks: { display: 'flex', gap: '2rem' },
-  navLink: { fontSize: 13, color: '#52525b', fontWeight: 500, textDecoration: 'none' },
-  navR: { display: 'flex', gap: 12, alignItems: 'center' },
-  btnOutline: { background: 'transparent', border: '1.5px solid #e4e4e7', color: '#09090b', fontSize: 13, fontWeight: 600, padding: '8px 18px', borderRadius: 100, cursor: 'pointer' },
-  btnAccent: { background: '#2563eb', border: '1px solid #3b82f6', color: '#ffffff', fontSize: 13, fontWeight: 700, padding: '8px 18px', borderRadius: 100, cursor: 'pointer' },
-
-  /* NEW HERO LAYOUT (SPLIT 2-COLUMN) */
-  heroSection: { display: 'grid', gridTemplateColumns: '1.1fr 1fr', gap: '3.5rem', alignItems: 'center', padding: '7rem 2.5rem 5rem', maxWidth: 1200, margin: '0 auto' },
-  heroLeft: { textAlign: 'left' },
-  heroBadge: { display: 'inline-flex', alignItems: 'center', gap: 6, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 100, padding: '6px 14px', fontSize: 11, color: '#1e40af', fontWeight: 700, letterSpacing: '.5px', marginBottom: '1.5rem' },
-  badgeDot: { width: 6, height: 6, background: '#3b82f6', borderRadius: '50%', display: 'inline-block' },
-  h1: { fontSize: '3.4rem', fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.03em', color: '#09090b', marginBottom: '1.5rem' },
-  heroSub: { fontSize: '1.1rem', color: '#52525b', lineHeight: 1.6, marginBottom: '2.5rem', maxWidth: 520 },
-  heroCtas: { display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', marginBottom: '1.5rem' },
-  btnHero: { background: '#2563eb', border: '1px solid #3b82f6', color: '#ffffff', fontSize: 15, fontWeight: 700, padding: '14px 32px', borderRadius: 100, cursor: 'pointer' },
-  btnSec: { background: '#ffffff', border: '1px solid #e4e4e7', color: '#09090b', fontSize: 15, fontWeight: 600, padding: '14px 28px', borderRadius: 100, cursor: 'pointer' },
-  note: { fontSize: 12, color: '#71717a' },
-
-  /* HERO MOCK WORKSTATION VISUAL */
-  heroRight: { background: '#fafafa', border: '1px solid #e4e4e7', borderRadius: 20, padding: '1rem', boxShadow: '0 20px 40px -15px rgba(0,0,0,0.05)', position: 'relative' },
-  mockHeader: { display: 'flex', gap: 6, marginBottom: 12 },
-  mockDot: { width: 10, height: 10, borderRadius: '50%', background: '#e4e4e7' },
-  mockStage: { background: '#18181b', borderRadius: 12, height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' },
-  mockPlay: { width: 44, height: 44, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffffff', fontSize: 16 },
-  mockBadge: { position: 'absolute', top: 12, left: 12, background: '#2563eb', color: '#ffffff', padding: '4px 8px', borderRadius: 6, fontSize: 10, fontWeight: 700 },
-  mockTrack: { background: '#ffffff', border: '1px solid #e4e4e7', borderRadius: 10, padding: 10, marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 },
-  mockBar: { height: 8, background: '#f4f4f5', borderRadius: 4, width: '100%' },
-  mockWave: { height: 24, background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 6, position: 'relative', overflow: 'hidden' },
-  mockWaveFill: { position: 'absolute', left: '15%', top: 0, bottom: 0, width: '50%', background: '#dbeafe' },
-
-  trusted: { textAlign: 'center', padding: '2rem 2rem 4rem' },
-  trustedTxt: { fontSize: 11, color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: '1.5rem', fontWeight: 700 },
-  trustedRow: { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '3.5rem', flexWrap: 'wrap' },
-  trustedLogo: { fontSize: 14, fontWeight: 800, color: '#71717a', letterSpacing: '-.3px' },
-
-  /* NEW CREATOR SHOWCASE GRID (BENTO ASYMMETRIC) */
-  sectionWrap: { padding: '6rem 2.5rem', background: '#ffffff', borderTop: '1px solid #e4e4e7', borderBottom: '1px solid #e4e4e7' },
-  eyebrow: { fontSize: 11, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 700, textAlign: 'center', marginBottom: '.75rem' },
-  sectionH: { fontSize: '2.2rem', fontWeight: 900, letterSpacing: '-0.02em', textAlign: 'center', color: '#09090b', marginBottom: '.75rem' },
-  sectionSub: { fontSize: 15, color: '#52525b', textAlign: 'center', lineHeight: 1.6, maxWidth: 520, margin: '0 auto 4rem' },
-  samplesGrid: { display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 24, maxWidth: 1140, margin: '0 auto' },
-  sampleCard: { borderRadius: 16, overflow: 'hidden', border: '1px solid #e4e4e7', background: '#ffffff', cursor: 'pointer', display: 'flex', flexDirection: 'column' },
-  sampleThumb: { height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  sampleBody: { padding: '18px', flexGrow: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' },
-  sampleCat: { fontSize: 10, fontWeight: 700, color: '#2563eb', textTransform: 'uppercase', letterSpacing: '.6px', marginBottom: 6 },
-  sampleTitle: { fontSize: 15, fontWeight: 700, color: '#09090b', lineHeight: 1.4 },
-  sampleMeta: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 14 },
-  sampleUser: { fontSize: 12, color: '#71717a' },
-
-  howWrap: { padding: '6rem 2.5rem', background: '#f0f9ff', borderBottom: '1px solid #e0f2fe' },
-  howGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, maxWidth: 1000, margin: '0 auto' },
-  howCard: { background: '#ffffff', border: '1px solid #e4e4e7', borderRadius: 16, padding: '2rem 1.5rem', textAlign: 'center' },
-  howIcon: { width: 48, height: 48, background: '#f4f4f5', border: '1px solid #e4e4e7', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1.25rem', fontSize: 22 },
-  howH: { fontSize: 16, fontWeight: 700, color: '#09090b', marginBottom: 8 },
-  howP: { fontSize: 13, color: '#52525b', lineHeight: 1.6 },
-  featWrap: { padding: '6rem 2.5rem', background: '#ffffff', borderBottom: '1px solid #e4e4e7' },
-  featGrid: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 24, maxWidth: 900, margin: '0 auto' },
-  featCard: { background: '#fafafa', border: '1px solid #e4e4e7', borderRadius: 16, padding: '2rem', display: 'flex', gap: '1.25rem', alignItems: 'flex-start' },
-  featIcon: { width: 44, height: 44, background: '#f4f4f5', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 20 },
-  featH: { fontSize: 15, fontWeight: 700, color: '#09090b', marginBottom: 6 },
-  featP: { fontSize: 13, color: '#52525b', lineHeight: 1.6 },
-
-  priceWrap: { padding: '6rem 2.5rem', background: '#ffffff', borderBottom: '1px solid #e4e4e7' },
-  priceGrid: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, maxWidth: 1100, margin: '0 auto' },
-  priceCard: { background: '#ffffff', border: '1px solid #e4e4e7', borderRadius: 20, padding: '2.5rem 2rem', display: 'flex', flexDirection: 'column', position: 'relative' },
-  priceCardPop: { background: '#ffffff', border: '2.5px solid #2563eb', borderRadius: 20, padding: '2.5rem 2rem', display: 'flex', flexDirection: 'column', position: 'relative', boxShadow: '0 10px 30px -10px rgba(37,99,235,0.12)' },
-  popBadge: { position: 'absolute', top: -12, right: 24, background: '#2563eb', color: '#ffffff', fontSize: 11, fontWeight: 800, padding: '4px 12px', borderRadius: 100, border: '1px solid #3b82f6', textTransform: 'uppercase', letterSpacing: '.5px' },
-  priceH3: { fontSize: 18, fontWeight: 800, color: '#09090b', marginBottom: 6 },
-  priceDesc: { fontSize: 13, color: '#71717a', lineHeight: 1.4, marginBottom: '1.5rem' },
-  priceRow: { display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: '1.5rem' },
-  priceNum: { fontSize: '2.5rem', fontWeight: 900, color: '#09090b', letterSpacing: '-1px' },
-  pricePer: { fontSize: 14, color: '#71717a', fontWeight: 500 },
-  btnPrice: { width: '100%', padding: '12px', borderRadius: 12, border: '1px solid #e4e4e7', background: '#ffffff', color: '#09090b', fontSize: 14, fontWeight: 700, cursor: 'pointer', marginBottom: '2rem' },
-  btnPricePop: { width: '100%', padding: '12px', borderRadius: 12, border: 'none', background: '#2563eb', color: '#ffffff', fontSize: 14, fontWeight: 800, cursor: 'pointer', marginBottom: '2rem' },
-  fList: { display: 'flex', flexDirection: 'column', gap: 12, margin: 0, padding: 0, listStyle: 'none' },
-  fItem: { fontSize: 13, color: '#3f3f46', display: 'flex', alignItems: 'center', gap: 10, fontWeight: 500 },
-  fCheck: { color: '#2563eb', fontWeight: 900, fontSize: 14 },
-
-  faqWrap: { padding: '6rem 2.5rem', background: '#fafafa', borderBottom: '1px solid #e4e4e7' },
-  faqGrid: { maxWidth: 740, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 24 },
-  faqCard: { background: '#ffffff', border: '1px solid #e4e4e7', borderRadius: 14, padding: '1.5rem 2rem' },
-  faqQ: { fontSize: 15, fontWeight: 800, color: '#09090b', marginBottom: 8 },
-  faqA: { fontSize: 13, color: '#52525b', lineHeight: 1.6 },
-
-  ctaBand: { background: '#2563eb', padding: '6rem 2.5rem', textAlign: 'center', borderTop: '1px solid #3b82f6' },
-  ctaH: { fontSize: '2.6rem', fontWeight: 900, letterSpacing: '-0.02em', color: '#ffffff', marginBottom: '1rem' },
-  ctaP: { fontSize: 16, color: '#dbeafe', marginBottom: '2.5rem', maxWidth: 460, marginLeft: 'auto', marginRight: 'auto', lineHeight: 1.6, fontWeight: 500 },
-  btnWhite: { background: '#ffffff', color: '#000000', fontSize: 15, fontWeight: 700, padding: '16px 36px', borderRadius: 100, border: 'none', cursor: 'pointer' },
-  footer: { background: '#ffffff', borderTop: '1px solid #e4e4e7', padding: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' },
-  footerCopy: { fontSize: 12, color: '#71717a' },
-  footerLinks: { display: 'flex', gap: '1.5rem' },
-  footerLink: { fontSize: 12, color: '#71717a', textDecoration: 'none' },
-};
-
-function SampleThumb({ index }) {
-  const bg = THUMB_COLORS[index];
-  if (index === 0) return (
-    <div style={{ ...s.sampleThumb, background: bg, flexDirection: 'column', gap: 4, padding: '1rem' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 5, height: 70 }}>
-        {[30, 50, 40, 65, 45, 55, 35, 60, 40, 50].map((h, i) => (
-          <div key={i} style={{ width: 18, height: h, background: i % 2 === 0 ? '#3b82f6' : '#2563eb', borderRadius: '4px 4px 0 0' }} />
-        ))}
-      </div>
-      <div style={{ height: 6, background: '#e4e4e7', borderRadius: 3, width: '80%' }} />
-    </div>
-  );
-  if (index === 1) return (
-    <div style={{ ...s.sampleThumb, background: bg }}>
-      <div style={{ background: '#ffffff', borderRadius: 10, padding: 10, width: '75%', border: '1px solid #e4e4e7' }}>
-        <div style={{ height: 8, background: '#f4f4f5', borderRadius: 4, marginBottom: 6, width: '80%' }} />
-        <div style={{ height: 8, background: '#f4f4f5', borderRadius: 4, marginBottom: 10, width: '55%' }} />
-        <div style={{ height: 28, background: '#e11d48', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: 10, fontWeight: 800, color: '#ffffff' }}>SHOP NOW</span>
-        </div>
-      </div>
-    </div>
-  );
-  if (index === 2) return (
-    <div style={{ ...s.sampleThumb, background: bg }}>
-      <div style={{ background: '#ffffff', borderRadius: 10, padding: 10, width: '75%', border: '1px solid #e4e4e7' }}>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-          <div style={{ width: 28, height: 28, background: '#2563eb', borderRadius: 6 }} />
-          <div style={{ flex: 1 }}>
-            <div style={{ height: 7, background: '#f4f4f5', borderRadius: 3, marginBottom: 4 }} />
-            <div style={{ height: 7, background: '#f4f4f5', borderRadius: 3, width: '60%' }} />
-          </div>
-        </div>
-        <div style={{ height: 6, background: '#f4f4f5', borderRadius: 3, marginBottom: 4 }} />
-        <div style={{ height: 6, background: '#f4f4f5', borderRadius: 3, width: '70%' }} />
-      </div>
-    </div>
-  );
-  if (index === 3) return (
-    <div style={{ ...s.sampleThumb, background: bg }}>
-      <div style={{ background: '#ffffff', borderRadius: 10, padding: 12, width: '80%', border: '1px solid #e4e4e7', textAlign: 'center' }}>
-        <div style={{ width: 36, height: 36, background: '#f4f4f5', borderRadius: '50%', margin: '0 auto 8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>✨</div>
-        <div style={{ height: 7, background: '#f4f4f5', borderRadius: 3, marginBottom: 4 }} />
-        <div style={{ height: 7, background: '#f4f4f5', borderRadius: 3, width: '65%', margin: '0 auto' }} />
-      </div>
-    </div>
-  );
-  if (index === 4) return (
-    <div style={{ ...s.sampleThumb, background: bg }}>
-      <div style={{ background: '#ffffff', borderRadius: 10, padding: 10, width: '75%', border: '1px solid #e4e4e7' }}>
-        <div style={{ display: 'flex', gap: 4, marginBottom: 8 }}>
-          <div style={{ height: 40, flex: 2, background: '#059669', borderRadius: 6 }} />
-          <div style={{ height: 40, flex: 1, background: '#f4f4f5', borderRadius: 6 }} />
-        </div>
-        <div style={{ height: 18, background: '#2563eb', border: '1px solid #3b82f6', borderRadius: 6, display: 'flex', alignItems: 'center', padding: '0 8px' }}>
-          <span style={{ fontSize: 9, fontWeight: 800, color: '#ffffff' }}>WATCH NOW</span>
-        </div>
-      </div>
-    </div>
-  );
-  return (
-    <div style={{ ...s.sampleThumb, background: bg }}>
-      <div style={{ background: '#ffffff', borderRadius: 10, padding: 10, width: '75%', border: '1px solid #e4e4e7' }}>
-        <div style={{ height: 7, background: '#f4f4f5', borderRadius: 3, marginBottom: 5, width: '90%' }} />
-        <div style={{ height: 7, background: '#f4f4f5', borderRadius: 3, marginBottom: 10, width: '65%' }} />
-        <div style={{ display: 'flex', gap: 4 }}>
-          {[0, 1, 2].map(i => (
-            <div key={i} style={{ height: 24, flex: 1, background: i % 2 === 0 ? '#d97706' : '#fef3c7', borderRadius: 5 }} />
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function StreamCutLanding() {
+export default function SsembleCloneLanding() {
   const { isSignedIn } = useAuth();
 
   return (
-    <div style={s.root}>
-
-      {/* NAV */}
-      <nav style={s.nav}>
-        <div style={s.logo}>
-          <div style={s.lmark}>S</div>
-          <span style={s.ltext}>Stream<span style={{ color: '#2563eb' }}>Cut</span></span>
-        </div>
-        <div style={s.navLinks}>
-          <a href={`dashboard`} style={s.navLink}>Dashboard</a>
-          {['Templates', 'Features', 'Pricing', 'FAQ'].map(l => (
-            <a key={l} href={`#${l.toLowerCase()}`} style={s.navLink}>{l}</a>
-          ))}
-        </div>
-        <div style={s.navR}>
-          {!isSignedIn ? (
-            <>
-              <SignInButton mode="modal">
-                <button style={s.btnOutline}>Log in</button>
-              </SignInButton>
-              <SignInButton mode="modal">
-                <button style={s.btnAccent}>Start for free</button>
-              </SignInButton>
-            </>
-          ) : (
-            <UserButton afterSignOutUrl="/" />
-          )}
+    <div className="min-h-screen w-full bg-white text-black font-sans selection:bg-[#00C0D4]/20">
+      {/* NAVBAR */}
+      <nav className="sticky top-0 z-50 w-full bg-white/80 backdrop-blur-md border-b border-gray-100">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2 md:gap-8">
+            <a href="/" className="flex items-center">
+              <img 
+                src="/logo-transparent.png" 
+                alt="twenty2short" 
+                className="h-12 md:h-14 w-auto object-contain transform scale-110 origin-left"
+              />
+            </a>
+            
+            <div className="hidden md:flex items-center gap-1">
+              {['Pricing', 'API', 'MCP', 'Help', 'Blog'].map((item) => (
+                <a key={item} href={`#${item.toLowerCase()}`} className="px-4 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors">
+                  {item}
+                </a>
+              ))}
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {!isSignedIn ? (
+              <>
+                <SignInButton mode="modal">
+                  <button className="px-4 py-2 text-sm font-medium text-[#0F2347] hover:text-[#00C0D4] transition-colors hidden sm:block cursor-pointer bg-transparent border-0">
+                    Sign In
+                  </button>
+                </SignInButton>
+                <SignInButton mode="modal">
+                  <button className="px-4 py-2 text-sm font-semibold text-white bg-[#00C0D4] rounded-md shadow-sm hover:bg-[#00A6B8] transition-colors cursor-pointer border-0">
+                    Create Account
+                  </button>
+                </SignInButton>
+              </>
+            ) : (
+              <>
+                <a href="/dashboard" className="px-4 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors">
+                  Dashboard
+                </a>
+                <UserButton afterSignOutUrl="/" />
+              </>
+            )}
+          </div>
         </div>
       </nav>
 
-      {/* NEW ASYMMETRIC HERO */}
-      <section style={s.heroSection}>
-        <div style={s.heroLeft}>
-          <div style={s.heroBadge}>
-            <span style={s.badgeDot} />
-            New — AI-powered clip editor
-          </div>
-          <h1 style={s.h1}>
-            Edit videos like a<br />
-            <span style={{ background: '#2563eb', padding: '0 12px', borderRadius: 8, border: '1px solid #3b82f6', color: '#ffffff' }}>pro</span>, in minutes.
-          </h1>
-          <p style={s.heroSub}>
-            StreamCut is the fastest way to cut, caption, and publish high-engagement videos.
-            Drop your raw assets and let smart automation configure perfect renders.
-          </p>
-          <div style={s.heroCtas}>
-            <SignInButton mode="modal">
-              <button style={s.btnHero}>Start editing free</button>
-            </SignInButton>
-            <button style={s.btnSec}>Browse templates</button>
-          </div>
-          <p style={s.note}>No credit card required · Free forever plan</p>
-        </div>
-
-        {/* HERO WORKSTATION VISUAL */}
-        <div style={s.heroRight}>
-          <div style={s.mockHeader}>
-            <div style={s.mockDot} />
-            <div style={s.mockDot} />
-            <div style={s.mockDot} />
-          </div>
-          <div style={s.mockStage}>
-            <div style={s.mockBadge}>Active Composition · 16:9</div>
-            <div style={s.mockPlay}>▶</div>
-          </div>
-          <div style={s.mockTrack}>
-            <div style={{ ...s.mockBar, width: '40%', background: '#2563eb', height: 6 }} />
-            <div style={s.mockWave}>
-              <div style={s.mockWaveFill} />
-            </div>
-            <div style={{ ...s.mockWave, background: '#fbfbfe' }}>
-              <div style={{ ...s.mockWaveFill, background: '#e0f2fe', left: '40%', width: '35%' }} />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* TRUSTED BY */}
-      <div style={s.trusted}>
-        <p style={s.trustedTxt}>Trusted by creators at</p>
-        <div style={s.trustedRow}>
-          {['YouTube', 'TikTok', 'Shopify', 'Notion', 'Figma'].map(b => (
-            <span key={b} style={s.trustedLogo}>{b}</span>
-          ))}
-        </div>
-      </div>
-
-      {/* NEW BENTO GALLERY SHOWCASE */}
-      <section id="templates" style={s.sectionWrap}>
-        <div style={s.eyebrow}>Made with StreamCut</div>
-        <h2 style={s.sectionH}>See what creators are making</h2>
-        <p style={s.sectionSub}>
-          From viral social promos to polished full-length podcasts. Explore responsive user productions.
-        </p>
-
-        <div style={s.samplesGrid}>
-          {SAMPLES.map((item, i) => (
-            <div key={i} style={{ ...s.sampleCard, gridColumn: item.span }}>
-              <SampleThumb index={i} />
-              <div style={s.sampleBody}>
-                <div>
-                  <div style={s.sampleCat}>{item.cat}</div>
-                  <div style={s.sampleTitle}>{item.title}</div>
-                </div>
-                <div style={s.sampleMeta}>
-                  <div style={{ width: 20, height: 20, borderRadius: '50%', background: item.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#ffffff', flexShrink: 0 }}>
-                    {item.user[1].toUpperCase()}
+      <main>
+        {/* HERO SECTION */}
+        <div className="relative overflow-hidden bg-white pt-16 md:pt-24 pb-12">
+          {/* Subtle background glow */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[400px] bg-gradient-to-b from-[#00C0D4]/20 to-transparent rounded-full blur-3xl opacity-60 pointer-events-none -z-10" />
+          
+          <div className="max-w-7xl mx-auto px-4 flex flex-col items-center text-center">
+            <h1 className="text-4xl md:text-5xl lg:text-7xl font-bold max-w-5xl tracking-tight text-balance leading-[1.1]">
+              <span className="block text-[#0F2347]">Turn your long videos into</span>
+              <span className="block bg-gradient-to-r from-[#0F2347] to-[#00C0D4] bg-clip-text text-transparent pb-2 mt-1">
+                Viral Shorts in seconds.
+              </span>
+            </h1>
+            
+            <p className="mt-6 text-lg md:text-xl text-gray-500 max-w-2xl leading-relaxed">
+              twenty2short automatically clips, captions, and posts your videos to TikTok, YouTube & Instagram.
+            </p>
+            
+            {/* Social Proof Avatars */}
+            <div className="flex flex-col items-center mt-8 mb-4">
+              <div className="flex -space-x-4 mb-2">
+                {[
+                  "https://cf.ssemble.com/ssemble-static-assets/jornadatop.png",
+                  "https://cf.ssemble.com/ssemble-static-assets/celleto.png",
+                  "https://cf.ssemble.com/ssemble-static-assets/harshhhgautam.png",
+                  "https://cf.ssemble.com/ssemble-static-assets/creationsinguliere.png"
+                ].map((src, i) => (
+                  <div key={i} className="w-10 h-10 rounded-2xl border-2 border-white overflow-hidden shadow-sm relative transition-transform hover:-translate-y-1 hover:z-10 z-0">
+                    <img src={src} alt="Creator avatar" className="w-full h-full object-cover" />
                   </div>
-                  <span style={s.sampleUser}>{item.user} · {item.views} views</span>
+                ))}
+              </div>
+              <div className="flex items-center gap-1 text-yellow-400 text-sm mb-1">
+                {'★★★★★'.split('').map((star, i) => <span key={i}>{star}</span>)}
+              </div>
+              <p className="text-xs text-gray-400 font-medium tracking-wide">
+                Trusted by thousands of shorts clippers | 4.9 out of 5
+              </p>
+            </div>
+            
+            {/* Input Action */}
+            <div className="w-full max-w-2xl mt-8 px-4 sm:px-0">
+              <div className="flex flex-col sm:flex-row items-center bg-white sm:rounded-2xl sm:border-2 border-gray-200 focus-within:border-[#00C0D4] transition-colors shadow-lg overflow-hidden gap-3 sm:gap-0 bg-transparent sm:bg-white p-0 sm:p-1">
+                <input 
+                  type="url" 
+                  placeholder="Paste YouTube URL" 
+                  className="w-full sm:flex-1 px-6 py-4 text-lg focus:outline-none rounded-2xl sm:rounded-none border-2 border-gray-200 sm:border-none shadow-md sm:shadow-none bg-white text-[#0F2347]"
+                />
+                <SignInButton mode="modal" forceRedirectUrl="/dashboard">
+                  <button className="w-full sm:w-auto px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-[#0F2347] to-[#00C0D4] hover:from-[#0C1C3A] hover:to-[#00A6B8] rounded-2xl transform transition-transform hover:scale-105 shadow-lg whitespace-nowrap cursor-pointer border-0">
+                    Get Clips Now
+                  </button>
+                </SignInButton>
+              </div>
+              <p className="text-sm text-gray-400 mt-4">Plans from $6/mo · Cancel anytime</p>
+            </div>
+          </div>
+        </div>
+
+        {/* DEMO VIDEO SECTION */}
+        <div className="w-full bg-white pt-8 pb-16">
+          <div className="max-w-4xl mx-auto px-4 md:px-6">
+            <div className="relative rounded-2xl overflow-hidden bg-black shadow-2xl" style={{ paddingTop: '56.25%' }}>
+               <iframe 
+                 src="https://customer-a8pcy45g7jeje4za.cloudflarestream.com/d1158daf5c258ab75f3eb0c9dd3cd6ec/iframe?muted=true&autoplay=true&poster=https%3A%2F%2Fcustomer-a8pcy45g7jeje4za.cloudflarestream.com%2Fd1158daf5c258ab75f3eb0c9dd3cd6ec%2Fthumbnails%2Fthumbnail.jpg%3Ftime%3D1%26height%3D600&controls=false&loop=true" 
+                 title="twenty2short AI clipping demo" 
+                 loading="lazy" 
+                 className="absolute inset-0 w-full h-full border-0 scale-[1.02]" 
+                 allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture" 
+                 allowFullScreen 
+               />
+            </div>
+          </div>
+        </div>
+
+        {/* TRUSTED BY LOGOS */}
+        <div className="py-12 bg-gray-50 border-y border-gray-100">
+          <p className="text-center text-sm font-medium text-gray-400 mb-8 uppercase tracking-widest">
+            Trusted by teams at leading companies and institutions
+          </p>
+          <div className="flex flex-wrap justify-center gap-8 md:gap-16 px-4 opacity-50 grayscale">
+             {['Google', 'Meta', 'Amazon', 'Netflix', 'Shopify'].map((brand) => (
+                <div key={brand} className="text-xl md:text-2xl font-black text-[#0F2347]">{brand}</div>
+             ))}
+          </div>
+        </div>
+
+        {/* HOW IT WORKS */}
+        <div className="py-20 md:py-28 px-4 bg-white">
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-center text-[#0F2347] tracking-tight mb-4">
+            How It Works
+          </h2>
+          <p className="text-center text-lg md:text-xl text-gray-600 max-w-3xl mx-auto mb-16">
+            From YouTube video to viral clips in 3 simple steps
+          </p>
+          
+          <div className="max-w-5xl mx-auto relative">
+            {/* Connecting line for desktop */}
+            <div className="hidden lg:block absolute top-12 left-[15%] right-[15%] h-0.5 bg-gray-200 -z-10" />
+            
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-8">
+              
+              {/* Step 1 */}
+              <div className="flex flex-col items-center text-center">
+                <div className="w-24 h-24 rounded-full border border-gray-100 flex items-center justify-center shadow-sm mb-6 transition-transform hover:scale-105 bg-white">
+                  <Link className="w-10 h-10 text-[#0F2347]" />
                 </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* HOW IT WORKS */}
-      <section style={s.howWrap}>
-        <div style={s.eyebrow}>How it works</div>
-        <h2 style={s.sectionH}>Ready in three steps</h2>
-        <p style={s.sectionSub}>Upload, customise, export. No timeline. No tutorials needed.</p>
-        <div style={s.howGrid}>
-          {[
-            { icon: '⬆', title: 'Upload your clip', desc: 'Drag in any video file up to 5GB. We handle the transcoding automatically.' },
-            { icon: '✂', title: 'Edit with one click', desc: 'Add captions, trim silences, resize for any platform, and drop in your brand kit.' },
-            { icon: '↗', title: 'Export and publish', desc: 'Download in HD or publish directly to YouTube, TikTok, and Instagram in one click.' },
-          ].map((step) => (
-            <div key={step.title} style={s.howCard}>
-              <div style={s.howIcon}>{step.icon}</div>
-              <div style={s.howH}>{step.title}</div>
-              <p style={s.howP}>{step.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* FEATURES */}
-      <section id="features" style={s.featWrap}>
-        <div style={s.eyebrow}>Features</div>
-        <h2 style={s.sectionH}>Everything a creator needs</h2>
-        <p style={s.sectionSub}>Powerful workflow components that stay out of your way.</p>
-        <div style={s.featGrid}>
-          {FEATURES.map((f) => (
-            <div key={f.title} style={s.featCard}>
-              <div style={s.featIcon}>{f.icon}</div>
-              <div>
-                <div style={s.featH}>{f.title}</div>
-                <p style={s.featP}>{f.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* PRICING PLANS */}
-      <section id="pricing" style={s.priceWrap}>
-        <div style={s.eyebrow}>Pricing plans</div>
-        <h2 style={s.sectionH}>Simple, crystal-clear tiers</h2>
-        <p style={s.sectionSub}>Scale your output effortlessly. Upgrade or downgrade seamlessly whenever your workflow changes.</p>
-
-        <div style={s.priceGrid}>
-          {PRICING_TIERS.map((tier) => (
-            <div key={tier.name} style={tier.popular ? s.priceCardPop : s.priceCard}>
-              {tier.popular && <div style={s.popBadge}>Most Popular</div>}
-              <div style={s.priceH3}>{tier.name}</div>
-              <p style={s.priceDesc}>{tier.desc}</p>
-              <div style={s.priceRow}>
-                <span style={s.priceNum}>{tier.price}</span>
-                {tier.period && <span style={s.pricePer}>{tier.period}</span>}
+                <h3 className="text-xl font-bold text-[#0F2347] mb-3">Paste a YouTube URL</h3>
+                <p className="text-gray-500 leading-relaxed max-w-xs">
+                  Drop any YouTube video link. Long-form, podcast, gaming stream — anything works.
+                </p>
               </div>
 
-              <SignInButton mode="modal">
-                <button style={tier.popular ? s.btnPricePop : s.btnPrice}>
-                  {tier.buttonText}
+              {/* Step 2 */}
+              <div className="flex flex-col items-center text-center">
+                <div className="w-24 h-24 rounded-full border border-gray-100 flex items-center justify-center shadow-sm mb-6 transition-transform hover:scale-105 bg-white">
+                  <Sparkles className="w-10 h-10 text-[#00C0D4]" />
+                </div>
+                <h3 className="text-xl font-bold text-[#0F2347] mb-3">AI Creates Clips</h3>
+                <p className="text-gray-500 leading-relaxed max-w-xs">
+                  Our AI finds the most viral moments, adds captions, face tracking, and hooks — automatically.
+                </p>
+              </div>
+
+              {/* Step 3 */}
+              <div className="flex flex-col items-center text-center">
+                <div className="w-24 h-24 rounded-full border border-gray-100 flex items-center justify-center shadow-sm mb-6 transition-transform hover:scale-105 bg-white">
+                  <Share className="w-10 h-10 text-[#0F2347]" />
+                </div>
+                <h3 className="text-xl font-bold text-[#0F2347] mb-3">Post Everywhere</h3>
+                <p className="text-gray-500 leading-relaxed max-w-xs">
+                  Schedule and auto-post to TikTok, YouTube Shorts, and Instagram Reels in one click.
+                </p>
+              </div>
+
+            </div>
+            
+            <div className="text-center mt-16">
+              <SignInButton mode="modal" forceRedirectUrl="/dashboard">
+                <button className="px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-[#0F2347] to-[#00C0D4] hover:from-[#0C1C3A] hover:to-[#00A6B8] border-0 rounded-2xl shadow-lg hover:scale-105 transition-transform cursor-pointer">
+                  Get Started
                 </button>
               </SignInButton>
+            </div>
+          </div>
+        </div>
 
-              <ul style={s.fList}>
-                {tier.features.map((feat, index) => (
-                  <li key={index} style={s.fItem}>
-                    <span style={s.fCheck}>✓</span> {feat}
+        <LandingFeatures />
+        <LandingShowcase />
+        
+        {/* PRICING SECTION */}
+        <div id="pricing" className="py-20 bg-gray-50 border-t border-gray-100">
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-center text-[#0F2347] tracking-tight mb-2">
+            Pricing
+          </h2>
+          <p className="text-center text-[#00C0D4] text-lg md:text-xl font-medium mb-12">
+            Save up to 60% with yearly billing.
+          </p>
+
+          <div className="flex justify-center mb-12">
+            <div className="flex items-center gap-4">
+              <span className="text-gray-500 font-medium">Monthly</span>
+              <button className="w-12 h-6 bg-[#00C0D4] rounded-full p-1 flex items-center justify-end shadow-inner cursor-pointer transition-colors border-0">
+                <div className="w-4 h-4 bg-white rounded-full shadow-sm" />
+              </button>
+              <span className="text-[#0F2347] font-bold">Yearly</span>
+            </div>
+          </div>
+
+          <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+            
+            {/* Pro Plan */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-md flex flex-col">
+              <div className="flex items-center gap-3 justify-center mb-6">
+                 <div className="w-10 h-10 bg-gray-50 rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-[#00C0D4] font-bold text-xl">
+                   P
+                 </div>
+                 <h3 className="text-xl font-bold text-[#0F2347]">PRO</h3>
+              </div>
+              <div className="text-center mb-6">
+                <span className="block text-[#00C0D4] text-sm font-semibold mb-2">SAVE 60%</span>
+                <div className="flex items-center justify-center gap-3 mb-2">
+                  <span className="text-3xl text-gray-400 font-extrabold line-through">$15</span>
+                  <span className="text-4xl text-[#0F2347] font-extrabold">$6</span>
+                </div>
+                <div className="text-gray-500 font-medium text-sm">per month ($72/year)</div>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1">
+                {[
+                  '180 + 30 Bonus Video Credits / yr',
+                  'Auto-post to TikTok & YouTube',
+                  'Watermark-free exports',
+                  'AI Face Tracking & Captions'
+                ].map((feat, i) => (
+                  <li key={i} className="flex items-start gap-2 text-gray-600 text-sm">
+                    <span className="text-[#00C0D4] font-bold">✓</span> {feat}
                   </li>
                 ))}
               </ul>
+              <SignInButton mode="modal">
+                <button className="w-full py-4 rounded-xl border-2 border-gray-200 text-[#0F2347] font-bold hover:bg-gray-50 transition-colors cursor-pointer bg-transparent">
+                  Upgrade to Pro
+                </button>
+              </SignInButton>
             </div>
-          ))}
-        </div>
-      </section>
 
-      <PricingTable
-        checkoutSuccessUrl="/purchase-success"
-        checkoutCancelUrl="/#pricing"
-      />
-
-      {/* FAQ SECTION */}
-      <section id="faq" style={s.faqWrap}>
-        <div style={s.eyebrow}>FAQ</div>
-        <h2 style={s.sectionH}>Got questions? We have answers</h2>
-        <p style={s.sectionSub}>Everything you need to know about plans, features, and billing setups.</p>
-
-        <div style={s.faqGrid}>
-          {FAQS.map((faq, index) => (
-            <div key={index} style={s.faqCard}>
-              <div style={s.faqQ}>{faq.q}</div>
-              <p style={s.faqA}>{faq.a}</p>
+            {/* Expert Plan */}
+            <div className="bg-cyan-50/50 rounded-2xl border-2 border-[#00C0D4] p-8 shadow-xl flex flex-col relative transform md:-translate-y-4">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#00C0D4] text-white px-4 py-1 rounded-full text-sm font-bold shadow-md whitespace-nowrap">
+                Most Chosen Plan
+              </div>
+              <div className="flex items-center gap-3 justify-center mb-6 mt-2">
+                 <div className="w-10 h-10 bg-white rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-[#00C0D4] font-bold text-xl">
+                   E
+                 </div>
+                 <h3 className="text-xl font-bold text-[#0F2347]">EXPERT</h3>
+              </div>
+              <div className="text-center mb-6">
+                <span className="block text-[#00C0D4] text-sm font-semibold mb-2">SAVE 60%</span>
+                <div className="flex items-center justify-center gap-3 mb-2">
+                  <span className="text-3xl text-gray-400 font-extrabold line-through">$30</span>
+                  <span className="text-4xl text-[#0F2347] font-extrabold">$12</span>
+                </div>
+                <div className="text-gray-500 font-medium text-sm">per month ($144/year)</div>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1">
+                {[
+                  'Everything in Pro Plan',
+                  '720 + 120 Bonus Video Credits / yr',
+                  'Channel Automation Integration',
+                  'Priority Rendering Speed'
+                ].map((feat, i) => (
+                  <li key={i} className="flex items-start gap-2 text-[#0F2347] text-sm font-medium">
+                    <span className="text-[#00C0D4] font-bold text-base">✓</span> {feat}
+                  </li>
+                ))}
+              </ul>
+              <SignInButton mode="modal">
+                <button className="w-full py-4 rounded-xl bg-gradient-to-r from-[#0F2347] to-[#00C0D4] text-white font-bold text-lg hover:scale-[1.02] transition-transform shadow-md cursor-pointer border-0">
+                  Upgrade to Expert
+                </button>
+              </SignInButton>
             </div>
-          ))}
-        </div>
-      </section>
 
-      {/* CTA BAND */}
-      <section style={s.ctaBand}>
-        <h2 style={s.ctaH}>Start creating for free.</h2>
-        <p style={s.ctaP}>
-          Join 200,000+ creators already using StreamCut to grow their audience faster.
-        </p>
-        <SignInButton mode="modal" forceRedirectUrl="/dashboard">
-          <button style={s.btnHero}>Start editing free</button>
-        </SignInButton>
-      </section>
+            {/* Business Plan */}
+            <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-md flex flex-col relative">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-[#0F2347] text-white px-4 py-1 rounded-full text-sm font-bold shadow-md whitespace-nowrap">
+                Best Value
+              </div>
+              <div className="flex items-center gap-3 justify-center mb-6 mt-2">
+                 <div className="w-10 h-10 bg-gray-50 rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-[#0F2347] font-bold text-xl">
+                   B
+                 </div>
+                 <h3 className="text-xl font-bold text-[#0F2347]">BUSINESS</h3>
+              </div>
+              <div className="text-center mb-6">
+                <span className="block text-[#00C0D4] text-sm font-semibold mb-2">SAVE 60%</span>
+                <div className="flex items-center justify-center gap-3 mb-2">
+                  <span className="text-3xl text-gray-400 font-extrabold line-through">$60</span>
+                  <span className="text-4xl text-[#0F2347] font-extrabold">$24</span>
+                </div>
+                <div className="text-gray-500 font-medium text-sm">per month ($288/year)</div>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1">
+                {[
+                  'Everything in Expert Plan',
+                  '1440 + 360 Bonus Video Credits / yr',
+                  'Unlimited social account connections',
+                  'Dedicated API access'
+                ].map((feat, i) => (
+                  <li key={i} className="flex items-start gap-2 text-gray-600 text-sm">
+                    <span className="text-[#00C0D4] font-bold">✓</span> {feat}
+                  </li>
+                ))}
+              </ul>
+              <SignInButton mode="modal">
+                <button className="w-full py-4 rounded-xl bg-[#0F2347] text-white font-bold hover:bg-[#0C1C3A] transition-colors shadow-md cursor-pointer border-0">
+                  Upgrade to Business
+                </button>
+              </SignInButton>
+            </div>
 
-      {/* FOOTER */}
-      <footer style={s.footer}>
-        <div style={s.logo}>
-          <div style={{ ...s.lmark, width: 24, height: 24, fontSize: 12, borderRadius: 6 }}>S</div>
-          <span style={{ ...s.ltext, fontSize: 13 }}>Stream<span style={{ color: '#2563eb' }}>Cut</span></span>
-        </div>
-        <span style={s.footerCopy}>© 2026 StreamCut Media Inc.</span>
-        <div style={s.footerLinks}>
-          {['Privacy', 'Terms', 'Docs'].map(l => (
-            <a key={l} href="#" style={s.footerLink}>{l}</a>
-          ))}
-        </div>
-      </footer>
+          </div>
 
+          <div className="max-w-4xl mx-auto px-4 mt-16">
+            <h3 className="text-center text-xl font-bold text-[#0F2347] mb-8">Clerk Pricing Integration (Optional)</h3>
+            <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4">
+              <PricingTable
+                checkoutSuccessUrl="/purchase-success"
+                checkoutCancelUrl="/#pricing"
+              />
+            </div>
+          </div>
+        </div>
+
+        <LandingFaq />
+        <LandingTools />
+        <LandingBlog />
+
+        {/* BOTTOM CTA BAND */}
+        <section className="bg-[#0F2347] py-24 px-4 text-center">
+          <div className="max-w-4xl mx-auto">
+            <h2 className="text-4xl md:text-5xl font-bold text-white tracking-tight mb-6 text-balance">
+              Start creating for free.
+            </h2>
+            <p className="text-cyan-100 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
+              Join 200,000+ creators already using twenty2short to grow their audience faster.
+            </p>
+            <SignInButton mode="modal" forceRedirectUrl="/dashboard">
+              <button className="px-10 py-5 text-lg font-bold text-[#0F2347] bg-white rounded-full shadow-lg hover:scale-105 hover:bg-gray-50 transition-all cursor-pointer border-0">
+                Start editing free
+              </button>
+            </SignInButton>
+          </div>
+        </section>
+      </main>
+
+      <LandingFooter />
     </div>
   );
 }

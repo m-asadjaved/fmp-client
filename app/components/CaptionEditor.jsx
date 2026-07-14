@@ -160,7 +160,7 @@ const DEFAULT_SUBTITLES = `[00:00:00] Was being in prison kind of fun? Um, fun?
 const SectionLabel = ({ children }) => (
   <p style={{
     fontSize: 10.5, fontWeight: 700, letterSpacing: "0.1em",
-    textTransform: "uppercase", color: "#a5b4fc", margin: "0 0 8px",
+    textTransform: "uppercase", color: "#0F2347", margin: "0 0 8px",
   }}>
     {children}
   </p>
@@ -169,7 +169,7 @@ const SectionLabel = ({ children }) => (
 const InfoRow = ({ label, value }) => (
   <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0" }}>
     <span style={{ fontSize: 11.5, color: "#4a5568" }}>{label}</span>
-    <span style={{ fontSize: 11.5, fontWeight: 600, color: "#a1a1aa", fontVariantNumeric: "tabular-nums" }}>{value}</span>
+    <span style={{ fontSize: 11.5, fontWeight: 600, color: "#4b5563", fontVariantNumeric: "tabular-nums" }}>{value}</span>
   </div>
 );
 
@@ -192,9 +192,9 @@ const FieldInput = ({ value, onChange, placeholder, mono }) => (
       width: "100%",
       padding: "9px 12px",
       borderRadius: 8,
-      background: "#27272a",
+      background: "#e5e7eb",
       border: `1px solid ${INDIGO_BORDER}`,
-      color: "#fafafa",
+      color: "#0F2347",
       fontSize: mono ? 11.5 : 13,
       fontFamily: mono ? "'JetBrains Mono','Fira Code',monospace" : "'Inter',sans-serif",
       outline: "none",
@@ -295,7 +295,7 @@ const SubtitleEditor = ({ value, onChange, lineCount, onReset, videoId, onWordsC
             style={{
               background: isDefault ? "rgba(255, 255, 255, 0.02)" : "rgba(239, 68, 68, 0.08)",
               border: `1px solid ${isDefault ? "rgba(255, 255, 255, 0.05)" : "rgba(239, 68, 68, 0.25)"}`,
-              borderRadius: 6, color: isDefault ? "#a1a1aa" : "#f87171",
+              borderRadius: 6, color: isDefault ? "#4b5563" : "#f87171",
               fontSize: 10, fontWeight: 600, padding: "5px 10px", cursor: isDefault ? "not-allowed" : "pointer",
               display: "flex", alignItems: "center", gap: 4, transition: "all 0.15s ease-in-out",
             }}
@@ -329,7 +329,7 @@ const IndigoSlider = ({ label, value, min, max, unit, leftLabel, rightLabel, onC
       />
     </div>
     {(leftLabel || rightLabel) && (
-      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#a1a1aa", marginTop: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "#4b5563", marginTop: 4 }}>
         <span>{leftLabel}</span>
         <span>{rightLabel}</span>
       </div>
@@ -372,18 +372,18 @@ const LiveTranscript = ({ playerRef, captions, fps, hookDurationFrames, onEditCa
   return (
     <div style={{
       flex: 1, display: "flex", flexDirection: "column",
-      borderTop: `1px solid #27272a`, background: "#09090b", overflow: "hidden"
+      borderTop: `1px solid #e5e7eb`, background: "#f9fafb", overflow: "hidden"
     }}>
       <div style={{
-        padding: "16px 20px", borderBottom: `1px solid #27272a`,
-        background: "#18181b", display: "flex", alignItems: "center", justifyContent: "space-between"
+        padding: "16px 20px", borderBottom: `1px solid #e5e7eb`,
+        background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "space-between"
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <div style={{
             width: 8, height: 8, borderRadius: "50%", background: INDIGO,
             boxShadow: `0 0 12px ${INDIGO}`,
           }} />
-          <span style={{ fontSize: 12, fontWeight: 700, color: "#fafafa", letterSpacing: "0.05em", textTransform: "uppercase" }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: "#0F2347", letterSpacing: "0.05em", textTransform: "uppercase" }}>
             Live Captions
           </span>
         </div>
@@ -392,7 +392,7 @@ const LiveTranscript = ({ playerRef, captions, fps, hookDurationFrames, onEditCa
           style={{
             fontSize: 10, padding: "4px 8px", borderRadius: 4, 
             background: showAll ? "rgba(239, 68, 68, 0.1)" : "rgba(99,102,241,0.1)", 
-            color: showAll ? "#f87171" : "#a5b4fc", 
+            color: showAll ? "#f87171" : "#00C0D4", 
             border: `1px solid ${showAll ? "rgba(239,68,68,0.3)" : INDIGO_BORDER}`, cursor: "pointer",
             transition: "all 0.2s"
           }}
@@ -422,14 +422,14 @@ const LiveTranscript = ({ playerRef, captions, fps, hookDurationFrames, onEditCa
                 onClick={() => handleSeek(caption.startMs + 10)}
               style={{
                 padding: "12px 14px", borderRadius: 10,
-                border: `1px solid ${isActive ? INDIGO_BORDER : "#27272a"}`,
-                background: isActive ? "rgba(99,102,241,0.06)" : "#18181b",
+                border: `1px solid ${isActive ? INDIGO_BORDER : "#e5e7eb"}`,
+                background: isActive ? "rgba(99,102,241,0.06)" : "#ffffff",
                 transition: "all 0.2s ease",
                 cursor: "pointer",
                 display: "flex", flexDirection: "column", gap: 6,
               }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ fontSize: 10, color: isActive ? INDIGO_DIM : "#a1a1aa", fontFamily: "monospace" }}>
+                <div style={{ fontSize: 10, color: isActive ? INDIGO_DIM : "#4b5563", fontFamily: "monospace" }}>
                   {new Date(caption.startMs).toISOString().substring(11, 23)} - {new Date(caption.endMs).toISOString().substring(11, 23)}
                 </div>
                 {currentBroll ? (
@@ -442,7 +442,7 @@ const LiveTranscript = ({ playerRef, captions, fps, hookDurationFrames, onEditCa
                 ) : (
                   <button 
                     onClick={(e) => { e.stopPropagation(); onAddBroll(i, caption.startMs, caption.endMs); }}
-                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: "rgba(99,102,241,0.1)", color: "#a5b4fc", border: `1px solid ${INDIGO_BORDER}`, cursor: "pointer" }}
+                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: "rgba(99,102,241,0.1)", color: INDIGO, border: `1px solid ${INDIGO_BORDER}`, cursor: "pointer" }}
                   >
                     + Upload B-Roll
                   </button>
@@ -453,13 +453,13 @@ const LiveTranscript = ({ playerRef, captions, fps, hookDurationFrames, onEditCa
                 onChange={(e) => onEditCaption(i, e.target.value)}
                 onClick={(e) => e.stopPropagation()}
                 style={{
-                  width: "100%", background: "transparent", border: "none", color: isActive ? "#fff" : "#6b7280",
+                  width: "100%", background: "transparent", border: "none", color: isActive ? INDIGO : "#6b7280",
                   fontSize: 13, lineHeight: 1.5, outline: "none", resize: "none", padding: 0,
                   height: "auto", minHeight: 40, fontFamily: "'Inter', sans-serif"
                 }}
               />
               {currentBroll && (
-                 <div style={{ fontSize: 10, color: "#71717a", wordBreak: "break-all", background: "#09090b", padding: "4px 8px", borderRadius: 4, display: "flex", justifyContent: "space-between" }}>
+                 <div style={{ fontSize: 10, color: "#6b7280", wordBreak: "break-all", background: "#f9fafb", padding: "4px 8px", borderRadius: 4, display: "flex", justifyContent: "space-between" }}>
                    <span>B-Roll {currentBroll.isUploading ? "(Uploading...)" : "(Ready)"}</span>
                  </div>
               )}
@@ -467,7 +467,7 @@ const LiveTranscript = ({ playerRef, captions, fps, hookDurationFrames, onEditCa
           );
         })}
         {captions.length === 0 && (
-          <div style={{ textAlign: "center", color: "#71717a", fontSize: 12, marginTop: 40 }}>
+          <div style={{ textAlign: "center", color: "#6b7280", fontSize: 12, marginTop: 40 }}>
             No subtitles found. Generate some using AI!
           </div>
         )}
@@ -934,7 +934,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
 
       // Brief pause to show the ✓ before redirect
       await new Promise(r => setTimeout(r, 900));
-      router.push("/dashboard/v2/calendar");
+      router.push("/dashboard/calendar");
     } catch (err) {
       console.error("[handleConfirmPost]", err);
       setPostStage(null);
@@ -946,18 +946,18 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
   return (
     <div style={{
       display: "flex", height: "100vh", overflow: "hidden",
-      background: "#09090b", color: "#fafafa", fontFamily: "'Inter', sans-serif",
+      background: "#f9fafb", color: "#0F2347", fontFamily: "'Inter', sans-serif",
     }}>
       {/* ── LEFT SIDEBAR (Controls & Export) ──────────────────────────── */}
       <div style={{
         width: 280, display: "flex", flexDirection: "column",
-        borderRight: `1px solid #27272a`, background: "#18181b",
+        borderRight: `1px solid #e5e7eb`, background: "#ffffff",
         overflowY: "auto", flexShrink: 0, zIndex: 20,
       }}>
         {/* Header */}
         <div style={{
-          padding: "16px 20px", borderBottom: `1px solid #27272a`,
-          background: "#18181b", position: "sticky", top: 0, zIndex: 10,
+          padding: "16px 20px", borderBottom: `1px solid #e5e7eb`,
+          background: "#ffffff", position: "sticky", top: 0, zIndex: 10,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{
@@ -972,7 +972,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
               </svg>
             </div>
             <div>
-              <h1 style={{ fontSize: 15, fontWeight: 800, letterSpacing: "-0.03em", margin: 0, color: "#fafafa" }}>
+              <h1 style={{ fontSize: 15, fontWeight: 800, letterSpacing: "-0.03em", margin: 0, color: "#0F2347" }}>
                 FMP Editor
               </h1>
               <p style={{ fontSize: 10.5, color: INDIGO_DIM, margin: 0, fontWeight: 500 }}>
@@ -1038,9 +1038,9 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
                   style={{
                     display: "flex", alignItems: "center", gap: 10,
                     padding: "10px 12px", borderRadius: 8,
-                    background: splitTemplateId === tmpl.id ? "rgba(99,102,241,0.15)" : "#27272a",
-                    border: `1px solid ${splitTemplateId === tmpl.id ? INDIGO : "#3f3f46"}`,
-                    color: splitTemplateId === tmpl.id ? "#fafafa" : "#a1a1aa",
+                    background: splitTemplateId === tmpl.id ? "rgba(99,102,241,0.15)" : "#e5e7eb",
+                    border: `1px solid ${splitTemplateId === tmpl.id ? INDIGO : "#d1d5db"}`,
+                    color: splitTemplateId === tmpl.id ? "#0F2347" : "#4b5563",
                     cursor: "pointer", transition: "all 0.2s ease", textAlign: "left"
                   }}
                 >
@@ -1049,7 +1049,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
                 </button>
               ))}
             </div>
-            <p style={{ fontSize: 10, color: "#71717a", margin: "8px 0 0 0", lineHeight: 1.4 }}>
+            <p style={{ fontSize: 10, color: "#6b7280", margin: "8px 0 0 0", lineHeight: 1.4 }}>
               Select a background video to play underneath your clip to boost audience retention.
             </p>
           </div>
@@ -1065,8 +1065,8 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
                 style={{
                   fontSize: 10, padding: "4px 8px", borderRadius: 4, 
                   background: hookEnabled ? "rgba(34, 197, 94, 0.1)" : "rgba(161, 161, 170, 0.1)", 
-                  color: hookEnabled ? "#4ade80" : "#a1a1aa", 
-                  border: `1px solid ${hookEnabled ? "rgba(34, 197, 94, 0.3)" : "#3f3f46"}`, cursor: "pointer",
+                  color: hookEnabled ? "#4ade80" : "#4b5563", 
+                  border: `1px solid ${hookEnabled ? "rgba(34, 197, 94, 0.3)" : "#d1d5db"}`, cursor: "pointer",
                 }}
               >
                 {hookEnabled ? "Enabled" : "Disabled"}
@@ -1075,7 +1075,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
             {hookEnabled && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div>
-                  <span style={{ fontSize: 10, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, display: "block", marginBottom: 6 }}>Meme Video (Plays before main video)</span>
+                  <span style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, display: "block", marginBottom: 6 }}>Meme Video (Plays before main video)</span>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button 
                       onClick={handleUploadMeme} 
@@ -1136,7 +1136,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
                 />
                 
                 <div>
-                  <span style={{ fontSize: 10, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, display: "block", marginBottom: 6 }}>Color</span>
+                  <span style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, display: "block", marginBottom: 6 }}>Color</span>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <input type="color" value={hookFontColor} onChange={e => setHookFontColor(e.target.value)}
                       style={{
@@ -1146,7 +1146,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
                     />
                     <div style={{
                       flex: 1, padding: "9px 12px", borderRadius: 8,
-                      background: "#27272a", border: `1px solid ${INDIGO_BORDER}`,
+                      background: "#e5e7eb", border: `1px solid ${INDIGO_BORDER}`,
                       display: "flex", alignItems: "center", gap: 8,
                     }}>
                       <div style={{
@@ -1154,7 +1154,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
                         background: hookFontColor, border: "1px solid rgba(0,0,0,0.1)",
                         boxShadow: `0 0 6px ${hookFontColor}55`,
                       }} />
-                      <span style={{ fontSize: 12, fontFamily: "monospace", color: "#a1a1aa" }}>
+                      <span style={{ fontSize: 12, fontFamily: "monospace", color: "#4b5563" }}>
                         {hookFontColor.toUpperCase()}
                       </span>
                     </div>
@@ -1176,9 +1176,9 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
                   onClick={() => setActiveTheme(theme.id)}
                   style={{
                     padding: "8px", borderRadius: 8,
-                    background: activeTheme === theme.id ? "rgba(99,102,241,0.15)" : "#09090b",
-                    border: `1px solid ${activeTheme === theme.id ? INDIGO : "#27272a"}`,
-                    color: activeTheme === theme.id ? "#fff" : "#a1a1aa",
+                    background: activeTheme === theme.id ? "rgba(99,102,241,0.15)" : "#f9fafb",
+                    border: `1px solid ${activeTheme === theme.id ? INDIGO : "#e5e7eb"}`,
+                    color: activeTheme === theme.id ? INDIGO : "#4b5563",
                     fontSize: 12, fontWeight: 600, cursor: "pointer",
                     transition: "all 0.2s ease"
                   }}
@@ -1207,9 +1207,9 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
                   onClick={() => setAnimationOverride(anim.id)}
                   style={{
                     padding: "8px", borderRadius: 8,
-                    background: animationOverride === anim.id ? "rgba(99,102,241,0.15)" : "#09090b",
-                    border: `1px solid ${animationOverride === anim.id ? INDIGO : "#27272a"}`,
-                    color: animationOverride === anim.id ? "#fff" : "#a1a1aa",
+                    background: animationOverride === anim.id ? "rgba(99,102,241,0.15)" : "#f9fafb",
+                    border: `1px solid ${animationOverride === anim.id ? INDIGO : "#e5e7eb"}`,
+                    color: animationOverride === anim.id ? INDIGO : "#4b5563",
                     fontSize: 12, fontWeight: 600, cursor: "pointer",
                     transition: "all 0.2s ease"
                   }}
@@ -1307,7 +1307,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
                 width: "100%", padding: "13px 16px", borderRadius: 10, border: "none",
                 background: postStage
                   ? "rgba(99,102,241,0.25)"
-                  : `linear-gradient(135deg, #7c3aed, ${INDIGO})`,
+                  : `linear-gradient(135deg, #0F2347, ${INDIGO})`,
                 color: "#ffffff", fontSize: 13.5, fontWeight: 700,
                 fontFamily: "'Inter', sans-serif",
                 cursor: postStage ? "not-allowed" : "pointer",
@@ -1333,7 +1333,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
                 ✕ {postError}
               </p>
             )}
-            <p style={{ fontSize: 10, color: "#71717a", textAlign: "center", marginTop: 6 }}>
+            <p style={{ fontSize: 10, color: "#6b7280", textAlign: "center", marginTop: 6 }}>
               Renders in the background · You&apos;ll be notified when ready
             </p>
           </div>
@@ -1350,21 +1350,21 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
         {/* Subtle grid background for the "workspace" feel */}
         <div style={{
           position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-          backgroundImage: "linear-gradient(#27272a 1px, transparent 1px), linear-gradient(90deg, #d1d5db 1px, transparent 1px)",
+          backgroundImage: "linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #d1d5db 1px, transparent 1px)",
           backgroundSize: "40px 40px", pointerEvents: "none", opacity: 0.5
         }} />
 
         <div style={{
           position: "absolute", top: 16, left: 24,
           fontSize: 11, fontWeight: 600, letterSpacing: "0.05em",
-          color: "#71717a", textTransform: "uppercase"
+          color: "#6b7280", textTransform: "uppercase"
         }}>
           Preview Monitor
         </div>
 
         <div style={{
           height: "calc(100vh - 80px)", aspectRatio: "9 / 16", maxWidth: "90%", borderRadius: 12, overflow: "hidden",
-          boxShadow: `0 0 0 1px #27272a, 0 24px 64px rgba(0,0,0,0.8)`,
+          boxShadow: `0 0 0 1px #e5e7eb, 0 24px 64px rgba(0,0,0,0.8)`,
           position: "relative", background: "#000"
         }}>
           <Player
@@ -1385,7 +1385,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
       {/* ── RIGHT SIDEBAR (Captions & Transcript) ─────────────────────── */}
       <div style={{
         width: 400, display: "flex", flexDirection: "column",
-        borderLeft: `1px solid #27272a`, background: "#18181b", zIndex: 10, position: "relative"
+        borderLeft: `1px solid #e5e7eb`, background: "#ffffff", zIndex: 10, position: "relative"
       }}>
         {isSubtitlesLoading && (
           <div style={{
@@ -1439,15 +1439,15 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
           background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center"
         }}>
           <div style={{
-            background: "#18181b", width: 500, borderRadius: 12, padding: 24, border: `1px solid ${INDIGO_BORDER}`
+            background: "#ffffff", width: 500, borderRadius: 12, padding: 24, border: `1px solid ${INDIGO_BORDER}`
           }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h3 style={{ margin: 0, fontSize: 18, color: "#fff" }}>Select Pre-uploaded Meme</h3>
-              <button onClick={() => setIsMemeModalOpen(false)} style={{ background: "transparent", border: "none", color: "#a1a1aa", cursor: "pointer", fontSize: 20 }}>✕</button>
+              <h3 style={{ margin: 0, fontSize: 18, color: "#0F2347" }}>Select Pre-uploaded Meme</h3>
+              <button onClick={() => setIsMemeModalOpen(false)} style={{ background: "transparent", border: "none", color: "#4b5563", cursor: "pointer", fontSize: 20 }}>✕</button>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, maxHeight: "60vh", overflowY: "auto" }}>
-              {isLoadingMemes && <div style={{ color: "#a1a1aa", fontSize: 13, gridColumn: "span 2", textAlign: "center", padding: 20 }}>Loading your memes...</div>}
-              {!isLoadingMemes && memeList.length === 0 && <div style={{ color: "#a1a1aa", fontSize: 13, gridColumn: "span 2", textAlign: "center", padding: 20 }}>No memes found in /hooks/memes/</div>}
+              {isLoadingMemes && <div style={{ color: "#4b5563", fontSize: 13, gridColumn: "span 2", textAlign: "center", padding: 20 }}>Loading your memes...</div>}
+              {!isLoadingMemes && memeList.length === 0 && <div style={{ color: "#4b5563", fontSize: 13, gridColumn: "span 2", textAlign: "center", padding: 20 }}>No memes found in /hooks/memes/</div>}
               {memeList.map(meme => (
                 <button
                   key={meme.id}
@@ -1456,12 +1456,12 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
                     setIsMemeModalOpen(false);
                   }}
                   style={{
-                    padding: 16, background: "#27272a", borderRadius: 8, border: "1px solid #3f3f46",
-                    color: "#fff", cursor: "pointer", display: "flex", flexDirection: "column", gap: 8, alignItems: "center",
+                    padding: 16, background: "#e5e7eb", borderRadius: 8, border: "1px solid #d1d5db",
+                    color: "#0F2347", cursor: "pointer", display: "flex", flexDirection: "column", gap: 8, alignItems: "center",
                     transition: "all 0.2s"
                   }}
                   onMouseOver={e => e.currentTarget.style.borderColor = INDIGO}
-                  onMouseOut={e => e.currentTarget.style.borderColor = "#3f3f46"}
+                  onMouseOut={e => e.currentTarget.style.borderColor = "#d1d5db"}
                 >
                   <div style={{ width: 40, height: 40, borderRadius: 20, background: INDIGO_SOFT, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
                     🎥
@@ -1485,8 +1485,8 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
           animation: "fadeIn 0.2s ease",
         }}>
           <div style={{
-            background: "#18181b",
-            border: "1px solid #3f3f46",
+            background: "#ffffff",
+            border: "1px solid #d1d5db",
             borderRadius: 20,
             padding: "32px 28px",
             width: 460,
@@ -1497,19 +1497,19 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
             {/* Header */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
               <div>
-                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#fafafa", letterSpacing: "-0.03em" }}>
+                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#0F2347", letterSpacing: "-0.03em" }}>
                   Where to post?
                 </h2>
-                <p style={{ margin: "4px 0 0", fontSize: 13, color: "#71717a" }}>
+                <p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>
                   Choose the platform to publish your video
                 </p>
               </div>
               <button
                 onClick={() => { setShowPlatformModal(false); setSelectedPlatforms([]); setScheduleDate(""); }}
                 style={{
-                  background: "#27272a", border: "1px solid #3f3f46",
+                  background: "#e5e7eb", border: "1px solid #d1d5db",
                   borderRadius: 8, width: 32, height: 32,
-                  color: "#a1a1aa", cursor: "pointer", fontSize: 18,
+                  color: "#4b5563", cursor: "pointer", fontSize: 18,
                   display: "flex", alignItems: "center", justifyContent: "center",
                   flexShrink: 0,
                 }}
@@ -1529,9 +1529,9 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
                     style={{
                       display: "flex", alignItems: "center", gap: 16,
                       padding: "14px 16px", borderRadius: 12, cursor: "pointer",
-                      background: isSelected ? platform.bg : "#09090b",
-                      border: `1.5px solid ${isSelected ? platform.border : "#27272a"}`,
-                      color: isSelected ? platform.color : "#a1a1aa",
+                      background: isSelected ? platform.bg : "#f9fafb",
+                      border: `1.5px solid ${isSelected ? platform.border : "#e5e7eb"}`,
+                      color: isSelected ? platform.color : "#4b5563",
                       textAlign: "left", transition: "all 0.15s ease",
                       boxShadow: isSelected ? `0 0 0 1px ${platform.border}, 0 4px 16px ${platform.glow}` : "none",
                     }}
@@ -1539,26 +1539,26 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
                     {/* Platform icon */}
                     <div style={{
                       width: 44, height: 44, borderRadius: 10, flexShrink: 0,
-                      background: isSelected ? `${platform.color}18` : "#18181b",
-                      border: `1px solid ${isSelected ? platform.border : "#27272a"}`,
+                      background: isSelected ? `${platform.color}18` : "#ffffff",
+                      border: `1px solid ${isSelected ? platform.border : "#e5e7eb"}`,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      color: isSelected ? platform.color : "#52525b",
+                      color: isSelected ? platform.color : "#9ca3af",
                       transition: "all 0.15s ease",
                     }}>
                       {platform.icon}
                     </div>
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: isSelected ? "#fafafa" : "#d4d4d8" }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: isSelected ? "#0F2347" : "#d4d4d8" }}>
                         {platform.name}
                       </div>
-                      <div style={{ fontSize: 12, color: isSelected ? "#a1a1aa" : "#52525b", marginTop: 2 }}>
+                      <div style={{ fontSize: 12, color: isSelected ? "#4b5563" : "#9ca3af", marginTop: 2 }}>
                         {platform.description}
                       </div>
                     </div>
                     {/* Checkbox indicator */}
                     <div style={{
                       width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-                      border: `2px solid ${isSelected ? platform.color : "#3f3f46"}`,
+                      border: `2px solid ${isSelected ? platform.color : "#d1d5db"}`,
                       background: isSelected ? platform.color : "transparent",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       transition: "all 0.15s ease",
@@ -1585,8 +1585,8 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
                 onChange={(e) => setScheduleDate(e.target.value)}
                 style={{
                   width: "100%", padding: "12px 16px", borderRadius: 10,
-                  background: "#09090b", border: "1px solid #3f3f46",
-                  color: "#fafafa", fontSize: 14, fontFamily: "'Inter', sans-serif",
+                  background: "#f9fafb", border: "1px solid #d1d5db",
+                  color: "#0F2347", fontSize: 14, fontFamily: "'Inter', sans-serif",
                   outline: "none", colorScheme: "dark"
                 }}
               />
@@ -1599,9 +1599,9 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
               style={{
                 width: "100%", padding: "13px", borderRadius: 12, border: "none",
                 background: selectedPlatforms.length > 0
-                  ? (selectedPlatforms.length === 1 ? `linear-gradient(135deg, ${selectedPlatforms[0].color}, ${selectedPlatforms[0].color}bb)` : `linear-gradient(135deg, #7c3aed, ${INDIGO})`)
-                  : "#27272a",
-                color: selectedPlatforms.length > 0 ? "#fff" : "#52525b",
+                  ? (selectedPlatforms.length === 1 ? `linear-gradient(135deg, ${selectedPlatforms[0].color}, ${selectedPlatforms[0].color}bb)` : `linear-gradient(135deg, #0F2347, ${INDIGO})`)
+                  : "#e5e7eb",
+                color: selectedPlatforms.length > 0 ? "#fff" : "#9ca3af",
                 fontSize: 14, fontWeight: 700, cursor: selectedPlatforms.length > 0 ? "pointer" : "not-allowed",
                 transition: "all 0.2s ease",
                 boxShadow: selectedPlatforms.length > 0 ? (selectedPlatforms.length === 1 ? `0 4px 20px ${selectedPlatforms[0].glow}` : `0 4px 20px rgba(124,58,237,0.4)`) : "none",
@@ -1653,7 +1653,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
               <div style={{ fontSize: 11, fontWeight: 700, color: selectedPlatforms.length === 1 ? selectedPlatforms[0].color : "#a5b4fc", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 {selectedPlatforms.map(p => p.name).join(", ")}
               </div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#fafafa", letterSpacing: "-0.03em" }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#0F2347", letterSpacing: "-0.03em" }}>
                 {postStage === 'uploading' && 'Uploading video...'}
                 {postStage === 'processing' && 'Processing & encoding...'}
                 {postStage === 'done' && (scheduleDate ? 'Scheduled! 🎉' : 'Posted! 🎉')}
@@ -1665,20 +1665,20 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
           <div style={{ width: 360, maxWidth: "80vw" }}>
             <div style={{
               width: "100%", height: 6, borderRadius: 99,
-              background: "#27272a", overflow: "hidden",
+              background: "#e5e7eb", overflow: "hidden",
             }}>
               <div style={{
                 width: `${postProgress}%`, height: "100%",
                 background: postStage === 'done'
                   ? "#4ade80"
-                  : (selectedPlatforms.length === 1 ? `linear-gradient(90deg, ${selectedPlatforms[0].color}, ${selectedPlatforms[0].color}99)` : `linear-gradient(90deg, #7c3aed, ${INDIGO})`),
+                  : (selectedPlatforms.length === 1 ? `linear-gradient(90deg, ${selectedPlatforms[0].color}, ${selectedPlatforms[0].color}99)` : `linear-gradient(90deg, #0F2347, ${INDIGO})`),
                 borderRadius: 99,
                 transition: "width 0.18s ease-out",
                 boxShadow: postStage === 'done' ? "0 0 12px rgba(74,222,128,0.6)" : (selectedPlatforms.length === 1 ? `0 0 12px ${selectedPlatforms[0].glow}` : `0 0 12px rgba(124,58,237,0.4)`),
               }} />
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", marginTop: 10 }}>
-              <span style={{ fontSize: 12, color: "#71717a" }}>
+              <span style={{ fontSize: 12, color: "#6b7280" }}>
                 {postStage === 'uploading' && 'Uploading to servers...'}
                 {postStage === 'processing' && 'Queuing render job...'}
                 {postStage === 'done' && (scheduleDate ? 'Redirecting to calendar...' : 'Redirecting to dashboard...')}

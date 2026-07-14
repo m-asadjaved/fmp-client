@@ -98,7 +98,7 @@ export default function AssetsPage() {
 
   if (!isLoaded || (!isSignedIn && loading)) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#a1a1aa" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#4b5563" }}>
         <Loader2 size={32} style={{ animation: "spin 1s linear infinite" }} />
       </div>
     );
@@ -107,25 +107,19 @@ export default function AssetsPage() {
   const TABS = ["All", "Raw Video", "B-Roll", "Music", "Hook"];
 
   return (
-    <div style={{ padding: "32px 40px", overflowY: "auto", height: "100%", background: "#09090b", color: "#fafafa" }}>
-      {/* Header */}
-      <header style={{ marginBottom: 32 }}>
-        <h2 style={{ fontSize: 24, fontWeight: 800, margin: "0 0 8px", letterSpacing: "-0.03em" }}>Asset Management</h2>
-        <p style={{ margin: 0, fontSize: 14, color: "#a1a1aa" }}>
-          View and manage all your uploaded media. Delete unused files to free up your cloud storage.
-        </p>
-      </header>
+    <div style={{ padding: "32px 40px", overflowY: "auto", height: "100%", background: "#f9fafb", color: "#0F2347" }}>
+
 
       {/* Controls */}
       <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", gap: 8, background: "#18181b", padding: 4, borderRadius: 10, border: "1px solid #27272a" }}>
+        <div style={{ display: "flex", gap: 8, background: "#ffffff", padding: 4, borderRadius: 10, border: "1px solid #e5e7eb" }}>
           {TABS.map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               style={{
-                background: activeTab === tab ? "#27272a" : "transparent",
-                color: activeTab === tab ? "#fafafa" : "#a1a1aa",
+                background: activeTab === tab ? "#e5e7eb" : "transparent",
+                color: activeTab === tab ? "#0F2347" : "#4b5563",
                 border: "none",
                 padding: "8px 16px",
                 borderRadius: 6,
@@ -141,7 +135,7 @@ export default function AssetsPage() {
         </div>
 
         <div style={{ position: "relative", width: "100%", maxWidth: 300 }}>
-          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#71717a" }} />
+          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#6b7280" }} />
           <input
             type="text"
             placeholder="Search assets..."
@@ -149,9 +143,9 @@ export default function AssetsPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
               width: "100%",
-              background: "#18181b",
-              border: "1px solid #27272a",
-              color: "#fafafa",
+              background: "#ffffff",
+              border: "1px solid #e5e7eb",
+              color: "#0F2347",
               padding: "10px 16px 10px 36px",
               borderRadius: 10,
               fontSize: 14,
@@ -165,18 +159,18 @@ export default function AssetsPage() {
       {loading ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 12, padding: 16, height: 140 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 8, background: "#27272a", marginBottom: 12, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
-              <div style={{ height: 16, width: "80%", background: "#27272a", borderRadius: 4, marginBottom: 8, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
-              <div style={{ height: 12, width: "40%", background: "#27272a", borderRadius: 4, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
+            <div key={i} style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, height: 140 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 8, background: "#e5e7eb", marginBottom: 12, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
+              <div style={{ height: 16, width: "80%", background: "#e5e7eb", borderRadius: 4, marginBottom: 8, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
+              <div style={{ height: 12, width: "40%", background: "#e5e7eb", borderRadius: 4, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
             </div>
           ))}
         </div>
       ) : filteredAssets.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "64px 20px", background: "#18181b", borderRadius: 16, border: "1px dashed #27272a" }}>
-          <AlertCircle size={36} style={{ color: "#71717a", margin: "0 auto 12px" }} />
-          <h4 style={{ margin: "0 0 8px", fontSize: 16, color: "#fafafa" }}>No assets found</h4>
-          <p style={{ margin: 0, fontSize: 13, color: "#a1a1aa" }}>
+        <div style={{ textAlign: "center", padding: "64px 20px", background: "#ffffff", borderRadius: 16, border: "1px dashed #e5e7eb" }}>
+          <AlertCircle size={36} style={{ color: "#6b7280", margin: "0 auto 12px" }} />
+          <h4 style={{ margin: "0 0 8px", fontSize: 16, color: "#0F2347" }}>No assets found</h4>
+          <p style={{ margin: 0, fontSize: 13, color: "#4b5563" }}>
             {searchQuery ? "Try adjusting your search filters." : "You haven't uploaded any media yet."}
           </p>
         </div>
@@ -186,8 +180,8 @@ export default function AssetsPage() {
             <div
               key={asset.id}
               style={{
-                background: "#18181b",
-                border: "1px solid #27272a",
+                background: "#ffffff",
+                border: "1px solid #e5e7eb",
                 borderRadius: 12,
                 padding: 16,
                 display: "flex",
@@ -195,30 +189,30 @@ export default function AssetsPage() {
                 position: "relative",
                 transition: "transform 0.2s, border-color 0.2s",
               }}
-              onMouseOver={(e) => { e.currentTarget.style.borderColor = "#3f3f46"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-              onMouseOut={(e) => { e.currentTarget.style.borderColor = "#27272a"; e.currentTarget.style.transform = "none"; }}
+              onMouseOver={(e) => { e.currentTarget.style.borderColor = "#d1d5db"; e.currentTarget.style.transform = "translateY(-2px)"; }}
+              onMouseOut={(e) => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.transform = "none"; }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                 <div
                   style={{
                     width: 40, height: 40, borderRadius: 8,
-                    background: "rgba(124, 58, 237, 0.1)", color: "#a78bfa",
+                    background: "rgba(0, 192, 212, 0.1)", color: "#00C0D4",
                     display: "flex", alignItems: "center", justifyContent: "center"
                   }}
                 >
                   {getIconForType(asset.type)}
                 </div>
                 
-                <span style={{ fontSize: 11, fontWeight: 700, background: "#27272a", color: "#a1a1aa", padding: "4px 8px", borderRadius: 6, textTransform: "uppercase" }}>
+                <span style={{ fontSize: 11, fontWeight: 700, background: "#e5e7eb", color: "#4b5563", padding: "4px 8px", borderRadius: 6, textTransform: "uppercase" }}>
                   {asset.type}
                 </span>
               </div>
               
               <div style={{ flex: 1, marginBottom: 16 }}>
-                <h4 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#fafafa", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={asset.name}>
+                <h4 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#0F2347", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={asset.name}>
                   {asset.name}
                 </h4>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#71717a" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#6b7280" }}>
                   <span>{formatSize(asset.size)}</span>
                   <span>•</span>
                   <span>{formatDate(asset.date)}</span>
@@ -231,7 +225,7 @@ export default function AssetsPage() {
                   disabled={deletingId === asset.id}
                   style={{
                     background: "transparent",
-                    border: "1px solid #3f3f46",
+                    border: "1px solid #d1d5db",
                     color: "#ef4444",
                     padding: "6px 12px",
                     borderRadius: 6,

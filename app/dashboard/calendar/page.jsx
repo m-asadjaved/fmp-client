@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 // ─── Platform Map for Colors & Icons ──────────────────────────────────────────
 const PLATFORM_META = {
   YouTube: { color: "#ef4444", bg: "#fef2f2", border: "#fecaca" },
-  TikTok: { color: "#09090b", bg: "#f4f4f5", border: "#e4e4e7" },
+  TikTok: { color: "#f9fafb", bg: "#f4f4f5", border: "#e4e4e7" },
   "Instagram Reels": { color: "#e11d74", bg: "#fff1f7", border: "#fbcfe8" },
 };
 const DEFAULT_PLATFORM_META = { color: "#2563eb", bg: "#eff6ff", border: "#bfdbfe" };
@@ -111,7 +111,7 @@ export default function CalendarPage() {
   // Auth gate
   if (isLoaded && !isSignedIn) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#09090b] text-white">
+      <div className="flex h-screen items-center justify-center bg-[#f9fafb] text-white">
         <p>Please sign in to view your calendar.</p>
       </div>
     );
@@ -119,66 +119,27 @@ export default function CalendarPage() {
 
   return (
     <div style={{
-      height: "100%", backgroundColor: "#09090b", color: "#fafafa",
+      height: "100%", backgroundColor: "#f9fafb", color: "#0F2347",
       fontFamily: "'Inter', sans-serif", display: "flex", flexDirection: "column"
     }}>
-      {/* ── HEADER ── */}
-      <header style={{
-        padding: "24px 40px", borderBottom: "1px solid #27272a",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        background: "#09090b"
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em" }}>
-              Content Calendar
-            </h1>
-            <p style={{ margin: "4px 0 0", fontSize: 13, color: "#a1a1aa" }}>
-              Manage and track your scheduled video posts
-            </p>
-          </div>
-        </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <button onClick={handleToday} style={{
-            background: "rgba(124, 58, 237, 0.1)", border: "1px solid rgba(124, 58, 237, 0.3)",
-            color: "#c4b5fd", padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-            cursor: "pointer", transition: "all 0.2s"
-          }}>
-            Today
-          </button>
-          <div style={{ display: "flex", alignItems: "center", background: "#27272a", borderRadius: 8, padding: 4 }}>
-            <button onClick={handlePrevMonth} style={{
-              background: "transparent", border: "none", color: "#a1a1aa",
-              padding: 6, cursor: "pointer", borderRadius: 6
-            }}><ChevronLeft size={18}/></button>
-            <span style={{ fontSize: 14, fontWeight: 700, width: 130, textAlign: "center" }}>
-              {getMonthName(currentMonth)} {currentYear}
-            </span>
-            <button onClick={handleNextMonth} style={{
-              background: "transparent", border: "none", color: "#a1a1aa",
-              padding: 6, cursor: "pointer", borderRadius: 6
-            }}><ChevronRight size={18}/></button>
-          </div>
-        </div>
-      </header>
 
       {/* ── CALENDAR GRID ── */}
       <main style={{ flex: 1, padding: "32px 40px", overflowY: "auto" }}>
         <div style={{ 
-          background: "#18181b", border: "1px solid #27272a", borderRadius: 16,
+          background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 16,
           overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.4)"
         }}>
           
           {/* Day of week headers */}
           <div style={{ 
             display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
-            borderBottom: "1px solid #27272a", background: "#1f1f22"
+            borderBottom: "1px solid #e5e7eb", background: "#f3f4f6"
           }}>
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
               <div key={day} style={{
                 padding: "12px 16px", fontSize: 12, fontWeight: 700,
-                color: "#a1a1aa", textTransform: "uppercase", letterSpacing: "0.05em",
+                color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.05em",
                 textAlign: "right"
               }}>
                 {day}
@@ -187,23 +148,23 @@ export default function CalendarPage() {
           </div>
 
           {/* Grid body */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", background: "#27272a", gap: "1px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", background: "#e5e7eb", gap: "1px" }}>
             {calendarGrid.map((cell) => {
               if (cell.isPadding) {
-                return <div key={cell.key} style={{ background: "#131316", minHeight: 140 }} />
+                return <div key={cell.key} style={{ background: "#f3f4f6", minHeight: 140 }} />
               }
 
               return (
                 <div key={cell.key} style={{
-                  background: cell.isToday ? "#1a1a24" : "#18181b",
+                  background: cell.isToday ? "rgba(0, 192, 212, 0.05)" : "#ffffff",
                   minHeight: 140, padding: 12, display: "flex", flexDirection: "column",
                   transition: "background 0.2s",
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                     <div style={{
                       width: 28, height: 28, borderRadius: "50%",
-                      background: cell.isToday ? "#7c3aed" : "transparent",
-                      color: cell.isToday ? "#fff" : "#fafafa",
+                      background: cell.isToday ? "#0F2347" : "transparent",
+                      color: cell.isToday ? "#fff" : "#0F2347",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 13, fontWeight: 700,
                     }}>
@@ -226,8 +187,8 @@ export default function CalendarPage() {
                             }
                           }}
                           style={{
-                            background: isCompleted ? "rgba(74, 222, 128, 0.1)" : "#27272a",
-                            border: `1px solid ${isCompleted ? "rgba(74, 222, 128, 0.2)" : "#3f3f46"}`,
+                            background: isCompleted ? "rgba(74, 222, 128, 0.1)" : "#e5e7eb",
+                            border: `1px solid ${isCompleted ? "rgba(74, 222, 128, 0.2)" : "#d1d5db"}`,
                             borderRadius: 8, padding: "8px 10px",
                             display: "flex", flexDirection: "column", gap: 4,
                             cursor: job.video_id ? "pointer" : "default",
@@ -235,21 +196,21 @@ export default function CalendarPage() {
                           }}
                           onMouseEnter={(e) => {
                             if (job.video_id && !isCompleted) {
-                              e.currentTarget.style.background = "#3f3f46";
+                              e.currentTarget.style.background = "#d1d5db";
                             }
                           }}
                           onMouseLeave={(e) => {
                             if (job.video_id && !isCompleted) {
-                              e.currentTarget.style.background = "#27272a";
+                              e.currentTarget.style.background = "#e5e7eb";
                             }
                           }}
                         >
                           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: isCompleted ? "#4ade80" : "#a1a1aa", display: "flex", alignItems: "center", gap: 4 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: isCompleted ? "#4ade80" : "#4b5563", display: "flex", alignItems: "center", gap: 4 }}>
                               <Clock size={10} /> {timeString}
                             </span>
                             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                              {job.video_id && !isCompleted && <Edit2 size={12} color="#a1a1aa" />}
+                              {job.video_id && !isCompleted && <Edit2 size={12} color="#4b5563" />}
                               {!isCompleted && (
                                 <button 
                                   onClick={(e) => {

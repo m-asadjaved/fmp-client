@@ -185,7 +185,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
       if (!r.ok) throw new Error(d.error || "Failed");
       setPostProgress(100); setPostStage("done");
       await new Promise((r) => setTimeout(r, 900));
-      router.push("/dashboard/v2/calendar");
+      router.push("/dashboard/calendar");
     } catch (e) { setPostStage(null); setPostProgress(0); setPostError(e.message); }
   };
 
@@ -249,11 +249,11 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
   };
 
   if (!isLoaded || clipsLoading) {
-    return <div className="flex justify-center items-center h-64 text-[#a1a1aa] font-mono text-xs animate-pulse">{clipsLoading ? "Discovering clips from S3..." : "Initializing player..."}</div>;
+    return <div className="flex justify-center items-center h-64 text-[#4b5563] font-mono text-xs animate-pulse">{clipsLoading ? "Discovering clips from S3..." : "Initializing player..."}</div>;
   }
 
   if (!availableClips.length) {
-    return <div className="flex flex-col items-center justify-center h-64 gap-2 text-[#71717a] text-sm">No clips available yet — processing may still be underway.</div>;
+    return <div className="flex flex-col items-center justify-center h-64 gap-2 text-[#6b7280] text-sm">No clips available yet — processing may still be underway.</div>;
   }
 
   return (
@@ -284,13 +284,13 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
         const clipText = clipCaptions.map(c => c.text).join(' ');
 
         return (
-          <div key={clip.id || idx} className="flex flex-col md:flex-row" style={{ background: "#18181b", border: "1px solid #27272a", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 40px rgba(0,0,0,0.5)", opacity: deletingId === clip.id ? 0.5 : 1 }}>
+          <div key={clip.id || idx} className="flex flex-col md:flex-row" style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 40px rgba(15,35,71,0.06)", opacity: deletingId === clip.id ? 0.5 : 1 }}>
             
             {/* ── Player (Left Side) ── */}
-            <div className="w-full md:w-[35%] border-b md:border-b-0 md:border-r border-[#27272a]" style={{ display: "flex", justifyContent: "center", padding: "24px", background: "#09090b" }}>
-              <div style={{ height: "58vh", minHeight: 360, aspectRatio: "9/16", borderRadius: 10, overflow: "hidden", boxShadow: "0 0 0 1px #27272a, 0 24px 64px rgba(0,0,0,0.8)", background: "#000" }}>
+            <div className="w-full md:w-[35%] border-b md:border-b-0 md:border-r border-[#e5e7eb]" style={{ display: "flex", justifyContent: "center", padding: "24px", background: "#f9fafb" }}>
+              <div style={{ height: "58vh", minHeight: 360, aspectRatio: "9/16", borderRadius: 10, overflow: "hidden", boxShadow: "0 0 0 1px #e5e7eb, 0 24px 64px rgba(0,0,0,0.8)", background: "#000" }}>
                 {deletingId === clip.id ? (
-                  <div className="flex flex-col items-center justify-center h-full gap-3 text-[#a1a1aa]">
+                  <div className="flex flex-col items-center justify-center h-full gap-3 text-[#4b5563]">
                     <Loader2 className="animate-spin" size={24} />
                     <span className="text-sm font-medium">Deleting clip...</span>
                   </div>
@@ -306,11 +306,11 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
                     controls 
                     acknowledgeRemotionLicense 
                     errorFallback={(error) => (
-                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: "20px", textAlign: "center", background: "#18181b", color: "#f87171" }}>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: "20px", textAlign: "center", background: "#ffffff", color: "#f87171" }}>
                         <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 12 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                         <span style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Playback Error</span>
-                        <span style={{ fontSize: 11, color: "#a1a1aa", wordBreak: "break-all" }}>{error.message || "Failed to decode video stream."}</span>
-                        <a href={clipUrl} target="_blank" rel="noreferrer" style={{ marginTop: 16, padding: "8px 16px", borderRadius: 6, background: "#27272a", border: "1px solid #3f3f46", color: "#fafafa", fontSize: 12, textDecoration: "none" }}>View Original Video</a>
+                        <span style={{ fontSize: 11, color: "#4b5563", wordBreak: "break-all" }}>{error.message || "Failed to decode video stream."}</span>
+                        <a href={clipUrl} target="_blank" rel="noreferrer" style={{ marginTop: 16, padding: "8px 16px", borderRadius: 6, background: "#e5e7eb", border: "1px solid #d1d5db", color: "#0F2347", fontSize: 12, textDecoration: "none" }}>View Original Video</a>
                       </div>
                     )}
                     onError={(err) => console.error("Remotion Player Error:", err)}
@@ -322,22 +322,22 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
             {/* ── Right Side (Meta + Actions) ── */}
             <div className="flex-1 flex flex-col justify-between">
               {/* ── Hook + Meta Header ── */}
-              <div style={{ padding: "32px", borderBottom: "1px solid #27272a", background: "linear-gradient(135deg,rgba(99,102,241,0.07),rgba(124,58,237,0.03))", flex: 1 }}>
+              <div style={{ padding: "32px", borderBottom: "1px solid #e5e7eb", background: "linear-gradient(135deg,rgba(99,102,241,0.07),rgba(124,58,237,0.03))", flex: 1 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: "#a78bfa", background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.25)", padding: "4px 12px", borderRadius: 99, letterSpacing: "0.06em", textTransform: "uppercase" }}>Clip {clip.index + 1}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: "#00C0D4", background: "rgba(124,58,237,0.12)", border: "1px solid rgba(124,58,237,0.25)", padding: "4px 12px", borderRadius: 99, letterSpacing: "0.06em", textTransform: "uppercase" }}>Clip {clip.index + 1}</span>
                     {aiMeta?.is_new && (
                       <span style={{ fontSize: 12, fontWeight: 700, color: "#fff", background: "rgba(239,68,68,0.8)", border: "1px solid #ef4444", padding: "4px 12px", borderRadius: 99, letterSpacing: "0.06em", textTransform: "uppercase", boxShadow: "0 0 10px rgba(239,68,68,0.3)" }}>
                         ✨ NEW
                       </span>
                     )}
                     {score != null && (
-                      <span style={{ fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 99, ...(score >= 85 ? { color: "#4ade80", background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.25)" } : score >= 70 ? { color: "#fbbf24", background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)" } : { color: "#a1a1aa", background: "#27272a", border: "1px solid #3f3f46" }) }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 99, ...(score >= 85 ? { color: "#4ade80", background: "rgba(74,222,128,0.1)", border: "1px solid rgba(74,222,128,0.25)" } : score >= 70 ? { color: "#fbbf24", background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.25)" } : { color: "#4b5563", background: "#e5e7eb", border: "1px solid #d1d5db" }) }}>
                         🔥 Virality: {score}
                       </span>
                     )}
                     {clip.createdAt && (
-                      <span style={{ fontSize: 11, color: "#71717a", marginLeft: 4 }}>
+                      <span style={{ fontSize: 11, color: "#6b7280", marginLeft: 4 }}>
                         Generated {new Date(clip.createdAt).toLocaleDateString()} at {new Date(clip.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
@@ -355,27 +355,27 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
                 )}
                 {aiMeta?.clip_topic && (
                   <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 16 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "#71717a" }}>Topic:</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "#6b7280" }}>Topic:</span>
                     <span style={{ fontSize: 13, fontWeight: 700, color: "#c4b5fd", background: "rgba(196,181,253,0.08)", padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(196,181,253,0.2)" }}>{aiMeta.clip_topic}</span>
                   </div>
                 )}
                 {aiMeta?.rationale && <p style={{ margin: 0, fontSize: 14, color: "#d4d4d8", lineHeight: 1.6 }}>{aiMeta.rationale}</p>}
                 {clipText && (
                   <div style={{ marginTop: 20 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 8 }}>Clip Subtitles</span>
-                    <p style={{ margin: 0, fontSize: 13, color: "#a1a1aa", lineHeight: 1.6, fontStyle: "italic", background: "rgba(0,0,0,0.2)", padding: "12px 16px", borderRadius: 8, border: "1px solid #27272a" }}>"{clipText}"</p>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 8 }}>Clip Subtitles</span>
+                    <p style={{ margin: 0, fontSize: 13, color: "#4b5563", lineHeight: 1.6, fontStyle: "italic", background: "rgba(15,35,71,0.04)", padding: "12px 16px", borderRadius: 8, border: "1px solid #e5e7eb" }}>"{clipText}"</p>
                   </div>
                 )}
               </div>
 
               {/* ── Actions ── */}
-              <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 12, background: "#18181b" }}>
-              <button onClick={() => handleOpenPost(idx, clipUrl, clip.id, customHookText)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "13px", borderRadius: 10, border: "none", background: `linear-gradient(135deg,#7c3aed,${INDIGO})`, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 24px rgba(124,58,237,0.4)", opacity: postStage ? 0.5 : 1 }}>
+              <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 12, background: "#ffffff" }}>
+              <button onClick={() => handleOpenPost(idx, clipUrl, clip.id, customHookText)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "13px", borderRadius: 10, border: "none", background: `linear-gradient(135deg,#0F2347,${INDIGO})`, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 24px rgba(124,58,237,0.4)", opacity: postStage ? 0.5 : 1 }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 Post Video Now
               </button>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <button onClick={() => handleDownload(idx, clipUrl, clip.id, customHookText)} title={isClipRendering ? "Your video is in rendering you can see the progress from the right bottom task button" : undefined} disabled={!!postStage || downloadingIdx === idx || isClipRendering} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #3f3f46", background: "#18181b", color: "#fafafa", fontSize: 13, fontWeight: 600, cursor: isClipRendering ? "not-allowed" : "pointer", opacity: (postStage || downloadingIdx === idx || isClipRendering) ? 0.5 : 1 }}>
+                <button onClick={() => handleDownload(idx, clipUrl, clip.id, customHookText)} title={isClipRendering ? "Your video is in rendering you can see the progress from the right bottom task button" : undefined} disabled={!!postStage || downloadingIdx === idx || isClipRendering} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #d1d5db", background: "#ffffff", color: "#0F2347", fontSize: 13, fontWeight: 600, cursor: isClipRendering ? "not-allowed" : "pointer", opacity: (postStage || downloadingIdx === idx || isClipRendering) ? 0.5 : 1 }}>
                   {downloadingIdx === idx ? (
                     <Loader2 className="animate-spin" size={14} />
                   ) : (
@@ -383,7 +383,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
                   )}
                   {downloadingIdx === idx ? "Starting..." : isClipRendering ? "Rendering..." : "Download"}
                 </button>
-                <button onClick={() => router.push(`/editor/${videoId}?index=${clip.index}`)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #3f3f46", background: "#18181b", color: "#fafafa", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: postStage ? 0.5 : 1 }}>
+                <button onClick={() => router.push(`/editor/${videoId}?index=${clip.index}`)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #d1d5db", background: "#ffffff", color: "#0F2347", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: postStage ? 0.5 : 1 }}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                   Edit Clip
                 </button>
@@ -398,19 +398,19 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
       {/* ── Platform Modal ── */}
       {showPlatformModal && typeof document !== "undefined" && createPortal(
         <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "#18181b", border: "1px solid #3f3f46", borderRadius: 20, padding: "32px 28px", width: 460, maxWidth: "calc(100vw - 32px)", boxShadow: "0 32px 80px rgba(0,0,0,0.6)" }}>
+          <div style={{ background: "#ffffff", border: "1px solid #d1d5db", borderRadius: 20, padding: "32px 28px", width: 460, maxWidth: "calc(100vw - 32px)", boxShadow: "0 32px 80px rgba(0,0,0,0.6)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
-              <div><h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#fafafa", letterSpacing: "-0.03em" }}>Where to post?</h2><p style={{ margin: "4px 0 0", fontSize: 13, color: "#71717a" }}>Choose the platform</p></div>
-              <button onClick={() => { setShowPlatformModal(false); setSelectedPlatforms([]); setScheduleDate(""); }} style={{ background: "#27272a", border: "1px solid #3f3f46", borderRadius: 8, width: 32, height: 32, color: "#a1a1aa", cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+              <div><h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#0F2347", letterSpacing: "-0.03em" }}>Where to post?</h2><p style={{ margin: "4px 0 0", fontSize: 13, color: "#6b7280" }}>Choose the platform</p></div>
+              <button onClick={() => { setShowPlatformModal(false); setSelectedPlatforms([]); setScheduleDate(""); }} style={{ background: "#e5e7eb", border: "1px solid #d1d5db", borderRadius: 8, width: 32, height: 32, color: "#4b5563", cursor: "pointer", fontSize: 18, display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
               {PLATFORMS.map((platform) => {
                 const isSel = selectedPlatforms.some((p) => p.id === platform.id);
                 return (
-                  <button key={platform.id} onClick={() => togglePlatform(platform)} style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 16px", borderRadius: 12, cursor: "pointer", background: isSel ? platform.bg : "#09090b", border: `1.5px solid ${isSel ? platform.border : "#27272a"}`, color: isSel ? platform.color : "#a1a1aa", textAlign: "left", transition: "all 0.15s ease" }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: isSel ? `${platform.color}18` : "#18181b", border: `1px solid ${isSel ? platform.border : "#27272a"}`, display: "flex", alignItems: "center", justifyContent: "center", color: isSel ? platform.color : "#52525b" }}>{platform.icon}</div>
-                    <div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 700, color: isSel ? "#fafafa" : "#d4d4d8" }}>{platform.name}</div><div style={{ fontSize: 12, color: isSel ? "#a1a1aa" : "#52525b", marginTop: 2 }}>{platform.description}</div></div>
-                    <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${isSel ? platform.color : "#3f3f46"}`, background: isSel ? platform.color : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <button key={platform.id} onClick={() => togglePlatform(platform)} style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 16px", borderRadius: 12, cursor: "pointer", background: isSel ? platform.bg : "#f9fafb", border: `1.5px solid ${isSel ? platform.border : "#e5e7eb"}`, color: isSel ? platform.color : "#4b5563", textAlign: "left", transition: "all 0.15s ease" }}>
+                    <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: isSel ? `${platform.color}18` : "#ffffff", border: `1px solid ${isSel ? platform.border : "#e5e7eb"}`, display: "flex", alignItems: "center", justifyContent: "center", color: isSel ? platform.color : "#9ca3af" }}>{platform.icon}</div>
+                    <div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 700, color: isSel ? "#0F2347" : "#d4d4d8" }}>{platform.name}</div><div style={{ fontSize: 12, color: isSel ? "#4b5563" : "#9ca3af", marginTop: 2 }}>{platform.description}</div></div>
+                    <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${isSel ? platform.color : "#d1d5db"}`, background: isSel ? platform.color : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {isSel && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
                     </div>
                   </button>
@@ -419,9 +419,9 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
             </div>
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#d4d4d8", marginBottom: 8 }}>Schedule (Optional)</label>
-              <input type="datetime-local" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} style={{ width: "100%", padding: "12px 16px", borderRadius: 10, background: "#09090b", border: "1px solid #3f3f46", color: "#fafafa", fontSize: 14, outline: "none", colorScheme: "dark" }} />
+              <input type="datetime-local" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} style={{ width: "100%", padding: "12px 16px", borderRadius: 10, background: "#f9fafb", border: "1px solid #d1d5db", color: "#0F2347", fontSize: 14, outline: "none", colorScheme: "dark" }} />
             </div>
-            <button onClick={handleConfirmPost} disabled={selectedPlatforms.length === 0} style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: selectedPlatforms.length > 0 ? `linear-gradient(135deg,#7c3aed,${INDIGO})` : "#27272a", color: selectedPlatforms.length > 0 ? "#fff" : "#52525b", fontSize: 14, fontWeight: 700, cursor: selectedPlatforms.length > 0 ? "pointer" : "not-allowed" }}>
+            <button onClick={handleConfirmPost} disabled={selectedPlatforms.length === 0} style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: selectedPlatforms.length > 0 ? `linear-gradient(135deg,#0F2347,${INDIGO})` : "#e5e7eb", color: selectedPlatforms.length > 0 ? "#fff" : "#9ca3af", fontSize: 14, fontWeight: 700, cursor: selectedPlatforms.length > 0 ? "pointer" : "not-allowed" }}>
               {selectedPlatforms.length > 0 ? (scheduleDate ? `Schedule for ${selectedPlatforms.length} platform(s)` : `Post to ${selectedPlatforms.length} platform(s)`) : "Select a platform"}
             </button>
           </div>
@@ -432,10 +432,10 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
       {/* ── Post Progress Overlay ── */}
       {postStage && selectedPlatforms.length > 0 && typeof document !== "undefined" && createPortal(
         <div style={{ position: "fixed", inset: 0, zIndex: 3000, background: "rgba(0,0,0,0.88)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 28 }}>
-          <div style={{ fontSize: 20, fontWeight: 800, color: "#fafafa" }}>{postStage === "uploading" && "Uploading video..."}{postStage === "processing" && "Processing & encoding..."}{postStage === "done" && (scheduleDate ? "Scheduled! 🎉" : "Posted! 🎉")}</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: "#0F2347" }}>{postStage === "uploading" && "Uploading video..."}{postStage === "processing" && "Processing & encoding..."}{postStage === "done" && (scheduleDate ? "Scheduled! 🎉" : "Posted! 🎉")}</div>
           <div style={{ width: 360, maxWidth: "80vw" }}>
-            <div style={{ width: "100%", height: 6, borderRadius: 99, background: "#27272a", overflow: "hidden" }}>
-              <div style={{ width: `${postProgress}%`, height: "100%", background: postStage === "done" ? "#4ade80" : `linear-gradient(90deg,#7c3aed,${INDIGO})`, borderRadius: 99, transition: "width 0.18s ease-out" }} />
+            <div style={{ width: "100%", height: 6, borderRadius: 99, background: "#e5e7eb", overflow: "hidden" }}>
+              <div style={{ width: `${postProgress}%`, height: "100%", background: postStage === "done" ? "#4ade80" : `linear-gradient(90deg,#0F2347,${INDIGO})`, borderRadius: 99, transition: "width 0.18s ease-out" }} />
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}><span style={{ fontSize: 12, fontWeight: 700, color: postStage === "done" ? "#4ade80" : "#a5b4fc" }}>{postProgress}%</span></div>
           </div>
