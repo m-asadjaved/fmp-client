@@ -43,8 +43,11 @@ export function RenderProvider({ children }) {
             [renderId]: { ...prev[renderId], progress: 100, status: "done", url: pg.outUrl }
           }));
           
-          // Auto download
-          if (!metadata?.isPostJob) {
+          if (metadata?.isPostJob) {
+            // Trigger the backend poll route which handles YouTube uploading for completed renders
+            fetch("/api/export/poll").catch(console.error);
+          } else {
+            // Auto download
             try {
               const a = document.createElement("a");
               a.href = pg.outUrl;
@@ -158,7 +161,7 @@ function RenderToasts({ tasks, removeTask }) {
               </span>
               {isError && <span style={{ fontSize: 11, color: "#ef4444" }}>{task.error}</span>}
               {!isError && !isDone && <span style={{ fontSize: 11, color: "#71717a" }}>{task.metadata?.isPostJob ? "Rendering for auto-post..." : "Rendering..."}</span>}
-              {isDone && <span style={{ fontSize: 11, color: "#10b981" }}>{task.metadata?.isPostJob ? "Rendered & queued for upload" : "Complete"}</span>}
+              {isDone && <span style={{ fontSize: 11, color: "#10b981" }}>{task.metadata?.isPostJob ? "Rendered! Uploading to YouTube..." : "Complete"}</span>}
             </div>
             
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>

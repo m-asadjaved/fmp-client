@@ -8,6 +8,16 @@ import requests
 import boto3
 import wave
 from collections import deque
+import sys
+
+# Import face detector logic
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'face_detector'))
+from face_detector import (
+    ensure_yunet_model, YuNetDetector, FaceTracker, YUNET_INPUT_SIZE, YUNET_NMS_THRESHOLD,
+    normalize_lighting, USE_LIGHTING_NORMALIZATION, USE_LANDMARK_VALIDATION, landmarks_plausible,
+    USE_BLUR_REJECTION, blur_score, BlurBaseline, ask_gemini_multiple_people,
+    compute_person_crop_box_from_data, apply_face_zoom_crop, apply_wide_fit_blur, default_center_crop_box, SmoothedCrop
+)
 
 
 # ─── HELPERS ──────────────────────────────────────────────────────────────────
@@ -135,6 +145,10 @@ def main():
 
         print(f"🎥 Source video: {vw}x{vh} @ {fps}fps. Target output: {out_w}x{out_h}")
 
+        # Ensure model is ready
+        yunet_path = ensure_yunet_model("/tmp/face_detection_yunet.onnx")
+        yunet = YuNetDetector(yunet_path, YUNET_INPUT_SIZE, score_threshold=0.3, nms_threshold=YUNET_NMS_THRESHOLD)
+
 
         clip_video_files = []
         clip_audio_files = []
@@ -169,8 +183,107 @@ def main():
             frames_to_read = int(duration_sec * fps)
             frames_written = 0
 
-            # Process frame by frame
+            # --- PASS 1: TRACKING FOR THIS CLIP ---
+            print(f"🔎 Tracking faces for Edit {idx+1}...")
+            tracker = FaceTracker(frame_width=vw)
+            blur_baseline = BlurBaseline(fps)
+            frame_records = []
+            next_gemini_check_frame = 0
+            gemini_wide_lock_until = -1
+            
             for fi in range(frames_to_read):
+                ret, frame = cap.read()
+                if not ret: break
+                
+                detect_input = normalize_lighting(frame) if USE_LIGHTING_NORMALIZATION else frame
+                all_raw_detections = yunet.detect(detect_input)
+                
+                raw_detections = []
+                weak_detections = []
+                for d in all_raw_detections:
+                    if d["confidence"] >= 0.7:  # YUNET_SCORE_THRESHOLD
+                        raw_detections.append(d)
+                    elif d["confidence"] >= 0.35:
+                        weak_detections.append(d)
+                        
+                if USE_LANDMARK_VALIDATION:
+                    raw_detections = [d for d in raw_detections if landmarks_plausible(d.get("landmarks"), d["box"])]
+                    
+                if USE_BLUR_REJECTION and raw_detections:
+                    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+                    filtered = []
+                    for d in raw_detections:
+                        x, y, w, h = d["box"]
+                        crop = gray_frame[y:y + h, x:x + w]
+                        score = blur_score(crop)
+                        blur_baseline.observe(score)
+                        if blur_baseline.is_sharp_enough(score):
+                            filtered.append(d)
+                    raw_detections = filtered
+                    
+                blur_baseline.maybe_finalize(fi)
+                all_tracks = tracker.update(raw_detections, frame=frame)
+                active_tracks = [t for t in all_tracks if t.is_confirmed]
+                
+                if len(active_tracks) == 1 and len(weak_detections) > 0:
+                    if fi >= next_gemini_check_frame:
+                        is_multiple = ask_gemini_multiple_people(frame)
+                        if is_multiple:
+                            gemini_wide_lock_until = fi + int(fps * 2.0)
+                        next_gemini_check_frame = fi + int(fps * 2.0)
+                
+                if fi < gemini_wide_lock_until:
+                    frame_records.append([{"id": -1, "box": (0,0,0,0)}, {"id": -2, "box": (0,0,0,0)}])
+                else:
+                    frame_records.append([{"id": t.id, "box": t.smoothed_box} for t in active_tracks])
+
+            total_frames = len(frame_records)
+            
+            # ═══ Compute mode decisions ═══
+            counts = [len(rec) for rec in frame_records]
+            MODE_DEBOUNCE_FRAMES = max(1, int(round(fps * 0.6)))
+            final_mode = [None] * total_frames
+            final_target = [None] * total_frames
+            cur_mode, cur_target = "wide", None
+            pend_mode, pend_target, pend_stable = "wide", None, 0
+
+            for i in range(total_frames):
+                c = counts[i]
+                next_c = counts[i+1] if i + 1 < total_frames else c
+                if c == 1 and next_c <= 1:
+                    d_mode = "single_character"
+                    d_target = frame_records[i][0]["id"]
+                else:
+                    d_mode = "wide"
+                    d_target = None
+
+                if d_mode == "wide":
+                    cur_mode, cur_target = "wide", None
+                    pend_mode, pend_target, pend_stable = "wide", None, 0
+                else:
+                    if d_mode == pend_mode and d_target == pend_target:
+                        pend_stable += 1
+                    else:
+                        pend_mode, pend_target, pend_stable = d_mode, d_target, 1
+                    if pend_stable >= MODE_DEBOUNCE_FRAMES:
+                        cur_mode, cur_target = pend_mode, pend_target
+
+                final_mode[i] = cur_mode
+                final_target[i] = cur_target
+                
+            # --- PASS 2: RENDERING FOR THIS CLIP ---
+            print(f"🎬 Rendering Edit {idx+1}...")
+            cap.set(cv2.CAP_PROP_POS_FRAMES, int(start_sec * fps))
+            
+            default_crop = default_center_crop_box(vw, vh, 9.0/16.0)
+            smoothed_crop = SmoothedCrop(default_crop)
+            render_mode = "wide"
+            mode_blend = 1.0
+            MODE_BLEND_STEP = 1.0 / max(1, int(round(fps * 0.5)))
+            
+            for fi in range(frames_to_read):
+                if fi >= total_frames:
+                    break
                 ret, frame = cap.read()
                 if not ret: break
 
@@ -178,31 +291,52 @@ def main():
                 t_in_clip = fi / fps
                 audio_energy = get_audio_energy_at(audio_arr, 16000, t_in_clip)
 
-                # Resize original frame to fit width (maintaining 16:9 aspect ratio)
-                scale = out_w / vw
-                new_h = int(vh * scale)
-                resized = cv2.resize(frame, (out_w, new_h))
-                y_offset = (out_h - new_h) // 2
-                
-                if use_bg_blur:
-                    # Fast blurred background from the center crop of the frame
-                    center_x = vw // 2
-                    half_w = out_w // 2
-                    if out_w <= vw:
-                        bg = frame[:, center_x-half_w : center_x-half_w+out_w]
-                    else:
-                        bg = cv2.resize(frame, (out_w, out_h))
-                    # Blur it heavily
-                    out_frame = cv2.GaussianBlur(bg, (51, 51), 0)
+                active_tracks_data = frame_records[fi]
+                this_mode = final_mode[fi]
+                this_target = final_target[fi]
+
+                if this_mode != render_mode:
+                    mode_blend = 0.0
+                    render_mode = this_mode
+
+                target_data = next((t for t in active_tracks_data if t["id"] == this_target), None)
+                if target_data is not None:
+                    target_crop = compute_person_crop_box_from_data(target_data["box"], vw, vh, 9.0/16.0)
+                elif active_tracks_data:
+                    fallback = max(active_tracks_data, key=lambda t: t["box"][2] * t["box"][3])
+                    target_crop = compute_person_crop_box_from_data(fallback["box"], vw, vh, 9.0/16.0)
                 else:
-                    out_frame = np.zeros((out_h, out_w, 3), dtype=np.uint8)
+                    target_crop = default_crop
+
+                crop_box = smoothed_crop.update(target_crop)
+                pan_frame = apply_face_zoom_crop(frame, crop_box, (out_w, out_h))
                 
-                # Overlay resized frame onto the background
-                out_frame[y_offset:y_offset+new_h, 0:out_w] = resized
+                if render_mode == "wide" or mode_blend < 1.0:
+                    if use_bg_blur:
+                        wide_frame = apply_wide_fit_blur(frame, (out_w, out_h))
+                    else:
+                        # Fallback for wide if no blur: black padding
+                        scale = out_w / vw
+                        new_h = int(vh * scale)
+                        resized = cv2.resize(frame, (out_w, new_h))
+                        y_offset = (out_h - new_h) // 2
+                        wide_frame = np.zeros((out_h, out_w, 3), dtype=np.uint8)
+                        wide_frame[y_offset:y_offset+new_h, 0:out_w] = resized
+                else:
+                    wide_frame = None
 
+                if render_mode == "single_character" and mode_blend >= 1.0:
+                    output_frame = pan_frame
+                elif render_mode == "wide" and mode_blend >= 1.0:
+                    output_frame = wide_frame
+                else:
+                    target_frame = wide_frame if render_mode == "wide" else pan_frame
+                    other_frame = pan_frame if render_mode == "wide" else wide_frame
+                    blend_step = 1.0 if render_mode == "wide" else MODE_BLEND_STEP
+                    output_frame = cv2.addWeighted(other_frame, 1.0 - mode_blend, target_frame, mode_blend, 0)
+                    mode_blend = min(1.0, mode_blend + blend_step)
 
-
-                out.write(out_frame)
+                out.write(output_frame)
                 frames_written += 1
 
             out.release()

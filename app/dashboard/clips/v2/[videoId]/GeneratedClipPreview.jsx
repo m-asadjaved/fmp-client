@@ -9,6 +9,7 @@ import { VideoComposition } from "../../../../components/VideoComposition";
 import { parseSubtitleString } from "../../../../utils/parseSubtitles";
 import { CAPTION_THEMES, PLATFORMS } from "../../../../components/CaptionEditor";
 import { useRenderContext } from "@/contexts/RenderContext";
+import { useAlert } from "@/contexts/AlertContext";
 import { Loader2, Trash2 } from "lucide-react";
 const INDIGO = "#6366f1";
 const DEFAULT_SUBTITLES = `[00:00:00] Was being in prison kind of fun? Um, fun?
@@ -32,6 +33,7 @@ const parseStartTimeToMs = (timeStr) => {
 
 export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
   const router = useRouter();
+  const { showAlert } = useAlert();
   const [subtitleInput, setSubtitleInput] = useState("");
   const [words, setWords] = useState([]);
   const [activeTheme, setActiveTheme] = useState("classic");
@@ -161,7 +163,9 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
     const metaKey = clipId || clipUrl;
     const fps = clipMetas[metaKey]?.fps ?? 30;
     const durationInFrames = (() => {
-      const base = clipMetas[metaKey]?.durationInSeconds ? Math.ceil(clipMetas[metaKey].durationInSeconds * fps) : 450;
+      const fallbackSecs = aiMeta?.duration_seconds || 15;
+      const baseSecs = clipMetas[metaKey]?.durationInSeconds || fallbackSecs;
+      const base = Math.ceil(baseSecs * fps);
       const isHookActive = customHookText ? true : hookEnabled;
       return base + ((isHookActive && hookMemeSrc) ? Math.ceil(hookDurationSecs * fps) : 0);
     })();
@@ -216,10 +220,10 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
       setTimeout(() => {
         setPostStage(null);
         if (scheduleDate) {
-          alert("Rendering... Will auto-schedule when done.");
+          showAlert("Scheduled Successfully", "Your video is currently rendering. Once finished, it will automatically be scheduled on YouTube. This process happens in the background so you can safely leave this page.", "success");
           router.push("/dashboard/calendar");
         } else {
-          alert("Rendering... Will auto-upload when done.");
+          showAlert("Upload Started", "Your video is currently rendering. Once finished, it will automatically be uploaded to YouTube. YouTube processing may take a few minutes before the video is live on your channel. You can safely leave this page.", "success");
         }
       }, 2000);
 
@@ -234,13 +238,15 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
 
   const getCacheKey = (idx) => `render_cache_${videoId}_${idx}`;
 
-  const handleDownload = async (idx, clipUrl, clipId, customHookText) => {
+  const handleDownload = async (idx, clipUrl, clipId, customHookText, aiMeta) => {
     setDownloadingIdx(idx);
     const inputProps = buildInputProps(clipUrl, customHookText);
     const metaKey = clipId || clipUrl;
     const fps = clipMetas[metaKey]?.fps ?? 30;
     const durationInFrames = (() => {
-      const base = clipMetas[metaKey]?.durationInSeconds ? Math.ceil(clipMetas[metaKey].durationInSeconds * fps) : 450;
+      const fallbackSecs = aiMeta?.duration_seconds || 15;
+      const baseSecs = clipMetas[metaKey]?.durationInSeconds || fallbackSecs;
+      const base = Math.ceil(baseSecs * fps);
       const isHookActive = customHookText ? true : hookEnabled;
       return base + ((isHookActive && hookMemeSrc) ? Math.ceil(hookDurationSecs * fps) : 0);
     })();
@@ -309,7 +315,9 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
         const isHookActive = customHookText ? true : hookEnabled;
         const getFrames = () => {
           const cFps = clipMetas[metaKey]?.fps ?? 30;
-          const base = clipMetas[metaKey]?.durationInSeconds ? Math.ceil(clipMetas[metaKey].durationInSeconds * cFps) : 450;
+          const fallbackSecs = aiMeta?.duration_seconds || 15;
+          const baseSecs = clipMetas[metaKey]?.durationInSeconds || fallbackSecs;
+          const base = Math.ceil(baseSecs * cFps);
           return base + ((isHookActive && hookMemeSrc) ? Math.ceil(hookDurationSecs * cFps) : 0);
         };
         
@@ -415,7 +423,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
                 Post Video Now
               </button>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <button onClick={() => handleDownload(idx, clipUrl, clip.id, customHookText)} title={isClipRendering ? "Your video is in rendering you can see the progress from the right bottom task button" : undefined} disabled={!!postStage || downloadingIdx === idx || isClipRendering} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #d1d5db", background: "#ffffff", color: "#0F2347", fontSize: 13, fontWeight: 600, cursor: isClipRendering ? "not-allowed" : "pointer", opacity: (postStage || downloadingIdx === idx || isClipRendering) ? 0.5 : 1 }}>
+                <button onClick={() => handleDownload(idx, clipUrl, clip.id, customHookText, aiMeta)} title={isClipRendering ? "Your video is in rendering you can see the progress from the right bottom task button" : undefined} disabled={!!postStage || downloadingIdx === idx || isClipRendering} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #d1d5db", background: "#ffffff", color: "#0F2347", fontSize: 13, fontWeight: 600, cursor: isClipRendering ? "not-allowed" : "pointer", opacity: (postStage || downloadingIdx === idx || isClipRendering) ? 0.5 : 1 }}>
                   {downloadingIdx === idx ? (
                     <Loader2 className="animate-spin" size={14} />
                   ) : (

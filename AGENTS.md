@@ -125,3 +125,7 @@ CREATE TABLE public.post_jobs (
   scheduled_for timestamp with time zone,
   CONSTRAINT post_jobs_pkey PRIMARY KEY (id)
 );
+
+## 7. Project Overview & Documentation (STRICT RULE)
+- **Always Read Overview**: At the start of any new chat or task, you MUST automatically read the `project_overview.md` file located at the project root to get the whole project's overview before making any decisions.
+- **Always Update Overview**: Every time you edit, add, or update a feature or make any significant changes to the codebase, you MUST write down those changes and update the `project_overview.md` file. Keep the feature list and changelog in that file up to date.

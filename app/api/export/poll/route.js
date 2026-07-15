@@ -94,7 +94,11 @@ export async function GET() {
                         },
                         status: {
                           privacyStatus: 'private',
-                          publishAt: job.scheduled_for ? new Date(job.scheduled_for).toISOString() : undefined,
+                          publishAt: job.scheduled_for ? (
+                            new Date(job.scheduled_for) > new Date(Date.now() + 15 * 60 * 1000)
+                              ? new Date(job.scheduled_for).toISOString()
+                              : new Date(Date.now() + 15 * 60 * 1000).toISOString()
+                          ) : undefined,
                           selfDeclaredMadeForKids: false,
                         },
                       },

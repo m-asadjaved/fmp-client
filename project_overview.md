@@ -47,6 +47,10 @@
 │   ├── VideoComposition.jsx  ← Remotion composition wrapper
 │   └── VideoUploader.jsx     ← File upload component
 │
+├── contexts/
+│   ├── AlertContext.jsx      ← Global alert state
+│   └── RenderContext.jsx     ← Rendering state management
+│
 ├── utils/
 │   └── parseSubtitles.js    ← Subtitle timestamp parser
 │
@@ -60,6 +64,12 @@
     ├── thumbnail/       ← Thumbnail generation/retrieval
     ├── webhook/clips/   ← Webhook receiver for Lambda processing status
     └── api/video/output/ + subtitles/  ← Output/subtitle delivery routes
+│
+/server                  ← Backend Python/Node scripts & functions
+├── face_detector/       ← Face detection utilities
+├── lambda/              ← AWS Lambda handlers
+├── video_compressor/    ← Video compression logic
+└── video_engine/        ← Core video processing engine
 ```
 
 ---
@@ -171,3 +181,14 @@ Defined in `DESIGN.md` as "Lumina AI" design tokens:
 | `app/components/CaptionEditor.jsx` | Caption editing UI (51KB — most complex component) |
 | `DESIGN.md` | Complete design token reference |
 | `.env.local` | All secrets (Clerk, AWS, Supabase, Gemini, Pixabay) |
+
+---
+
+## Feature Updates & Changelog
+
+*(Per the strict project rules, any new features, edits, or updates MUST be logged here to maintain an up-to-date project overview.)*
+
+- **[2026-07-15]**: Improved UX feedback for video rendering and uploading. Replaced basic native alerts in `GeneratedClipPreview.jsx` with detailed custom UI alerts (via `useAlert`), informing users that they can safely leave the page while YouTube processes the upload in the background. Updated the global `RenderContext.jsx` toast UI to explicitly display "Rendered! Uploading to YouTube..." so users understand the backend processing delay.
+- **[2026-07-15]**: Fixed three video processing bugs: 1) Increased render quality by configuring `crf: 17` and `jpegQuality: 100` in Remotion Lambda payload. 2) Fixed a bug where clips rendered at 15 seconds by properly falling back to AI-suggested duration (`aiMeta.duration_seconds`) instead of a hardcoded 450 frames. 3) Fixed YouTube scheduling failures by ensuring the `publishAt` date is safely shifted at least 15 minutes into the future if the scheduled time passes during rendering.
+- **[2026-07-15]**: Fixed a bug where YouTube uploads were not triggered after a successful Remotion render if the user stayed on the preview page or calendar. Added a trigger in `RenderContext.jsx` to call `/api/export/poll` immediately upon render completion for post jobs.
+- **[2026-07-15]**: Established strict documentation rules. The `project_overview.md` file is now the central source of truth and must be updated automatically upon feature changes. Included `contexts` and `server` folders in the documented project architecture.

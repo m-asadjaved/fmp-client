@@ -930,4 +930,4 @@ def detect_and_zoom(input_path, output_path="output_zoomed.mp4",
 
 
 if __name__ == "__main__":
-    detect_and_zoom("./input2.mp4", "output_zoomed.mp4")
+    detect_and_zoom("./input.mp4", "output_zoomed.mp4")

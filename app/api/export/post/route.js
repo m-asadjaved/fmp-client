@@ -119,6 +119,8 @@ export async function POST(req) {
       codec: "h264",
       framesPerLambda: 300,
       privacy: "public",
+      crf: 17,
+      jpegQuality: 100,
     });
 
     // 2. Save or update job record to Supabase (ONLY if not downloadOnly)
