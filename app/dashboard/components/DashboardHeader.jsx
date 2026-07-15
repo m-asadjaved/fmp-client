@@ -2,12 +2,15 @@
 
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { Bell } from "lucide-react";
+import { Bell, Cloud, Hourglass, Video, Loader2 } from "lucide-react";
 
 export function DashboardHeader() {
   const pathname = usePathname();
   const [notifications, setNotifications] = useState([]);
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+  
+  const [metrics, setMetrics] = useState({ credits: 0, activeProjects: 0, storageGB: "0.00" });
+  const [loadingMetrics, setLoadingMetrics] = useState(true);
 
   // Dynamic titles based on pathname
   let title = "Overview";
@@ -37,7 +40,7 @@ export function DashboardHeader() {
     };
   }
 
-  // Fetch notifications
+  // Fetch notifications and metrics
   useEffect(() => {
     fetch('/api/user/notifications')
       .then(res => res.json())
@@ -45,6 +48,21 @@ export function DashboardHeader() {
         if (!data.error) setNotifications(data.notifications || []);
       })
       .catch(err => console.error("Error fetching notifications:", err));
+
+    fetch('/api/upload')
+      .then(res => res.json())
+      .then(data => {
+        setMetrics(prev => ({ ...prev, credits: data.credits ?? 0, activeProjects: data.history?.length || 0 }));
+      })
+      .catch(err => console.error("Error fetching metrics:", err));
+
+    fetch('/api/user/storage')
+      .then(res => res.json())
+      .then(data => {
+        if (!data.error) setMetrics(prev => ({ ...prev, storageGB: data.totalSizeGB || "0.00" }));
+      })
+      .catch(err => console.error("Error fetching storage:", err))
+      .finally(() => setLoadingMetrics(false));
   }, []);
 
   return (
@@ -66,6 +84,28 @@ export function DashboardHeader() {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+        {/* Metrics Display */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginRight: 4, paddingRight: 24, borderRight: "1px solid #e5e7eb" }}>
+          {loadingMetrics ? (
+            <Loader2 size={16} style={{ animation: "spin 1s linear infinite", color: "#9ca3af" }} />
+          ) : (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#f9fafb", border: "1px solid #f3f4f6", padding: "4px 12px", borderRadius: 20 }}>
+                <Cloud size={14} color="#00C0D4" />
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#4b5563" }}>{metrics.storageGB}GB <span style={{ color: "#9ca3af", fontWeight: 500 }}>/ 10GB</span></span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#f9fafb", border: "1px solid #f3f4f6", padding: "4px 12px", borderRadius: 20 }}>
+                <Hourglass size={14} color="#f472b6" />
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#4b5563" }}>{metrics.credits.toFixed(1)} <span style={{ color: "#9ca3af", fontWeight: 500 }}>Credits</span></span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#f9fafb", border: "1px solid #f3f4f6", padding: "4px 12px", borderRadius: 20 }}>
+                <Video size={14} color="#2dd4bf" />
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#4b5563" }}>{metrics.activeProjects} <span style={{ color: "#9ca3af", fontWeight: 500 }}>Active</span></span>
+              </div>
+            </>
+          )}
+        </div>
+
         <div style={{ position: "relative" }}>
           <button onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)} style={{ position: "relative", background: "transparent", border: "none", color: "#4b5563", cursor: "pointer", padding: 4 }}>
             <Bell size={20} />

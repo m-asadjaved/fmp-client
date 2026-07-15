@@ -1,7 +1,9 @@
 import { getRenderProgress } from "@remotion/lambda/client";
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { createClient } from "@supabase/supabase-js";
+import { google } from "googleapis";
+import stream from "stream";
 
 const supabase = createClient(
   process.env.SUPABASE_URL || "",
@@ -59,6 +61,58 @@ export async function GET() {
 
           if (progress.done) {
             const outputUrl = progress.outputFile || null;
+            let youtubeError = null;
+
+            // If this job includes YouTube, do the upload
+            const platforms = Array.isArray(job.platforms) ? job.platforms : (job.platform ? [job.platform] : []);
+            if (platforms.includes('YouTube') && outputUrl) {
+              try {
+                const client = await clerkClient();
+                const tokenResponse = await client.users.getUserOauthAccessToken(job.user_id, 'oauth_google');
+                const tokens = tokenResponse.data || tokenResponse;
+                const googleToken = tokens.find(t => t.provider === 'oauth_google');
+                
+                if (googleToken && googleToken.token) {
+                  const oauth2Client = new google.auth.OAuth2();
+                  oauth2Client.setCredentials({ access_token: googleToken.token });
+                  const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+                  
+                  const videoResponse = await fetch(outputUrl);
+                  if (videoResponse.ok) {
+                    const arrayBuffer = await videoResponse.arrayBuffer();
+                    const buffer = Buffer.from(arrayBuffer);
+                    const bufferStream = new stream.PassThrough();
+                    bufferStream.end(buffer);
+                    
+                    await youtube.videos.insert({
+                      part: ['snippet', 'status'],
+                      requestBody: {
+                        snippet: {
+                          title: 'Generated Clip from Twenty2Short',
+                          description: 'Created with Twenty2Short',
+                          categoryId: '22',
+                        },
+                        status: {
+                          privacyStatus: 'private',
+                          publishAt: job.scheduled_for ? new Date(job.scheduled_for).toISOString() : undefined,
+                          selfDeclaredMadeForKids: false,
+                        },
+                      },
+                      media: {
+                        body: bufferStream,
+                      },
+                    });
+                  } else {
+                    youtubeError = "Failed to download video from storage for YouTube upload.";
+                  }
+                } else {
+                  youtubeError = "No Google OAuth token found. Please connect your Google account in settings.";
+                }
+              } catch (e) {
+                console.error("YouTube Upload error during poll:", e);
+                youtubeError = e.message;
+              }
+            }
 
             // Mark as completed
             await supabase
@@ -66,6 +120,7 @@ export async function GET() {
               .update({
                 status: "completed",
                 output_url: outputUrl,
+                error_message: youtubeError || job.error_message,
                 completed_at: new Date().toISOString(),
               })
               .eq("id", job.id);

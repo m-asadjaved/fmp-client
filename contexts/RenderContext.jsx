@@ -44,16 +44,18 @@ export function RenderProvider({ children }) {
           }));
           
           // Auto download
-          try {
-            const a = document.createElement("a");
-            a.href = pg.outUrl;
-            a.download = metadata.filename || `video-${renderId}.mp4`;
-            a.target = "_blank";
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-          } catch (err) {
-            console.error("Auto download failed", err);
+          if (!metadata?.isPostJob) {
+            try {
+              const a = document.createElement("a");
+              a.href = pg.outUrl;
+              a.download = metadata.filename || `video-${renderId}.mp4`;
+              a.target = "_blank";
+              document.body.appendChild(a);
+              a.click();
+              a.remove();
+            } catch (err) {
+              console.error("Auto download failed", err);
+            }
           }
           
           // We intentionally do not auto-remove the task here so the user has a persistent notification
@@ -155,8 +157,8 @@ function RenderToasts({ tasks, removeTask }) {
                 {task.metadata?.filename || "Rendering Video..."}
               </span>
               {isError && <span style={{ fontSize: 11, color: "#ef4444" }}>{task.error}</span>}
-              {!isError && !isDone && <span style={{ fontSize: 11, color: "#71717a" }}>Rendering...</span>}
-              {isDone && <span style={{ fontSize: 11, color: "#10b981" }}>Complete</span>}
+              {!isError && !isDone && <span style={{ fontSize: 11, color: "#71717a" }}>{task.metadata?.isPostJob ? "Rendering for auto-post..." : "Rendering..."}</span>}
+              {isDone && <span style={{ fontSize: 11, color: "#10b981" }}>{task.metadata?.isPostJob ? "Rendered & queued for upload" : "Complete"}</span>}
             </div>
             
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>

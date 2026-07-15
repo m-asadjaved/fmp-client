@@ -358,10 +358,10 @@ export default function AIClipsPage({ params }) {
 				// Reached the final step. Wait indefinitely for the actual webhook or demo to trigger completion.
 				return;
 			}
-			
+
 			const currentStepObj = pipelineSteps[stepIndex];
 			const stepDurationMs = ((currentStepObj.weight || 10) / totalWeight) * totalEstimatedMs;
-			
+
 			timeoutId = setTimeout(() => {
 				setCurrentStep(stepIndex + 1);
 			}, Math.max(2000, stepDurationMs));
@@ -561,8 +561,8 @@ export default function AIClipsPage({ params }) {
 										<div key={item.id} className="relative flex flex-col gap-2">
 											<label
 												className={`flex items-start gap-3 border rounded-lg p-3 cursor-pointer select-none transition-colors group relative z-10 ${preferences[item.id]
-														? "bg-[rgba(124,58,237,0.05)] border-[rgba(124,58,237,0.5)]"
-														: "bg-[#ffffff] border-[#e5e7eb] hover:bg-[#e5e7eb]"
+													? "bg-[rgba(124,58,237,0.05)] border-[rgba(124,58,237,0.5)]"
+													: "bg-[#ffffff] border-[#e5e7eb] hover:bg-[#e5e7eb]"
 													}`}
 											>
 												<input
@@ -578,8 +578,8 @@ export default function AIClipsPage({ params }) {
 												/>
 												<div
 													className={`mt-0.5 w-4 h-4 border rounded flex items-center justify-center transition-all shrink-0 ${preferences[item.id]
-															? "bg-[#0F2347] text-white border-[#0F2347]"
-															: "border-[#d1d5db] bg-[#ffffff]"
+														? "bg-[#0F2347] text-white border-[#0F2347]"
+														: "border-[#d1d5db] bg-[#ffffff]"
 														}`}
 												>
 													{preferences[item.id] && (
@@ -591,8 +591,8 @@ export default function AIClipsPage({ params }) {
 												<div className="flex flex-col">
 													<span
 														className={`text-xs transition-colors ${preferences[item.id]
-																? "text-[#0F2347] font-bold"
-																: "text-[#4b5563] font-medium"
+															? "text-[#0F2347] font-bold"
+															: "text-[#4b5563] font-medium"
 															}`}
 													>
 														{item.label}
@@ -600,7 +600,7 @@ export default function AIClipsPage({ params }) {
 													<span className="text-[10px] text-[#6b7280] mt-0.5 leading-tight">{item.desc}</span>
 												</div>
 												<div className="flex-1" />
-												<div 
+												<div
 													className="w-5 h-5 rounded-full border border-[#d1d5db] bg-[#e5e7eb] flex items-center justify-center text-[#4b5563] hover:text-white hover:border-[#0F2347] transition-colors shrink-0 relative"
 													onMouseEnter={() => setHoveredOption(item.id)}
 													onMouseLeave={() => setHoveredOption(null)}
@@ -639,7 +639,7 @@ export default function AIClipsPage({ params }) {
 																	</p>
 																</>
 															)}
-															
+
 															{/* Tooltip caret (triangle) pointing down */}
 															<div className="absolute -bottom-1.5 right-2 md:right-5 w-3 h-3 bg-[#ffffff] border-b border-r border-[#e5e7eb] transform rotate-45" />
 														</div>
@@ -654,8 +654,8 @@ export default function AIClipsPage({ params }) {
 								<div className="mb-6">
 									<label
 										className={`flex items-center gap-4 border rounded-xl p-4 cursor-pointer select-none transition-all group relative overflow-hidden ${preferences.prioritize
-												? "bg-gradient-to-r from-[rgba(245,158,11,0.1)] to-[rgba(217,119,6,0.1)] border-[#f59e0b] shadow-[0_0_15px_rgba(245,158,11,0.15)]"
-												: "bg-[#ffffff] border-[#e5e7eb] hover:bg-[#e5e7eb] hover:border-[#d1d5db]"
+											? "bg-gradient-to-r from-[rgba(245,158,11,0.1)] to-[rgba(217,119,6,0.1)] border-[#f59e0b] shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+											: "bg-[#ffffff] border-[#e5e7eb] hover:bg-[#e5e7eb] hover:border-[#d1d5db]"
 											}`}
 									>
 										{preferences.prioritize && (
@@ -674,8 +674,8 @@ export default function AIClipsPage({ params }) {
 										/>
 										<div
 											className={`w-5 h-5 border rounded-md flex items-center justify-center transition-all shrink-0 relative z-10 ${preferences.prioritize
-													? "bg-[#f59e0b] border-[#f59e0b] text-[#ffffff]"
-													: "bg-[#e5e7eb] border-[#d1d5db]"
+												? "bg-[#f59e0b] border-[#f59e0b] text-[#ffffff]"
+												: "bg-[#e5e7eb] border-[#d1d5db]"
 												}`}
 										>
 											{preferences.prioritize && (
@@ -712,8 +712,8 @@ export default function AIClipsPage({ params }) {
 									<div className="flex items-center gap-2">
 										<span className="text-[#4b5563] text-xs font-medium">Your Balance:</span>
 										<span className={`text-sm font-bold px-2 py-0.5 rounded border ${userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0))
-												? "text-red-400 bg-red-400/10 border-red-400/20"
-												: "text-[#4ade80] bg-[#4ade80]/10 border-[#4ade80]/20"
+											? "text-red-400 bg-red-400/10 border-red-400/20"
+											: "text-[#4ade80] bg-[#4ade80]/10 border-[#4ade80]/20"
 											}`}>
 											{userBalance !== null ? userBalance : "-"}
 										</span>
@@ -724,8 +724,8 @@ export default function AIClipsPage({ params }) {
 									onClick={startProcessing}
 									disabled={lambdaLoading || isInitialLoading || (userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0)))}
 									className={`w-full py-3 px-4 rounded font-bold text-sm tracking-wide transition-colors flex items-center justify-center gap-2 ${lambdaLoading || isInitialLoading || (userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0)))
-											? "bg-[#f3f4f6] text-[#4b5563] cursor-not-allowed border border-[#e5e7eb]"
-											: "bg-[#0F2347] hover:bg-[#1e3a8a] text-white shadow-lg"
+										? "bg-[#f3f4f6] text-[#4b5563] cursor-not-allowed border border-[#e5e7eb]"
+										: "bg-[#0F2347] hover:bg-[#1e3a8a] text-white shadow-lg"
 										}`}
 								>
 									{lambdaLoading || isInitialLoading ? (
@@ -799,32 +799,29 @@ export default function AIClipsPage({ params }) {
 											const row = Math.floor(i / 3);
 											const isEvenRow = row % 2 === 0;
 											const col = isEvenRow ? (i % 3) : 2 - (i % 3);
-											
+
 											return (
-												<div key={i} className="relative flex flex-col w-full bg-white border-2 rounded-xl p-5 transition-all duration-500" 
-													 style={{ gridColumn: col + 1, gridRow: row + 1, zIndex: 20 }}>
-													
+												<div key={i} className="relative flex flex-col w-full bg-white border-2 rounded-xl p-5 transition-all duration-500"
+													style={{ gridColumn: col + 1, gridRow: row + 1, zIndex: 20 }}>
+
 													{/* Background state overlay */}
-													<div className={`absolute inset-0 rounded-xl transition-colors duration-500 z-0 ${
-														i < currentStep ? 'bg-[#4ade80]/5' :
-														i === currentStep ? 'bg-[#00C0D4]/5 shadow-[0_8px_30px_rgba(0,192,212,0.2)]' :
-														'bg-transparent'
-													}`} />
+													<div className={`absolute inset-0 rounded-xl transition-colors duration-500 z-0 ${i < currentStep ? 'bg-[#4ade80]/5' :
+															i === currentStep ? 'bg-[#00C0D4]/5 shadow-[0_8px_30px_rgba(0,192,212,0.2)]' :
+																'bg-transparent'
+														}`} />
 
 													{/* Dynamic Border state */}
-													<div className={`absolute inset-0 rounded-xl border-2 transition-all duration-500 pointer-events-none z-10 ${
-														i < currentStep ? 'border-[#4ade80]' :
-														i === currentStep ? 'border-[#00C0D4]' :
-														'border-[#e5e7eb] opacity-60'
-													}`} />
+													<div className={`absolute inset-0 rounded-xl border-2 transition-all duration-500 pointer-events-none z-10 ${i < currentStep ? 'border-[#4ade80]' :
+															i === currentStep ? 'border-[#00C0D4]' :
+																'border-[#e5e7eb] opacity-60'
+														}`} />
 
 													<div className="relative z-20">
 														<div className="flex items-center gap-3 mb-3">
-															<div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl transition-colors ${
-																i < currentStep ? 'bg-[#4ade80]/10 text-[#4ade80]' :
-																i === currentStep ? 'bg-[#00C0D4]/10 text-[#00C0D4]' :
-																'bg-[#f3f4f6] text-[#9ca3af]'
-															}`}>
+															<div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl transition-colors ${i < currentStep ? 'bg-[#4ade80]/10 text-[#4ade80]' :
+																	i === currentStep ? 'bg-[#00C0D4]/10 text-[#00C0D4]' :
+																		'bg-[#f3f4f6] text-[#9ca3af]'
+																}`}>
 																{i === currentStep ? (
 																	<Loader2 className="w-6 h-6 animate-spin text-[#00C0D4]" />
 																) : (
@@ -832,11 +829,10 @@ export default function AIClipsPage({ params }) {
 																)}
 															</div>
 															<div className="flex flex-col">
-																<span className={`text-[10px] uppercase tracking-wider font-bold ${
-																	i < currentStep ? 'text-[#4ade80]' :
-																	i === currentStep ? 'text-[#00C0D4]' :
-																	'text-[#9ca3af]'
-																}`}>
+																<span className={`text-[10px] uppercase tracking-wider font-bold ${i < currentStep ? 'text-[#4ade80]' :
+																		i === currentStep ? 'text-[#00C0D4]' :
+																			'text-[#9ca3af]'
+																	}`}>
 																	{i < currentStep ? '✓ Completed' : i === currentStep ? '⚙️ Processing' : '⏳ Pending'}
 																</span>
 																<span className="text-xs font-bold text-[#0F2347]">
@@ -850,20 +846,17 @@ export default function AIClipsPage({ params }) {
 
 													{/* Horizontal Connection Wires */}
 													{i % 3 !== 2 && i < pipelineSteps.length - 1 && (
-														<div className={`absolute top-1/2 -translate-y-1/2 z-0 ${
-															isEvenRow ? 'left-[100%]' : 'right-[100%]'
-														} ${
-															i < currentStep ? 'bg-[#4ade80] h-1.5 w-[3rem]' :
-															'border-t-2 border-dashed border-[#d1d5db] h-0 w-[3rem] bg-transparent'
-														}`}></div>
+														<div className={`absolute top-1/2 -translate-y-1/2 z-0 ${isEvenRow ? 'left-[100%]' : 'right-[100%]'
+															} ${i < currentStep ? 'bg-[#4ade80] h-1.5 w-[3rem]' :
+																'border-t-2 border-dashed border-[#d1d5db] h-0 w-[3rem] bg-transparent'
+															}`}></div>
 													)}
 
 													{/* Vertical Drop Connection Wires */}
 													{i % 3 === 2 && i < pipelineSteps.length - 1 && (
-														<div className={`absolute top-[100%] left-1/2 -translate-x-1/2 z-0 ${
-															i < currentStep ? 'bg-[#4ade80] w-1.5 h-[4rem]' :
-															'border-l-2 border-dashed border-[#d1d5db] w-0 h-[4rem] bg-transparent'
-														}`}></div>
+														<div className={`absolute top-[100%] left-1/2 -translate-x-1/2 z-0 ${i < currentStep ? 'bg-[#4ade80] w-1.5 h-[4rem]' :
+																'border-l-2 border-dashed border-[#d1d5db] w-0 h-[4rem] bg-transparent'
+															}`}></div>
 													)}
 												</div>
 											);
@@ -896,7 +889,7 @@ export default function AIClipsPage({ params }) {
 									<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
 									<path d="M3 3v5h5" />
 								</svg>
-								Generate more clips
+								Regenerate Clips
 							</button>
 						</div>
 						<GeneratedClipPreview videoId={videoId} aiAnalysis={aiAnalysis} />

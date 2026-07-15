@@ -156,7 +156,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
 
   const togglePlatform = (p) => setSelectedPlatforms((prev) => prev.some((x) => x.id === p.id) ? prev.filter((x) => x.id !== p.id) : [...prev, p]);
 
-  const handleOpenPost = (idx, clipUrl, clipId, customHookText) => {
+  const handleOpenPost = (idx, clipUrl, clipId, customHookText, aiMeta) => {
     const inputProps = buildInputProps(clipUrl, customHookText);
     const metaKey = clipId || clipUrl;
     const fps = clipMetas[metaKey]?.fps ?? 30;
@@ -165,28 +165,68 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
       const isHookActive = customHookText ? true : hookEnabled;
       return base + ((isHookActive && hookMemeSrc) ? Math.ceil(hookDurationSecs * fps) : 0);
     })();
-    setActiveClipData({ idx, inputProps, durationInFrames, fps });
+    setActiveClipData({ idx, inputProps, durationInFrames, fps, clipUrl, customHookText, aiMeta });
     setPostError(null);
     setShowPlatformModal(true);
   };
 
   const handleConfirmPost = async () => {
     if (!activeClipData || selectedPlatforms.length === 0) return;
-    const { inputProps, durationInFrames, fps } = activeClipData;
+    const { idx, inputProps, durationInFrames, fps, clipUrl, customHookText, aiMeta } = activeClipData;
     setShowPlatformModal(false);
-    setPostStage("uploading"); setPostProgress(0);
-    await new Promise((res) => { let p = 0; const t = setInterval(() => { p += Math.random() * 8 + 4; if (p >= 60) { p = 60; clearInterval(t); res(); } setPostProgress(Math.round(p)); }, 180); });
-    setPostStage("processing");
-    await new Promise((res) => { let p = 60; const t = setInterval(() => { p += Math.random() * 4 + 2; if (p >= 90) { p = 90; clearInterval(t); res(); } setPostProgress(Math.round(p)); }, 220); });
-    setPostProgress(95);
+    
     try {
-      const r = await fetch("/api/export/post", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...inputProps, videoId, durationInFrames, fps, targetPlatforms: selectedPlatforms.map((p) => p.name), scheduledFor: scheduleDate || null }) });
-      const d = await r.json();
-      if (!r.ok) throw new Error(d.error || "Failed");
-      setPostProgress(100); setPostStage("done");
-      await new Promise((r) => setTimeout(r, 900));
-      router.push("/dashboard/calendar");
-    } catch (e) { setPostStage(null); setPostProgress(0); setPostError(e.message); }
+      setPostStage("processing");
+      setPostProgress(10);
+      setPostError(null);
+      
+      // Fake progress for UX
+      const t = setInterval(() => { setPostProgress((p) => (p < 85 ? p + 5 : p)); }, 800);
+
+      const targetPlatforms = selectedPlatforms.map((p) => p.name);
+
+      const res = await fetch("/api/export/post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...inputProps,
+          videoId,
+          durationInFrames,
+          fps,
+          targetPlatforms,
+          scheduledFor: scheduleDate || null,
+          downloadOnly: false,
+        })
+      });
+
+      clearInterval(t);
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to start export and post process");
+      }
+      
+      if (data.renderId && data.bucketName) {
+        addRenderTask(data.renderId, data.bucketName, { filename: `clip-${videoId}-${idx}.mp4`, isPostJob: true });
+      }
+
+      setPostProgress(100);
+      setPostStage("done");
+      
+      setTimeout(() => {
+        setPostStage(null);
+        if (scheduleDate) {
+          alert("Rendering... Will auto-schedule when done.");
+          router.push("/dashboard/calendar");
+        } else {
+          alert("Rendering... Will auto-upload when done.");
+        }
+      }, 2000);
+
+    } catch (e) {
+      setPostStage(null);
+      setPostError(e.message);
+    }
   };
 
   const [cachedRenders, setCachedRenders] = useState({});
@@ -370,7 +410,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
 
               {/* ── Actions ── */}
               <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 12, background: "#ffffff" }}>
-              <button onClick={() => handleOpenPost(idx, clipUrl, clip.id, customHookText)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "13px", borderRadius: 10, border: "none", background: `linear-gradient(135deg,#0F2347,${INDIGO})`, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 24px rgba(124,58,237,0.4)", opacity: postStage ? 0.5 : 1 }}>
+              <button onClick={() => handleOpenPost(idx, clipUrl, clip.id, customHookText, aiMeta)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "13px", borderRadius: 10, border: "none", background: `linear-gradient(135deg,#0F2347,${INDIGO})`, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 24px rgba(124,58,237,0.4)", opacity: postStage ? 0.5 : 1 }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                 Post Video Now
               </button>
@@ -406,10 +446,11 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 20 }}>
               {PLATFORMS.map((platform) => {
                 const isSel = selectedPlatforms.some((p) => p.id === platform.id);
+                const isAvailable = platform.name === "YouTube";
                 return (
-                  <button key={platform.id} onClick={() => togglePlatform(platform)} style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 16px", borderRadius: 12, cursor: "pointer", background: isSel ? platform.bg : "#f9fafb", border: `1.5px solid ${isSel ? platform.border : "#e5e7eb"}`, color: isSel ? platform.color : "#4b5563", textAlign: "left", transition: "all 0.15s ease" }}>
+                  <button key={platform.id} onClick={() => { if (isAvailable) togglePlatform(platform); }} style={{ display: "flex", alignItems: "center", gap: 16, padding: "14px 16px", borderRadius: 12, cursor: isAvailable ? "pointer" : "not-allowed", background: isSel ? platform.bg : "#f9fafb", border: `1.5px solid ${isSel ? platform.border : "#e5e7eb"}`, color: isSel ? platform.color : "#4b5563", textAlign: "left", transition: "all 0.15s ease", opacity: isAvailable ? 1 : 0.4 }}>
                     <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: isSel ? `${platform.color}18` : "#ffffff", border: `1px solid ${isSel ? platform.border : "#e5e7eb"}`, display: "flex", alignItems: "center", justifyContent: "center", color: isSel ? platform.color : "#9ca3af" }}>{platform.icon}</div>
-                    <div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 700, color: isSel ? "#0F2347" : "#d4d4d8" }}>{platform.name}</div><div style={{ fontSize: 12, color: isSel ? "#4b5563" : "#9ca3af", marginTop: 2 }}>{platform.description}</div></div>
+                    <div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 700, color: isSel ? "#0F2347" : "#d4d4d8" }}>{platform.name}</div><div style={{ fontSize: 12, color: isSel ? "#4b5563" : "#9ca3af", marginTop: 2 }}>{isAvailable ? platform.description : "Temporarily unavailable"}</div></div>
                     <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${isSel ? platform.color : "#d1d5db"}`, background: isSel ? platform.color : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {isSel && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
                     </div>
@@ -419,7 +460,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
             </div>
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: "block", fontSize: 13, fontWeight: 700, color: "#d4d4d8", marginBottom: 8 }}>Schedule (Optional)</label>
-              <input type="datetime-local" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} style={{ width: "100%", padding: "12px 16px", borderRadius: 10, background: "#f9fafb", border: "1px solid #d1d5db", color: "#0F2347", fontSize: 14, outline: "none", colorScheme: "dark" }} />
+              <input type="datetime-local" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} onClick={(e) => e.target.showPicker && e.target.showPicker()} style={{ width: "100%", padding: "12px 16px", borderRadius: 10, background: "#f9fafb", border: "1px solid #d1d5db", color: "#0F2347", fontSize: 14, outline: "none", colorScheme: "dark", cursor: "pointer" }} />
             </div>
             <button onClick={handleConfirmPost} disabled={selectedPlatforms.length === 0} style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: selectedPlatforms.length > 0 ? `linear-gradient(135deg,#0F2347,${INDIGO})` : "#e5e7eb", color: selectedPlatforms.length > 0 ? "#fff" : "#9ca3af", fontSize: 14, fontWeight: 700, cursor: selectedPlatforms.length > 0 ? "pointer" : "not-allowed" }}>
               {selectedPlatforms.length > 0 ? (scheduleDate ? `Schedule for ${selectedPlatforms.length} platform(s)` : `Post to ${selectedPlatforms.length} platform(s)`) : "Select a platform"}

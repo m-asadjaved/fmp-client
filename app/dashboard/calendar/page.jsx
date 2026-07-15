@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { ChevronLeft, ChevronRight, Video, Clock, CheckCircle2, ArrowLeft, Edit2, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAlert } from "@/contexts/AlertContext";
 
 // ─── Platform Map for Colors & Icons ──────────────────────────────────────────
 const PLATFORM_META = {
@@ -27,6 +28,7 @@ const getMonthName = (monthIndex) => {
 export default function CalendarPage() {
   const { isSignedIn, isLoaded } = useAuth();
   const router = useRouter();
+  const { showAlert } = useAlert();
   
   const [currentDate, setCurrentDate] = useState(new Date());
   const [jobs, setJobs] = useState([]);
@@ -54,11 +56,12 @@ export default function CalendarPage() {
       if (res.ok) {
         setJobs(jobs.filter(j => j.id !== jobId));
       } else {
-        alert("Failed to delete scheduled post.");
+        const data = await res.json().catch(() => ({}));
+        showAlert("Permission Denied", data.error || "Failed to delete scheduled post.", "error");
       }
     } catch (err) {
       console.error(err);
-      alert("Error deleting scheduled post.");
+      showAlert("Error", "Error deleting scheduled post.", "error");
     }
   };
 
@@ -184,6 +187,8 @@ export default function CalendarPage() {
                           onClick={() => {
                             if (job.video_id) {
                               router.push(`/editor/${job.video_id}`);
+                            } else if (job.isExternal && job.id.startsWith('yt_')) {
+                              window.open(`https://studio.youtube.com/video/${job.id.replace('yt_', '')}/edit`, '_blank');
                             }
                           }}
                           style={{
@@ -191,16 +196,16 @@ export default function CalendarPage() {
                             border: `1px solid ${isCompleted ? "rgba(74, 222, 128, 0.2)" : "#d1d5db"}`,
                             borderRadius: 8, padding: "8px 10px",
                             display: "flex", flexDirection: "column", gap: 4,
-                            cursor: job.video_id ? "pointer" : "default",
+                            cursor: (job.video_id || job.isExternal) ? "pointer" : "default",
                             transition: "all 0.2s ease"
                           }}
                           onMouseEnter={(e) => {
-                            if (job.video_id && !isCompleted) {
+                            if ((job.video_id || job.isExternal) && !isCompleted) {
                               e.currentTarget.style.background = "#d1d5db";
                             }
                           }}
                           onMouseLeave={(e) => {
-                            if (job.video_id && !isCompleted) {
+                            if ((job.video_id || job.isExternal) && !isCompleted) {
                               e.currentTarget.style.background = "#e5e7eb";
                             }
                           }}
@@ -231,6 +236,11 @@ export default function CalendarPage() {
                             </div>
                           </div>
                           
+                          {job.title && (
+                            <div style={{ fontSize: 11, fontWeight: 600, color: "#1f2937", lineHeight: 1.2, marginTop: 4, marginBottom: 2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                              {job.title}
+                            </div>
+                          )}
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 2 }}>
                             {job.platforms?.map((platName, idx) => {
                               const meta = PLATFORM_META[platName] || DEFAULT_PLATFORM_META;

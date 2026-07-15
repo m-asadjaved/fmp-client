@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth, SignInButton, UserButton } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
+import { useAlert } from '@/contexts/AlertContext';
 import {
   Bell,
   Cloud,
@@ -155,6 +156,7 @@ const generateThumbnail = (videoFile, seekTime = 1) => {
 export default function Dashboard() {
   const { isSignedIn, isLoaded } = useAuth();
   const router = useRouter();
+  const { showAlert } = useAlert();
 
   // ─── Post job notifications ──────────────────────────────────────────────────
   const [postAlerts, setPostAlerts] = useState([]);  // completed jobs to display
@@ -226,59 +228,53 @@ export default function Dashboard() {
   const [progress, setProgress] = useState(0);
   const [uploadSpeed, setUploadSpeed] = useState('');
   const [history, setHistory] = useState([]);
-  const [credits, setCredits] = useState(0);
   const [loadingHistory, setLoadingHistory] = useState(true);
-  const [loadingCredits, setLoadingCredits] = useState(true);
-  const [loadingStorage, setLoadingStorage] = useState(true);
   const [activeVideoUrl, setActiveVideoUrl] = useState(null);
-  const [storageData, setStorageData] = useState({ totalSizeBytes: 0, totalSizeGB: "0.00", percentage: 0 });
   const [notifications, setNotifications] = useState([]);
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
-  const MAX_STORAGE_GB = 10;
 
   const fileInputRef = useRef(null);
+  const xhrRef = useRef(null);
+  const abortControllerRef = useRef(null);
+
+  const handleCancelUpload = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    if (xhrRef.current) {
+      xhrRef.current.abort();
+      xhrRef.current = null;
+    }
+    setFile(null);
+    setUploading(false);
+    setProgress(0);
+    setUploadSpeed('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   // Fetch upload ledger history logs
   const fetchUploadHistory = async () => {
     if (!isSignedIn) return;
     try {
       setLoadingHistory(true);
-      setLoadingCredits(true);
       const res = await fetch('/api/upload');
       if (res.ok) {
         const data = await res.json();
         setHistory(data.history || []);
-        setCredits(data.credits ?? 0);
       }
     } catch (err) {
       console.error("Error retrieving dashboard data:", err);
     } finally {
       setLoadingHistory(false);
-      setLoadingCredits(false);
     }
   };
 
   useEffect(() => {
     if (isLoaded && isSignedIn) {
       fetchUploadHistory();
-
-      // Fetch dynamic cloud storage usage
-      setLoadingStorage(true);
-      fetch('/api/user/storage')
-        .then(res => res.json())
-        .then(data => {
-          if (!data.error) {
-            const usedGB = Number(data.totalSizeGB);
-            const pct = Math.min((usedGB / MAX_STORAGE_GB) * 100, 100);
-            setStorageData({
-              totalSizeBytes: data.totalSizeBytes,
-              totalSizeGB: data.totalSizeGB,
-              percentage: pct.toFixed(1)
-            });
-          }
-        })
-        .catch(err => console.error("Error fetching storage:", err))
-        .finally(() => setLoadingStorage(false));
 
       // Fetch user notifications list
       fetch('/api/user/notifications')
@@ -309,13 +305,13 @@ export default function Dashboard() {
   // Event Handlers
   const handleFileSelection = (selectedFile) => {
     if (!selectedFile.type.startsWith('video/')) {
-      alert('Please select a valid video file.');
+      showAlert('Invalid File', 'Please select a valid video file.', 'error');
       return;
     }
 
-    const maxSize = 5 * 1024 * 1024 * 1024; // 5GB Limit
+    const maxSize = 1 * 1024 * 1024 * 1024; // 1GB Limit
     if (selectedFile.size > maxSize) {
-      alert('File size limit exceeded. Max allowed is 5GB.');
+      showAlert('File Too Large', 'File size limit exceeded. Max allowed is 1GB for direct uploads.', 'warning');
       return;
     }
 
@@ -326,6 +322,12 @@ export default function Dashboard() {
     videoElement.onloadedmetadata = () => {
       URL.revokeObjectURL(videoElement.src);
 
+      const maxDuration = 30 * 60; // 30 minutes in seconds
+      if (videoElement.duration > maxDuration) {
+        showAlert('Video Too Long', 'Video duration limit exceeded. Max allowed is 30 minutes for direct uploads.', 'warning');
+        return;
+      }
+
       setVideoDuration(videoElement.duration);
       setFile(selectedFile);
     };
@@ -333,6 +335,9 @@ export default function Dashboard() {
 
   const handleUpload = async () => {
     if (!file) return;
+
+    abortControllerRef.current = new AbortController();
+    const { signal } = abortControllerRef.current;
 
     try {
       setUploading(true);
@@ -346,6 +351,8 @@ export default function Dashboard() {
         console.error("Failed to extract thumbnail frame:", thumbErr);
       }
 
+      if (signal.aborted) return;
+
       setUploadSpeed('Calculating...');
 
       const response = await fetch('/api/upload', {
@@ -358,9 +365,11 @@ export default function Dashboard() {
           duration: videoDuration,
           hasThumbnail: !!thumbnailBlob,
         }),
+        signal,
       });
 
       const data = await response.json();
+      if (signal.aborted) return;
       if (!response.ok) throw new Error(data.error || 'Upload error');
 
       const { uploadUrl, thumbnailUploadUrl, dbRecord } = data;
@@ -374,6 +383,8 @@ export default function Dashboard() {
       }
 
       const xhr = new XMLHttpRequest();
+      xhrRef.current = xhr;
+
       xhr.open('PUT', uploadUrl, true);
       xhr.setRequestHeader('Content-Type', file.type);
 
@@ -398,7 +409,7 @@ export default function Dashboard() {
 
       xhr.onload = async () => {
         if (xhr.status === 200) {
-          alert('Asset parsed and recorded successfully!');
+          showAlert('Upload Successful', 'Asset parsed and recorded successfully!', 'success');
 
           setFile(null);
           if (fileInputRef.current) {
@@ -407,24 +418,36 @@ export default function Dashboard() {
           setHistory((prev) => [dbRecord, ...prev]);
           fetchUploadHistory();
         } else {
-          alert('Target storage bucket error.');
+          showAlert('Upload Error', 'Target storage bucket error.', 'error');
         }
         setUploading(false);
         setUploadSpeed('');
+        xhrRef.current = null;
       };
 
       xhr.onerror = () => {
-        alert('Network connection lost during S3 transmission.');
+        showAlert('Connection Lost', 'Network connection lost during S3 transmission.', 'error');
         setUploading(false);
         setUploadSpeed('');
+        xhrRef.current = null;
+      };
+
+      xhr.onabort = () => {
+        // Handled by handleCancelUpload directly
+        xhrRef.current = null;
       };
 
       xhr.send(file);
 
     } catch (error) {
-      alert(error.message);
+      if (error.name === 'AbortError') {
+        // Upload was cancelled, state is already reset by handleCancelUpload
+        return;
+      }
+      showAlert('Error', error.message, 'error');
       setUploading(false);
       setUploadSpeed('');
+      xhrRef.current = null;
     }
   };
 
@@ -501,77 +524,7 @@ export default function Dashboard() {
 
 
 
-        {/* ANALYTICS UPPER BALANCES METRICS ROW */}
-        <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24, marginBottom: 32 }}>
-
-          {/* Card 1: Storage */}
-          <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 24, boxShadow: "0 8px 32px rgba(15,35,71,0.04)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-              <div style={{ background: "rgba(0, 192, 212, 0.1)", color: "#00C0D4", padding: 8, borderRadius: 10 }}>
-                <Cloud size={20} />
-              </div>
-              {loadingStorage ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite", color: "#4b5563" }} /> : <span style={{ fontSize: 12, fontWeight: 700, color: "#4b5563" }}>{storageData.percentage}% Used</span>}
-            </div>
-            <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "#4b5563" }}>Cloud Storage</p>
-            {loadingStorage ? (
-              <div style={{ margin: "0 0 12px", height: 28, width: 120, background: "#e5e7eb", borderRadius: 4, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
-            ) : (
-              <h3 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800, color: "#0F2347" }}>{storageData.totalSizeGB}GB <span style={{ fontSize: 14, fontWeight: 500, color: "#6b7280" }}>/ {MAX_STORAGE_GB}GB</span></h3>
-            )}
-            <div style={{ width: "100%", background: "#e5e7eb", height: 6, borderRadius: 4, overflow: "hidden" }}>
-              <div style={{ background: "linear-gradient(90deg, #0F2347, #00C0D4)", height: "100%", transition: "width 0.5s ease-in-out", width: `${loadingStorage ? 0 : storageData.percentage}%`, borderRadius: 4 }} />
-            </div>
-          </div>
-
-          {/* Card 2: AI Credits */}
-          <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 24, boxShadow: "0 8px 32px rgba(15,35,71,0.04)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-              <div style={{ background: "rgba(236, 72, 153, 0.1)", color: "#f472b6", padding: 8, borderRadius: 10 }}>
-                <Hourglass size={20} />
-              </div>
-              {loadingCredits ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite", color: "#4b5563" }} /> : <button style={{ background: "transparent", border: "none", fontSize: 12, fontWeight: 700, color: "#00C0D4", cursor: "pointer" }}>Refill</button>}
-            </div>
-            <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "#4b5563" }}>AI Credits Remaining</p>
-            {loadingCredits ? (
-              <div style={{ margin: "0 0 12px", height: 28, width: 80, background: "#e5e7eb", borderRadius: 4, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
-            ) : (
-              <h3 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800, color: "#0F2347" }}>
-                {credits.toFixed(1)} <span style={{ fontSize: 14, fontWeight: 500, color: "#6b7280" }}>Credits</span>
-              </h3>
-            )}
-            <div style={{ width: "100%", background: "#e5e7eb", height: 6, borderRadius: 4, overflow: "hidden" }}>
-              <div
-                style={{ background: "#ec4899", height: "100%", borderRadius: 4, transition: "width 0.3s", width: `${loadingCredits ? 0 : Math.min((credits / 100) * 100, 100)}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Card 3: Active Projects */}
-          <div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 24, boxShadow: "0 8px 32px rgba(15,35,71,0.04)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
-              <div style={{ background: "rgba(20, 184, 166, 0.1)", color: "#2dd4bf", padding: 8, borderRadius: 10 }}>
-                <Video size={20} />
-              </div>
-              {loadingHistory ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite", color: "#4b5563" }} /> : <span style={{ background: "rgba(20, 184, 166, 0.1)", color: "#2dd4bf", fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 12, textTransform: "uppercase" }}>Active Now</span>}
-            </div>
-            <p style={{ margin: "0 0 4px", fontSize: 13, fontWeight: 600, color: "#4b5563" }}>Active Projects</p>
-            {loadingHistory ? (
-              <div style={{ margin: "0 0 12px", height: 28, width: 40, background: "#e5e7eb", borderRadius: 4, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
-            ) : (
-              <h3 style={{ margin: "0 0 12px", fontSize: 24, fontWeight: 800, color: "#0F2347" }}>{history.length}</h3>
-            )}
-
-            <div style={{ display: "flex", alignItems: "center", opacity: loadingHistory ? 0.3 : 1 }}>
-              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#d1d5db", border: "2px solid #ffffff", zIndex: 3 }}></div>
-              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#9ca3af", border: "2px solid #ffffff", marginLeft: -8, zIndex: 2 }}></div>
-              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#6b7280", border: "2px solid #ffffff", marginLeft: -8, zIndex: 1 }}></div>
-              <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#e5e7eb", border: "2px solid #ffffff", marginLeft: -8, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, fontWeight: 800, color: "#0F2347" }}>
-                +{Math.max(0, history.length - 3)}
-              </div>
-            </div>
-          </div>
-
-        </section>
+        {/* METRICS HAVE BEEN MOVED TO DASHBOARD HEADER */}
 
         {/* CREATION HUB & DRAG DROP WORKSPACE */}
         <section style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 32, background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 32, marginBottom: 32, alignItems: "center" }}>
@@ -590,22 +543,25 @@ export default function Dashboard() {
             </div>
 
             <div style={{ marginTop: 8 }}>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#4b5563", marginBottom: 8 }}>Paste Video Link</label>
+              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#4b5563", marginBottom: 8 }}>Paste Youtube URL</label>
               <div style={{ display: "flex", gap: 8, maxWidth: 500 }}>
                 <input
                   type="text"
                   value={videoLink}
                   onChange={(e) => setVideoLink(e.target.value)}
-                  placeholder="YouTube, Twitch, or Vimeo URL"
+                  placeholder="YouTube URL"
                   style={{ flex: 1, background: "#f9fafb", border: "1px solid #d1d5db", borderRadius: 8, padding: "10px 14px", color: "#0F2347", fontSize: 14, outline: "none" }}
                 />
                 <button style={{ background: "#0F2347", color: "#fff", border: "none", borderRadius: 8, padding: "0 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "background 0.2s" }} onMouseOver={e => e.currentTarget.style.background = "#6d28d9"} onMouseOut={e => e.currentTarget.style.background = "#0F2347"}>
                   Get Clips Now
                 </button>
               </div>
-              <p style={{ margin: "6px 0 0", fontSize: 11, color: "#6b7280" }}>
-                Supports up to 4K resolution clip files and 2-hour durations.
-              </p>
+              <div style={{ marginTop: "12px", background: "rgba(0, 192, 212, 0.05)", border: "1px solid rgba(0, 192, 212, 0.2)", borderRadius: 8, padding: "10px 14px", display: "flex", gap: 8 }}>
+                <span style={{ fontSize: 16 }}>💡</span>
+                <p style={{ margin: 0, fontSize: 12, color: "#4b5563", lineHeight: 1.5 }}>
+                  <strong style={{ color: "#00C0D4" }}>Pro Tip:</strong> We support up to <strong>2 hours</strong> of video duration, <strong>4K resolution</strong>, and <strong>NO file size limit</strong> for YouTube videos if you paste the URL!
+                </p>
+              </div>
             </div>
           </div>
 
@@ -640,9 +596,12 @@ export default function Dashboard() {
 
               <>
                 <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#0F2347" }}>Upload Video Asset</p>
-                <p style={{ margin: 0, fontSize: 12, color: "#4b5563" }}>
+                <p style={{ margin: "0 0 8px", fontSize: 12, color: "#4b5563" }}>
                   Drag & drop or <span style={{ color: "#00C0D4", fontWeight: 600 }}>browse files</span>
                 </p>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", background: "#f3f4f6", padding: "2px 8px", borderRadius: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  Max: 1GB • 30 Mins
+                </span>
               </>
             </div>
           </div>
@@ -658,14 +617,24 @@ export default function Dashboard() {
                 <p style={{ margin: 0, fontSize: 12, color: "#4b5563" }}>{formatSize(file.size)} • Duration: {formatDuration(videoDuration)}</p>
               </div>
 
-              {!uploading && (
+              <div style={{ display: "flex", gap: 12 }}>
                 <button
-                  onClick={handleUpload}
-                  style={{ background: "#0F2347", color: "#f9fafb", border: "none", padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+                  onClick={handleCancelUpload}
+                  style={{ background: "#ffffff", color: "#4b5563", border: "1px solid #d1d5db", padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0, transition: "background 0.2s" }}
+                  onMouseOver={e => e.currentTarget.style.background = "#f3f4f6"}
+                  onMouseOut={e => e.currentTarget.style.background = "#ffffff"}
                 >
-                  Confirm & Start Upload
+                  Cancel
                 </button>
-              )}
+                {!uploading && (
+                  <button
+                    onClick={handleUpload}
+                    style={{ background: "#0F2347", color: "#f9fafb", border: "none", padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+                  >
+                    Confirm & Start Upload
+                  </button>
+                )}
+              </div>
             </div>
 
             {uploading && (
@@ -691,11 +660,13 @@ export default function Dashboard() {
         {/* RECENT REPOSITORIES MEDIA CARD LAYOUT */}
         <section>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
-            <div>
-              <h3 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 800, color: "#0F2347" }}>Recent Clips History</h3>
-              <p style={{ margin: 0, fontSize: 13, color: "#4b5563" }}>Your latest AI-generated highlights ready for export execution.</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <h3 style={{ margin: "0", fontSize: 18, fontWeight: 800, color: "#0F2347" }}>Recent Clips History</h3>
+              <span style={{ background: "#e5e7eb", color: "#4b5563", fontSize: 12, fontWeight: 700, padding: "2px 10px", borderRadius: 12 }}>
+                {loadingHistory ? "..." : `${history.length} Total Projects`}
+              </span>
             </div>
-            <button style={{ background: "transparent", border: "none", color: "#c4b5fd", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+            <button style={{ background: "transparent", border: "none", color: "#00C0D4", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
               View All <ArrowRight size={16} />
             </button>
           </div>

@@ -947,7 +947,7 @@ Go ahead and refresh the page to test the video player. You should no longer see
 
 ### User Input
 
-on the clips page if the clips are already generated add a button to regenrate or reprocess the video to generate more clips
+on the clips page if the clips are already generated add a button to regenrate or reprocess the video to regenerate clips
 
 *Viewed [page.jsx](file:///d:/Code/fmp/fmp-client/app/dashboard/clips/v2/%5BvideoId%5D/page.jsx) *
 
