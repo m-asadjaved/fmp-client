@@ -1,8 +1,11 @@
 'use client';
 
 import React from 'react';
-import { SignInButton, UserButton, useAuth, PricingTable } from '@clerk/nextjs';
-import { Link, Sparkles, Share, Play } from 'lucide-react';
+import { SignInButton, UserButton, useAuth, PricingTable, useClerk } from '@clerk/nextjs';
+import { Link, Sparkles, Share, Play, UploadCloud } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useUpload } from '@/contexts/UploadContext';
+import { useAlert } from '@/contexts/AlertContext';
 
 import { LandingFeatures } from '../components/ui/LandingFeatures';
 import { LandingShowcase } from '../components/ui/LandingShowcase';
@@ -13,6 +16,27 @@ import { LandingFooter } from '../components/ui/LandingFooter';
 
 export default function SsembleCloneLanding() {
   const { isSignedIn } = useAuth();
+  const router = useRouter();
+  const { setPendingFile } = useUpload();
+  const { showAlert } = useAlert();
+  const clerk = useClerk();
+
+  const [isDragActive, setIsDragActive] = React.useState(false);
+  const fileInputRef = React.useRef(null);
+
+  const handleFileSelection = (selectedFile) => {
+    if (!selectedFile.type.startsWith('video/')) {
+      showAlert('Invalid File', 'Please select a valid video file.', 'error');
+      return;
+    }
+    
+    if (isSignedIn) {
+      setPendingFile(selectedFile);
+      router.push('/dashboard');
+    } else {
+      clerk.openSignIn({ forceRedirectUrl: '/dashboard' });
+    }
+  };
 
   return (
     <div className="min-h-screen w-full bg-white text-black font-sans selection:bg-[#00C0D4]/20">
@@ -21,13 +45,13 @@ export default function SsembleCloneLanding() {
         <div className="max-w-7xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 md:gap-8">
             <a href="/" className="flex items-center">
-              <img 
-                src="/logo-transparent.png" 
-                alt="twenty2short" 
+              <img
+                src="/logo-transparent.png"
+                alt="twenty2short"
                 className="h-12 md:h-14 w-auto object-contain transform scale-110 origin-left"
               />
             </a>
-            
+
             <div className="hidden md:flex items-center gap-1">
               {['Pricing', 'API', 'MCP', 'Help', 'Blog'].map((item) => (
                 <a key={item} href={`#${item.toLowerCase()}`} className="px-4 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors">
@@ -36,7 +60,7 @@ export default function SsembleCloneLanding() {
               ))}
             </div>
           </div>
-          
+
           <div className="flex items-center gap-3">
             {!isSignedIn ? (
               <>
@@ -65,22 +89,22 @@ export default function SsembleCloneLanding() {
 
       <main>
         {/* HERO SECTION */}
-        <div className="relative overflow-hidden bg-white pt-16 md:pt-24 pb-12">
+        <div className="relative overflow-hidden bg-white pt-10 md:pt-8 pb-6">
           {/* Subtle background glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-[400px] bg-gradient-to-b from-[#00C0D4]/20 to-transparent rounded-full blur-3xl opacity-60 pointer-events-none -z-10" />
-          
+
           <div className="max-w-7xl mx-auto px-4 flex flex-col items-center text-center">
             <h1 className="text-4xl md:text-5xl lg:text-7xl font-bold max-w-5xl tracking-tight text-balance leading-[1.1]">
-              <span className="block text-[#0F2347]">Turn your long videos into</span>
-              <span className="block bg-gradient-to-r from-[#0F2347] to-[#00C0D4] bg-clip-text text-transparent pb-2 mt-1">
-                Viral Shorts in seconds.
+              <span className="block text-black">Turn your long videos into</span>
+              <span className="block bg-gradient-to-r from-[#00C0D4] to-[#00C0D4] bg-clip-text text-transparent pb-2 mt-1">
+                Viral Shorts
               </span>
             </h1>
-            
+
             <p className="mt-6 text-lg md:text-xl text-gray-500 max-w-2xl leading-relaxed">
               twenty2short automatically clips, captions, and posts your videos to TikTok, YouTube & Instagram.
             </p>
-            
+
             {/* Social Proof Avatars */}
             <div className="flex flex-col items-center mt-8 mb-4">
               <div className="flex -space-x-4 mb-2">
@@ -102,13 +126,13 @@ export default function SsembleCloneLanding() {
                 Trusted by thousands of shorts clippers | 4.9 out of 5
               </p>
             </div>
-            
+
             {/* Input Action */}
-            <div className="w-full max-w-2xl mt-8 px-4 sm:px-0">
+            <div className="w-full max-w-2xl mt-2 px-4 sm:px-0 flex flex-col gap-4">
               <div className="flex flex-col sm:flex-row items-center bg-white sm:rounded-2xl sm:border-2 border-gray-200 focus-within:border-[#00C0D4] transition-colors shadow-lg overflow-hidden gap-3 sm:gap-0 bg-transparent sm:bg-white p-0 sm:p-1">
-                <input 
-                  type="url" 
-                  placeholder="Paste YouTube URL" 
+                <input
+                  type="url"
+                  placeholder="Paste YouTube URL"
                   className="w-full sm:flex-1 px-6 py-4 text-lg focus:outline-none rounded-2xl sm:rounded-none border-2 border-gray-200 sm:border-none shadow-md sm:shadow-none bg-white text-[#0F2347]"
                 />
                 <SignInButton mode="modal" forceRedirectUrl="/dashboard">
@@ -117,23 +141,55 @@ export default function SsembleCloneLanding() {
                   </button>
                 </SignInButton>
               </div>
-              <p className="text-sm text-gray-400 mt-4">Plans from $6/mo · Cancel anytime</p>
+
+              {/* Drag and Drop Area */}
+              <div className="w-full">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept="video/*"
+                  onChange={(e) => e.target.files?.[0] && handleFileSelection(e.target.files[0])}
+                />
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setIsDragActive(true); }}
+                  onDragLeave={() => setIsDragActive(false)}
+                  onDrop={(e) => { e.preventDefault(); setIsDragActive(false); if (e.dataTransfer.files?.[0]) handleFileSelection(e.dataTransfer.files[0]); }}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`w-full min-h-[160px] flex flex-col items-center justify-center text-center rounded-2xl cursor-pointer p-6 transition-all border-2 border-dashed ${
+                    isDragActive ? "bg-[#00C0D4]/5 border-[#0F2347]" : "bg-white border-gray-200 hover:border-gray-400 shadow-md hover:shadow-lg"
+                  }`}
+                >
+                  <div className="bg-gray-50 p-3 rounded-full text-gray-500 mb-3 border border-gray-200 shadow-sm">
+                    <UploadCloud className="w-6 h-6" />
+                  </div>
+                  <p className="text-sm font-bold text-[#0F2347] mb-1">Upload Video Asset</p>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Drag & drop or <span className="text-[#00C0D4] font-semibold">browse files</span>
+                  </p>
+                  <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded-full uppercase tracking-wider">
+                    Max: 1GB • 30 Mins
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-sm text-gray-400 mt-2">Plans from $6/mo · Cancel anytime</p>
             </div>
           </div>
         </div>
 
         {/* DEMO VIDEO SECTION */}
-        <div className="w-full bg-white pt-8 pb-16">
+        <div className="w-full bg-white pt-6 pb-10">
           <div className="max-w-4xl mx-auto px-4 md:px-6">
-            <div className="relative rounded-2xl overflow-hidden bg-black shadow-2xl" style={{ paddingTop: '56.25%' }}>
-               <iframe 
-                 src="https://customer-a8pcy45g7jeje4za.cloudflarestream.com/d1158daf5c258ab75f3eb0c9dd3cd6ec/iframe?muted=true&autoplay=true&poster=https%3A%2F%2Fcustomer-a8pcy45g7jeje4za.cloudflarestream.com%2Fd1158daf5c258ab75f3eb0c9dd3cd6ec%2Fthumbnails%2Fthumbnail.jpg%3Ftime%3D1%26height%3D600&controls=false&loop=true" 
-                 title="twenty2short AI clipping demo" 
-                 loading="lazy" 
-                 className="absolute inset-0 w-full h-full border-0 scale-[1.02]" 
-                 allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture" 
-                 allowFullScreen 
-               />
+            <div className="relative rounded-2xl overflow-hidden" style={{ paddingTop: '56.25%' }}>
+              <iframe
+                src="https://customer-a8pcy45g7jeje4za.cloudflarestream.com/d1158daf5c258ab75f3eb0c9dd3cd6ec/iframe?muted=true&autoplay=true&poster=https%3A%2F%2Fcustomer-a8pcy45g7jeje4za.cloudflarestream.com%2Fd1158daf5c258ab75f3eb0c9dd3cd6ec%2Fthumbnails%2Fthumbnail.jpg%3Ftime%3D1%26height%3D600&controls=false&loop=true"
+                title="twenty2short AI clipping demo"
+                loading="lazy"
+                className="absolute inset-0 w-full h-full border-0 scale-[1.02]"
+                allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
+                allowFullScreen
+              />
             </div>
           </div>
         </div>
@@ -144,9 +200,9 @@ export default function SsembleCloneLanding() {
             Trusted by teams at leading companies and institutions
           </p>
           <div className="flex flex-wrap justify-center gap-8 md:gap-16 px-4 opacity-50 grayscale">
-             {['Google', 'Meta', 'Amazon', 'Netflix', 'Shopify'].map((brand) => (
-                <div key={brand} className="text-xl md:text-2xl font-black text-[#0F2347]">{brand}</div>
-             ))}
+            {['Google', 'Meta', 'Amazon', 'Netflix', 'Shopify'].map((brand) => (
+              <div key={brand} className="text-xl md:text-2xl font-black text-[#0F2347]">{brand}</div>
+            ))}
           </div>
         </div>
 
@@ -158,13 +214,13 @@ export default function SsembleCloneLanding() {
           <p className="text-center text-lg md:text-xl text-gray-600 max-w-3xl mx-auto mb-16">
             From YouTube video to viral clips in 3 simple steps
           </p>
-          
+
           <div className="max-w-5xl mx-auto relative">
             {/* Connecting line for desktop */}
             <div className="hidden lg:block absolute top-12 left-[15%] right-[15%] h-0.5 bg-gray-200 -z-10" />
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-8">
-              
+
               {/* Step 1 */}
               <div className="flex flex-col items-center text-center">
                 <div className="w-24 h-24 rounded-full border border-gray-100 flex items-center justify-center shadow-sm mb-6 transition-transform hover:scale-105 bg-white">
@@ -199,7 +255,7 @@ export default function SsembleCloneLanding() {
               </div>
 
             </div>
-            
+
             <div className="text-center mt-16">
               <SignInButton mode="modal" forceRedirectUrl="/dashboard">
                 <button className="px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-[#0F2347] to-[#00C0D4] hover:from-[#0C1C3A] hover:to-[#00A6B8] border-0 rounded-2xl shadow-lg hover:scale-105 transition-transform cursor-pointer">
@@ -212,7 +268,7 @@ export default function SsembleCloneLanding() {
 
         <LandingFeatures />
         <LandingShowcase />
-        
+
         {/* PRICING SECTION */}
         <div id="pricing" className="py-20 bg-gray-50 border-t border-gray-100">
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-center text-[#0F2347] tracking-tight mb-2">
@@ -233,14 +289,14 @@ export default function SsembleCloneLanding() {
           </div>
 
           <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-            
+
             {/* Pro Plan */}
             <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-md flex flex-col">
               <div className="flex items-center gap-3 justify-center mb-6">
-                 <div className="w-10 h-10 bg-gray-50 rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-[#00C0D4] font-bold text-xl">
-                   P
-                 </div>
-                 <h3 className="text-xl font-bold text-[#0F2347]">PRO</h3>
+                <div className="w-10 h-10 bg-gray-50 rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-[#00C0D4] font-bold text-xl">
+                  P
+                </div>
+                <h3 className="text-xl font-bold text-[#0F2347]">PRO</h3>
               </div>
               <div className="text-center mb-6">
                 <span className="block text-[#00C0D4] text-sm font-semibold mb-2">SAVE 60%</span>
@@ -275,10 +331,10 @@ export default function SsembleCloneLanding() {
                 Most Chosen Plan
               </div>
               <div className="flex items-center gap-3 justify-center mb-6 mt-2">
-                 <div className="w-10 h-10 bg-white rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-[#00C0D4] font-bold text-xl">
-                   E
-                 </div>
-                 <h3 className="text-xl font-bold text-[#0F2347]">EXPERT</h3>
+                <div className="w-10 h-10 bg-white rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-[#00C0D4] font-bold text-xl">
+                  E
+                </div>
+                <h3 className="text-xl font-bold text-[#0F2347]">EXPERT</h3>
               </div>
               <div className="text-center mb-6">
                 <span className="block text-[#00C0D4] text-sm font-semibold mb-2">SAVE 60%</span>
@@ -313,10 +369,10 @@ export default function SsembleCloneLanding() {
                 Best Value
               </div>
               <div className="flex items-center gap-3 justify-center mb-6 mt-2">
-                 <div className="w-10 h-10 bg-gray-50 rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-[#0F2347] font-bold text-xl">
-                   B
-                 </div>
-                 <h3 className="text-xl font-bold text-[#0F2347]">BUSINESS</h3>
+                <div className="w-10 h-10 bg-gray-50 rounded-full shadow-sm border border-gray-100 flex items-center justify-center text-[#0F2347] font-bold text-xl">
+                  B
+                </div>
+                <h3 className="text-xl font-bold text-[#0F2347]">BUSINESS</h3>
               </div>
               <div className="text-center mb-6">
                 <span className="block text-[#00C0D4] text-sm font-semibold mb-2">SAVE 60%</span>

@@ -3,6 +3,7 @@ import { ClerkProvider } from '@clerk/nextjs'
 import "./globals.css";
 import { RenderProvider } from "@/contexts/RenderContext";
 import { AlertProvider } from "@/contexts/AlertContext";
+import { UploadProvider } from "@/contexts/UploadContext";
 import NextTopLoader from 'nextjs-toploader';
 
 const geistSans = Geist({
@@ -40,11 +41,13 @@ export default function RootLayout({ children }) {
           zIndex={1600000}
         />
         <ClerkProvider>
-          <AlertProvider>
-            <RenderProvider>
-              {children}
-            </RenderProvider>
-          </AlertProvider>
+          <UploadProvider>
+            <AlertProvider>
+              <RenderProvider>
+                {children}
+              </RenderProvider>
+            </AlertProvider>
+          </UploadProvider>
         </ClerkProvider>
       </body>
     </html>

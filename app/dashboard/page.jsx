@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth, SignInButton, UserButton } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
 import { useAlert } from '@/contexts/AlertContext';
+import { useUpload } from '@/contexts/UploadContext';
 import {
   Bell,
   Cloud,
@@ -157,6 +158,7 @@ export default function Dashboard() {
   const { isSignedIn, isLoaded } = useAuth();
   const router = useRouter();
   const { showAlert } = useAlert();
+  const { pendingFile, setPendingFile } = useUpload();
 
   // ─── Post job notifications ──────────────────────────────────────────────────
   const [postAlerts, setPostAlerts] = useState([]);  // completed jobs to display
@@ -377,6 +379,13 @@ export default function Dashboard() {
       setFile(selectedFile);
     };
   };
+
+  useEffect(() => {
+    if (pendingFile && !uploading && !file) {
+      handleFileSelection(pendingFile);
+      setPendingFile(null);
+    }
+  }, [pendingFile, uploading, file]);
 
   const handleUpload = async () => {
     if (!file) return;

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { FolderOpen, Search, Trash2, Video, Music, Image as ImageIcon, Loader2, AlertCircle } from "lucide-react";
+import { FolderOpen, Search, Trash2, Video, Music, Image as ImageIcon, Loader2, AlertCircle, Play } from "lucide-react";
 
 const formatSize = (bytes) => {
   if (!bytes) return "0 Bytes";
@@ -81,6 +81,8 @@ export default function AssetsPage() {
       case "Raw Video":
       case "B-Roll":
         return <Video size={20} />;
+      case "Generated Clip":
+        return <Play size={20} />;
       case "Music":
         return <Music size={20} />;
       case "Hook":
@@ -104,7 +106,7 @@ export default function AssetsPage() {
     );
   }
 
-  const TABS = ["All", "Raw Video", "B-Roll", "Music", "Hook"];
+  const TABS = ["All", "Raw Video", "Generated Clip", "B-Roll", "Music", "Hook"];
 
   return (
     <div style={{ padding: "32px 40px", overflowY: "auto", height: "100%", background: "#f9fafb", color: "#0F2347" }}>

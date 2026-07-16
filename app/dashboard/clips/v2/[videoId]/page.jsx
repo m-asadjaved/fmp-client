@@ -186,7 +186,7 @@ export default function AIClipsPage({ params }) {
 	}, [preferences]);
 
 	// Toggle this to switch between the real backend API pipeline vs local UI demo mode
-	const USE_REAL_PIPELINE = false;
+	const USE_REAL_PIPELINE = true;
 
 	// ─── Lambda call ─────────────────────────────────────────────────────────────
 	const startProcessing = async () => {
@@ -806,21 +806,21 @@ export default function AIClipsPage({ params }) {
 
 													{/* Background state overlay */}
 													<div className={`absolute inset-0 rounded-xl transition-colors duration-500 z-0 ${i < currentStep ? 'bg-[#4ade80]/5' :
-															i === currentStep ? 'bg-[#00C0D4]/5 shadow-[0_8px_30px_rgba(0,192,212,0.2)]' :
-																'bg-transparent'
+														i === currentStep ? 'bg-[#00C0D4]/5 shadow-[0_8px_30px_rgba(0,192,212,0.2)]' :
+															'bg-transparent'
 														}`} />
 
 													{/* Dynamic Border state */}
 													<div className={`absolute inset-0 rounded-xl border-2 transition-all duration-500 pointer-events-none z-10 ${i < currentStep ? 'border-[#4ade80]' :
-															i === currentStep ? 'border-[#00C0D4]' :
-																'border-[#e5e7eb] opacity-60'
+														i === currentStep ? 'border-[#00C0D4]' :
+															'border-[#e5e7eb] opacity-60'
 														}`} />
 
 													<div className="relative z-20">
 														<div className="flex items-center gap-3 mb-3">
 															<div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xl transition-colors ${i < currentStep ? 'bg-[#4ade80]/10 text-[#4ade80]' :
-																	i === currentStep ? 'bg-[#00C0D4]/10 text-[#00C0D4]' :
-																		'bg-[#f3f4f6] text-[#9ca3af]'
+																i === currentStep ? 'bg-[#00C0D4]/10 text-[#00C0D4]' :
+																	'bg-[#f3f4f6] text-[#9ca3af]'
 																}`}>
 																{i === currentStep ? (
 																	<Loader2 className="w-6 h-6 animate-spin text-[#00C0D4]" />
@@ -830,8 +830,8 @@ export default function AIClipsPage({ params }) {
 															</div>
 															<div className="flex flex-col">
 																<span className={`text-[10px] uppercase tracking-wider font-bold ${i < currentStep ? 'text-[#4ade80]' :
-																		i === currentStep ? 'text-[#00C0D4]' :
-																			'text-[#9ca3af]'
+																	i === currentStep ? 'text-[#00C0D4]' :
+																		'text-[#9ca3af]'
 																	}`}>
 																	{i < currentStep ? '✓ Completed' : i === currentStep ? '⚙️ Processing' : '⏳ Pending'}
 																</span>
@@ -855,7 +855,7 @@ export default function AIClipsPage({ params }) {
 													{/* Vertical Drop Connection Wires */}
 													{i % 3 === 2 && i < pipelineSteps.length - 1 && (
 														<div className={`absolute top-[100%] left-1/2 -translate-x-1/2 z-0 ${i < currentStep ? 'bg-[#4ade80] w-1.5 h-[4rem]' :
-																'border-l-2 border-dashed border-[#d1d5db] w-0 h-[4rem] bg-transparent'
+															'border-l-2 border-dashed border-[#d1d5db] w-0 h-[4rem] bg-transparent'
 															}`}></div>
 													)}
 												</div>

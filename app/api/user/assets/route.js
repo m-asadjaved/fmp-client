@@ -40,10 +40,39 @@ export async function GET() {
           name: v.original_name || "Untitled",
           size: Number(v.file_size) || 0,
           date: v.created_at,
-          url: v.video_url,
+          url: `https://${process.env.AWS_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/compressed_${v.file_key}`,
           thumbnail: v.thumbnail_url,
           s3Key: v.file_key, // Needed for deletion
           isDbRecord: true,
+        });
+      });
+    }
+
+    // 1.5 Fetch Generated Clips from post_jobs
+    const { data: jobs, error: jobsError } = await supabase
+      .from("post_jobs")
+      .select("*")
+      .eq("user_id", userId)
+      .eq("status", "completed")
+      .not("output_url", "is", null)
+      .order("completed_at", { ascending: false });
+
+    if (!jobsError && jobs) {
+      jobs.forEach((j) => {
+        const platformStr = Array.isArray(j.platforms) && j.platforms.length > 0 
+            ? j.platforms.join(', ') 
+            : (j.platform || 'Export');
+        assets.push({
+          id: j.id.toString(), // Ensure string ID
+          type: "Generated Clip",
+          name: `Render - ${platformStr} - ${new Date(j.completed_at || j.created_at).toLocaleDateString()}`,
+          size: 0, // Size is not directly stored in post_jobs
+          date: j.completed_at || j.created_at,
+          url: j.output_url,
+          thumbnail: null,
+          s3Key: null, // Deletion would require parsing the URL or updating the DB
+          isDbRecord: false,
+          isGeneratedClip: true
         });
       });
     }
@@ -112,7 +141,19 @@ export async function DELETE(request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id, isDbRecord, s3Key, thumbnail } = await request.json();
+    const { id, isDbRecord, s3Key, thumbnail, isGeneratedClip } = await request.json();
+
+    if (isGeneratedClip) {
+      // For generated clips, just delete the post_jobs record to remove it from UI
+      const { error } = await supabase
+        .from("post_jobs")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", userId);
+
+      if (error) throw error;
+      return NextResponse.json({ success: true });
+    }
 
     if (!s3Key) {
       return NextResponse.json({ error: "Missing s3Key" }, { status: 400 });
