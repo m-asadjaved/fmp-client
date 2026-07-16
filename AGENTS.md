@@ -129,3 +129,7 @@ CREATE TABLE public.post_jobs (
 ## 7. Project Overview & Documentation (STRICT RULE)
 - **Always Read Overview**: At the start of any new chat or task, you MUST automatically read the `project_overview.md` file located at the project root to get the whole project's overview before making any decisions.
 - **Always Update Overview**: Every time you edit, add, or update a feature or make any significant changes to the codebase, you MUST write down those changes and update the `project_overview.md` file. Keep the feature list and changelog in that file up to date.
+
+## 8. Scalability & Efficiency
+- **Highly Optimized Design**: Every function, feature, and component the AI agent makes MUST be strictly optimized for maximum cost efficiency, compute efficiency, and storage efficiency.
+- **Built for Scale**: Always design and build features under the assumption that the app is scaling to handle hundreds of users simultaneously (100 users minimum baseline). Avoid unscalable patterns, such as heavy client-side processing, unbatched/excessive database queries, and wasteful cloud storage overhead.

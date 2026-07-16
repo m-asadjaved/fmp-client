@@ -232,10 +232,55 @@ export default function Dashboard() {
   const [activeVideoUrl, setActiveVideoUrl] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+  const [compressionStatuses, setCompressionStatuses] = useState({});
 
   const fileInputRef = useRef(null);
   const xhrRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const compressionStatusesRef = useRef({});
+
+  useEffect(() => {
+    if (!isSignedIn || history.length === 0) return;
+
+    const checkStatuses = async () => {
+      const currentStatuses = compressionStatusesRef.current;
+      const keysToCheck = history
+        .slice(0, 10)
+        .map(item => item.file_key)
+        .filter(key => currentStatuses[key] !== 'ready');
+
+      if (keysToCheck.length === 0) return;
+
+      try {
+        const res = await fetch('/api/upload/compression-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileKeys: keysToCheck })
+        });
+        if (res.ok) {
+          const { statuses } = await res.json();
+          let changed = false;
+          const newStatuses = { ...currentStatuses };
+          for (const key in statuses) {
+            if (newStatuses[key] !== statuses[key]) {
+              newStatuses[key] = statuses[key];
+              changed = true;
+            }
+          }
+          if (changed) {
+            compressionStatusesRef.current = newStatuses;
+            setCompressionStatuses(newStatuses);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch compression statuses", err);
+      }
+    };
+
+    checkStatuses();
+    const interval = setInterval(checkStatuses, 8000);
+    return () => clearInterval(interval);
+  }, [isSignedIn, history]);
 
   const handleCancelUpload = () => {
     if (abortControllerRef.current) {
@@ -693,13 +738,17 @@ export default function Dashboard() {
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 24 }}>
-              {history.map((item) => (
+              {history.map((item) => {
+                const isReady = compressionStatuses[item.file_key] === 'ready';
+                const isProcessing = compressionStatuses[item.file_key] === 'processing';
+                
+                return (
                 <div key={item.id || item.video_id} style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 12, overflow: "hidden", display: "flex", flexDirection: "column", transition: "transform 0.2s, box-shadow 0.2s" }} onMouseOver={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 12px 24px rgba(0,0,0,0.4)"; }} onMouseOut={e => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "none"; }}>
 
                   {/* Aspect Previews Area box */}
                   <div
-                    onClick={() => setActiveVideoUrl(item.video_url)}
-                    style={{ position: "relative", aspectRatio: "16/9", background: "#000", cursor: "pointer", overflow: "hidden" }}
+                    onClick={() => { if (isReady) setActiveVideoUrl(item.video_url) }}
+                    style={{ position: "relative", aspectRatio: "16/9", background: "#000", cursor: isReady ? "pointer" : "default", overflow: "hidden" }}
                   >
                     {item.thumbnail_url ? (
                       <img
@@ -724,6 +773,13 @@ export default function Dashboard() {
                         <Play size={18} fill="currentColor" />
                       </div>
                     </div>
+
+                    {!isReady && isProcessing && (
+                      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(2px)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", zIndex: 10 }}>
+                        <Loader2 size={24} style={{ color: "#00C0D4", animation: "spin 1s linear infinite", marginBottom: 8 }} />
+                        <span style={{ color: "#fff", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>Compressing...</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Operational Information Meta Segment */}
@@ -742,23 +798,27 @@ export default function Dashboard() {
 
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <button
+                        disabled={!isReady}
                         onClick={() => handleMakeClips(item)}
-                        style={{ width: "100%", background: "#e5e7eb", color: "#0F2347", border: "1px solid #d1d5db", padding: "8px 0", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "background 0.2s" }}
-                        onMouseOver={e => e.currentTarget.style.background = "#d1d5db"}
-                        onMouseOut={e => e.currentTarget.style.background = "#e5e7eb"}
+                        style={{ width: "100%", background: "#e5e7eb", color: "#0F2347", border: "1px solid #d1d5db", padding: "8px 0", borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: isReady ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, transition: "background 0.2s", opacity: isReady ? 1 : 0.6 }}
+                        onMouseOver={e => { if (isReady) e.currentTarget.style.background = "#d1d5db" }}
+                        onMouseOut={e => { if (isReady) e.currentTarget.style.background = "#e5e7eb" }}
                       >
                         <Sparkles size={12} />
                         Make AI Clips
                       </button>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10, color: "#6b7280", fontFamily: "monospace", paddingTop: 4 }}>
                         <span>Node status:</span>
-                        <span style={{ color: "#4ade80", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ready</span>
+                        <span style={{ color: isReady ? "#4ade80" : "#facc15", fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                          {isReady ? "Ready" : "Processing"}
+                        </span>
                       </div>
                     </div>
                   </div>
 
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </section>
