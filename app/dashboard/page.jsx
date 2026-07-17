@@ -596,24 +596,28 @@ export default function Dashboard() {
               <span>Powered by ClipAI Turbo</span>
             </div>
 
-            <div style={{ marginTop: 8 }}>
-              <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#4b5563", marginBottom: 8 }}>Paste Youtube URL</label>
+            <div style={{ marginTop: 8, opacity: 0.7 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#4b5563", margin: 0 }}>Paste Youtube URL</label>
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#00C0D4", background: "rgba(0, 192, 212, 0.1)", padding: "2px 8px", borderRadius: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>Coming Soon</span>
+              </div>
               <div style={{ display: "flex", gap: 8, maxWidth: 500 }}>
                 <input
                   type="text"
                   value={videoLink}
                   onChange={(e) => setVideoLink(e.target.value)}
-                  placeholder="YouTube URL"
-                  style={{ flex: 1, background: "#f9fafb", border: "1px solid #d1d5db", borderRadius: 8, padding: "10px 14px", color: "#0F2347", fontSize: 14, outline: "none" }}
+                  placeholder="YouTube URL integration is currently under construction"
+                  disabled
+                  style={{ flex: 1, background: "#f3f4f6", border: "1px solid #d1d5db", borderRadius: 8, padding: "10px 14px", color: "#9ca3af", fontSize: 14, outline: "none", cursor: "not-allowed" }}
                 />
-                <button style={{ background: "#0F2347", color: "#fff", border: "none", borderRadius: 8, padding: "0 20px", fontSize: 14, fontWeight: 600, cursor: "pointer", transition: "background 0.2s" }} onMouseOver={e => e.currentTarget.style.background = "#6d28d9"} onMouseOut={e => e.currentTarget.style.background = "#0F2347"}>
+                <button disabled style={{ background: "#9ca3af", color: "#fff", border: "none", borderRadius: 8, padding: "0 20px", fontSize: 14, fontWeight: 600, cursor: "not-allowed" }}>
                   Get Clips Now
                 </button>
               </div>
               <div style={{ marginTop: "12px", background: "rgba(0, 192, 212, 0.05)", border: "1px solid rgba(0, 192, 212, 0.2)", borderRadius: 8, padding: "10px 14px", display: "flex", gap: 8 }}>
-                <span style={{ fontSize: 16 }}>💡</span>
+                <span style={{ fontSize: 16 }}>🎁</span>
                 <p style={{ margin: 0, fontSize: 12, color: "#4b5563", lineHeight: 1.5 }}>
-                  <strong style={{ color: "#00C0D4" }}>Pro Tip:</strong> We support up to <strong>2 hours</strong> of video duration, <strong>4K resolution</strong>, and <strong>NO file size limit</strong> for YouTube videos if you paste the URL!
+                  <strong style={{ color: "#00C0D4" }}>Bonus:</strong> Until YouTube link integration arrives, we've temporarily increased direct file upload limits to <strong>1 Hour</strong> and <strong>3 GB</strong>!
                 </p>
               </div>
             </div>
@@ -653,8 +657,8 @@ export default function Dashboard() {
                 <p style={{ margin: "0 0 8px", fontSize: 12, color: "#4b5563" }}>
                   Drag & drop or <span style={{ color: "#00C0D4", fontWeight: 600 }}>browse files</span>
                 </p>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "#9ca3af", background: "#f3f4f6", padding: "2px 8px", borderRadius: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  Max: 1GB • 30 Mins
+                <span style={{ fontSize: 10, fontWeight: 700, color: "#00C0D4", background: "rgba(0, 192, 212, 0.1)", padding: "2px 8px", borderRadius: 12, textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid rgba(0, 192, 212, 0.2)" }}>
+                  Upgraded: 3GB • 1 Hour
                 </span>
               </>
             </div>

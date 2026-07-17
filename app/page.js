@@ -14,8 +14,35 @@ import { LandingTools } from '../components/ui/LandingTools';
 import { LandingBlog } from '../components/ui/LandingBlog';
 import { LandingFooter } from '../components/ui/LandingFooter';
 
+const AuthButtonWrapper = ({ children, forceRedirectUrl = "/dashboard" }) => {
+  const { isLoaded, isSignedIn } = useAuth();
+  const router = useRouter();
+
+  if (!isLoaded) {
+    return React.cloneElement(children, {
+      onClick: (e) => e.preventDefault(),
+      style: { ...children.props.style, opacity: 0.7, cursor: 'not-allowed' }
+    });
+  }
+
+  if (isSignedIn) {
+    return React.cloneElement(children, {
+      onClick: (e) => {
+        if (children.props.onClick) children.props.onClick(e);
+        if (!e.defaultPrevented) router.push(forceRedirectUrl);
+      }
+    });
+  }
+
+  return (
+    <SignInButton mode="modal" forceRedirectUrl={forceRedirectUrl}>
+      {children}
+    </SignInButton>
+  );
+};
+
 export default function SsembleCloneLanding() {
-  const { isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const { setPendingFile } = useUpload();
   const { showAlert } = useAlert();
@@ -62,7 +89,9 @@ export default function SsembleCloneLanding() {
           </div>
 
           <div className="flex items-center gap-3">
-            {!isSignedIn ? (
+            {!isLoaded ? (
+              <div className="w-24 h-10 bg-gray-100 animate-pulse rounded-md hidden sm:block"></div>
+            ) : !isSignedIn ? (
               <>
                 <SignInButton mode="modal">
                   <button className="px-4 py-2 text-sm font-medium text-[#0F2347] hover:text-[#00C0D4] transition-colors hidden sm:block cursor-pointer bg-transparent border-0">
@@ -129,17 +158,21 @@ export default function SsembleCloneLanding() {
 
             {/* Input Action */}
             <div className="w-full max-w-2xl mt-2 px-4 sm:px-0 flex flex-col gap-4">
-              <div className="flex flex-col sm:flex-row items-center bg-white sm:rounded-2xl sm:border-2 border-gray-200 focus-within:border-[#00C0D4] transition-colors shadow-lg overflow-hidden gap-3 sm:gap-0 bg-transparent sm:bg-white p-0 sm:p-1">
+              <div className="flex flex-col sm:flex-row items-center bg-gray-50 sm:rounded-2xl sm:border-2 border-gray-200 transition-colors shadow-sm overflow-hidden gap-3 sm:gap-0 bg-transparent sm:bg-gray-50 p-0 sm:p-1 opacity-80 cursor-not-allowed relative">
+                <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
+                  <span className="bg-[#0F2347] text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-md">Coming Soon</span>
+                </div>
                 <input
                   type="url"
-                  placeholder="Paste YouTube URL"
-                  className="w-full sm:flex-1 px-6 py-4 text-lg focus:outline-none rounded-2xl sm:rounded-none border-2 border-gray-200 sm:border-none shadow-md sm:shadow-none bg-white text-[#0F2347]"
+                  disabled
+                  placeholder="YouTube URL integration under construction"
+                  className="w-full sm:flex-1 px-6 py-4 text-lg focus:outline-none rounded-2xl sm:rounded-none border-2 border-gray-200 sm:border-none shadow-md sm:shadow-none bg-gray-50 text-gray-400 cursor-not-allowed"
                 />
-                <SignInButton mode="modal" forceRedirectUrl="/dashboard">
-                  <button className="w-full sm:w-auto px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-[#0F2347] to-[#00C0D4] hover:from-[#0C1C3A] hover:to-[#00A6B8] rounded-2xl transform transition-transform hover:scale-105 shadow-lg whitespace-nowrap cursor-pointer border-0">
+                <AuthButtonWrapper forceRedirectUrl="/dashboard">
+                  <button disabled className="w-full sm:w-auto px-8 py-4 text-lg font-semibold text-white bg-gray-400 rounded-2xl shadow-sm whitespace-nowrap cursor-not-allowed border-0">
                     Get Clips Now
                   </button>
-                </SignInButton>
+                </AuthButtonWrapper>
               </div>
 
               {/* Drag and Drop Area */}
@@ -167,8 +200,8 @@ export default function SsembleCloneLanding() {
                   <p className="text-xs text-gray-500 mb-2">
                     Drag & drop or <span className="text-[#00C0D4] font-semibold">browse files</span>
                   </p>
-                  <span className="text-[10px] font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded-full uppercase tracking-wider">
-                    Max: 1GB • 30 Mins
+                  <span className="text-[10px] font-bold text-[#00C0D4] bg-[#00C0D4]/10 border border-[#00C0D4]/20 px-2 py-1 rounded-full uppercase tracking-wider mt-2">
+                    Bonus: Limit Increased to 3GB • 1 Hour
                   </span>
                 </div>
               </div>
@@ -257,11 +290,11 @@ export default function SsembleCloneLanding() {
             </div>
 
             <div className="text-center mt-16">
-              <SignInButton mode="modal" forceRedirectUrl="/dashboard">
+              <AuthButtonWrapper forceRedirectUrl="/dashboard">
                 <button className="px-8 py-4 text-lg font-semibold text-white bg-gradient-to-r from-[#0F2347] to-[#00C0D4] hover:from-[#0C1C3A] hover:to-[#00A6B8] border-0 rounded-2xl shadow-lg hover:scale-105 transition-transform cursor-pointer">
                   Get Started
                 </button>
-              </SignInButton>
+              </AuthButtonWrapper>
             </div>
           </div>
         </div>
@@ -318,11 +351,11 @@ export default function SsembleCloneLanding() {
                   </li>
                 ))}
               </ul>
-              <SignInButton mode="modal">
+              <AuthButtonWrapper>
                 <button className="w-full py-4 rounded-xl border-2 border-gray-200 text-[#0F2347] font-bold hover:bg-gray-50 transition-colors cursor-pointer bg-transparent">
                   Upgrade to Pro
                 </button>
-              </SignInButton>
+              </AuthButtonWrapper>
             </div>
 
             {/* Expert Plan */}
@@ -356,11 +389,11 @@ export default function SsembleCloneLanding() {
                   </li>
                 ))}
               </ul>
-              <SignInButton mode="modal">
+              <AuthButtonWrapper>
                 <button className="w-full py-4 rounded-xl bg-gradient-to-r from-[#0F2347] to-[#00C0D4] text-white font-bold text-lg hover:scale-[1.02] transition-transform shadow-md cursor-pointer border-0">
                   Upgrade to Expert
                 </button>
-              </SignInButton>
+              </AuthButtonWrapper>
             </div>
 
             {/* Business Plan */}
@@ -394,11 +427,11 @@ export default function SsembleCloneLanding() {
                   </li>
                 ))}
               </ul>
-              <SignInButton mode="modal">
+              <AuthButtonWrapper>
                 <button className="w-full py-4 rounded-xl bg-[#0F2347] text-white font-bold hover:bg-[#0C1C3A] transition-colors shadow-md cursor-pointer border-0">
                   Upgrade to Business
                 </button>
-              </SignInButton>
+              </AuthButtonWrapper>
             </div>
 
           </div>
@@ -427,11 +460,11 @@ export default function SsembleCloneLanding() {
             <p className="text-cyan-100 text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed font-medium">
               Join 200,000+ creators already using twenty2short to grow their audience faster.
             </p>
-            <SignInButton mode="modal" forceRedirectUrl="/dashboard">
+            <AuthButtonWrapper forceRedirectUrl="/dashboard">
               <button className="px-10 py-5 text-lg font-bold text-[#0F2347] bg-white rounded-full shadow-lg hover:scale-105 hover:bg-gray-50 transition-all cursor-pointer border-0">
                 Start editing free
               </button>
-            </SignInButton>
+            </AuthButtonWrapper>
           </div>
         </section>
       </main>

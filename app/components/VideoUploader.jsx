@@ -87,6 +87,14 @@ export default function VideoUploader() {
     );
   }
 
+  if (!isLoaded) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-lime-500"></div>
+      </div>
+    );
+  }
+
   if (!isSignedIn) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-neutral-950 p-6">

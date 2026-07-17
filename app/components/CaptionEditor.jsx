@@ -6,6 +6,11 @@ import { Player } from "@remotion/player";
 import { parseMedia } from "@remotion/media-parser";
 import { VideoComposition } from "./VideoComposition";
 import { parseSubtitleString } from "../utils/parseSubtitles";
+import { Loader2 } from "lucide-react";
+import { useAuth } from "@clerk/nextjs";
+import { motion } from "framer-motion";
+import { useAlert } from "@/contexts/AlertContext";
+import { useRenderContext } from "@/contexts/RenderContext";
 
 // ── Indigo palette ─────────────────────────────────────────────────────────────
 const INDIGO = "#6366f1";
@@ -143,12 +148,7 @@ export const PLATFORMS = [
   },
 ];
 
-export const SPLIT_TEMPLATES = [
-  { id: "none", name: "No Split Screen", url: null, emoji: "📱" },
-  { id: "minecraft", name: "Minecraft Parkour", url: "https://fmp-641079926683-us-east-1-an.s3.us-east-1.amazonaws.com/templates/minecraft.mp4", emoji: "🧱" },
-  { id: "gta", name: "GTA V Gameplay", url: "https://fmp-641079926683-us-east-1-an.s3.us-east-1.amazonaws.com/templates/gta.mp4", emoji: "🚗" },
-  { id: "slime", name: "ASMR Slime", url: "https://fmp-641079926683-us-east-1-an.s3.us-east-1.amazonaws.com/templates/slime.mp4", emoji: "🧪" }
-];
+export const DEFAULT_SPLIT = { id: "none", name: "No Split Screen", url: null, emoji: "📱" };
 
 
 const DEFAULT_SUBTITLES = `[00:00:00] Was being in prison kind of fun? Um, fun?
@@ -478,13 +478,26 @@ const LiveTranscript = ({ playerRef, captions, fps, hookDurationFrames, onEditCa
 };
 
 // ── Editor ────────────────────────────────────────────────────────────────────
-export default function CaptionEditor({ videoId, initialJob, initialHookText }) {
+export default function CaptionEditor({ videoId, initialJob, initialHookText, initialDurationSecs, clipIndex = 0 }) {
+  const { showAlert } = useAlert();
+  const { addRenderTask } = useRenderContext();
   const [subtitleInput, setSubtitleInput] = useState("");
   const [isSubtitlesLoading, setIsSubtitlesLoading] = useState(false);
   const [fontSize, setFontSize] = useState(56);
   const [activeTheme, setActiveTheme] = useState("classic");
   const [animationOverride, setAnimationOverride] = useState("theme");
   const [verticalPosition, setVerticalPosition] = useState(80);
+  const [bgMusicSrc, setBgMusicSrc] = useState("");
+  const [bgMusicVolume, setBgMusicVolume] = useState(20);
+  const [isUploadingBgMusic, setIsUploadingBgMusic] = useState(false);
+  const [splitTemplate, setSplitTemplate] = useState(DEFAULT_SPLIT);
+  const [isUploadingSplit, setIsUploadingSplit] = useState(false);
+  const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
+  const [splitList, setSplitList] = useState([]);
+  const [splitPosition, setSplitPosition] = useState("bottom");
+  const [splitScale, setSplitScale] = useState(1);
+  const [splitX, setSplitX] = useState(0);
+  const [splitY, setSplitY] = useState(0);
   
   // ── Preferences persistence state ─────────────────────────────────────────
   const [isSavingPrefs, setIsSavingPrefs] = useState(false);
@@ -493,7 +506,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
 
   // Construct the S3 URL dynamically based on the videoId parameter if provided.
   const initialVideoUrl = videoId 
-    ? `/api/video/output/${videoId}`
+    ? `/api/video/output/${videoId}?index=${clipIndex}`
     : "";
     
   const [videoSrc, setVideoSrc] = useState(initialVideoUrl);
@@ -501,11 +514,8 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
   const [isPreloading, setIsPreloading] = useState(false);
   const [words, setWords] = useState([]);
   const [brolls, setBrolls] = useState([]);
-  const [bgMusicSrc, setBgMusicSrc] = useState("");
-  const [bgMusicVolume, setBgMusicVolume] = useState(20);
-  const [isUploadingBgMusic, setIsUploadingBgMusic] = useState(false);
   
-  const [hookEnabled, setHookEnabled] = useState(initialHookText ? true : false);
+  const [hookEnabled, setHookEnabled] = useState(!!initialHookText);
   const [hookText, setHookText] = useState(initialHookText || "WAIT FOR IT...");
   const [hookDurationSecs, setHookDurationSecs] = useState(3);
   const [hookFontSize, setHookFontSize] = useState(72);
@@ -545,6 +555,25 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
         if (p.hook_vertical_position != null) setHookVerticalPosition(p.hook_vertical_position);
       })
       .catch(err => console.warn("Could not load preferences:", err));
+
+    // ── Fetch Memes & Splits on mount ─────────────────────────────────────────
+    fetch('/api/memes')
+      .then(res => res.json())
+      .then(data => {
+        if (data.memes) {
+          setMemeList(data.memes);
+        }
+      })
+      .catch(err => console.error("Failed to fetch memes", err));
+
+    fetch('/api/splits')
+      .then(res => res.json())
+      .then(data => {
+        if (data.templates) {
+          setSplitList(data.templates);
+        }
+      })
+      .catch(err => console.error("Failed to fetch split templates", err));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -670,7 +699,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
   const fps = videoMeta?.fps ?? 30; // Fallback to 30 while loading
   const baseDurationFrames = (videoMeta && videoMeta.durationInSeconds && fps)
     ? Math.ceil(videoMeta.durationInSeconds * fps)
-    : (Math.ceil((durationMs / 1000) * fps) || 450);
+    : (Math.ceil((initialDurationSecs || (durationMs / 1000)) * fps) || 450);
     
   const hookDurationFrames = (hookEnabled && hookMemeSrc) ? Math.ceil(hookDurationSecs * fps) : 0;
   const durationInFrames = baseDurationFrames + hookDurationFrames;
@@ -834,12 +863,52 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
     input.click();
   };
 
+  const handleUploadSplit = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "video/mp4,video/webm";
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      const localUrl = URL.createObjectURL(file);
+      setSplitTemplate({ id: "uploading", name: "Uploading...", url: localUrl, emoji: "⏳" });
+      setIsUploadingSplit(true);
+
+      try {
+        const response = await fetch('/api/upload/split', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename: file.name, contentType: file.type })
+        });
+        if (!response.ok) throw new Error('Failed to get upload URL');
+        const { uploadUrl, publicUrl } = await response.json();
+        
+        await fetch(uploadUrl, {
+          method: 'PUT',
+          body: file,
+          headers: { 'Content-Type': file.type }
+        });
+        
+        const newTemplate = { id: `custom-${Date.now()}`, name: "Custom Video", url: publicUrl, emoji: "🎥" };
+        setSplitTemplate(newTemplate);
+        setSplitList(prev => [...prev, newTemplate]);
+      } catch (err) {
+        console.error("Split upload failed", err);
+        alert("Upload failed: " + err.message);
+        setSplitTemplate(DEFAULT_SPLIT);
+      } finally {
+        setIsUploadingSplit(false);
+      }
+    };
+    input.click();
+  };
+
   const inputProps = useMemo(() => {
     const themeObj = { ...CAPTION_THEMES[activeTheme] };
     if (animationOverride !== "theme") {
       themeObj.animation = animationOverride;
     }
-    const splitTemplate = SPLIT_TEMPLATES.find(t => t.id === splitTemplateId) || null;
     return {
       videoUrl: preloadedVideoSrc || videoSrc,
       fontSize,
@@ -853,6 +922,10 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
       bgMusicSrc,
       bgMusicVolume,
       splitTemplate: splitTemplate?.url ? splitTemplate : null,
+      splitPosition,
+      splitScale,
+      splitX,
+      splitY,
       hook: hookEnabled ? {
         text: hookText,
         durationSecs: hookDurationSecs,
@@ -862,7 +935,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
         memeSrc: hookMemeSrc
       } : null
     };
-  }, [videoSrc, preloadedVideoSrc, fontSize, verticalPosition, captions, words, activeTheme, animationOverride, brolls, bgMusicSrc, bgMusicVolume, hookEnabled, hookText, hookDurationSecs, hookFontSize, hookFontColor, hookVerticalPosition, hookMemeSrc, splitTemplateId]);
+  }, [videoSrc, preloadedVideoSrc, fontSize, verticalPosition, captions, words, activeTheme, animationOverride, brolls, bgMusicSrc, bgMusicVolume, hookEnabled, hookText, hookDurationSecs, hookFontSize, hookFontColor, hookVerticalPosition, hookMemeSrc, splitTemplate, splitPosition, splitScale, splitX, splitY]);
 
   // ── Open platform picker ──────────────────────────────────────────────────────
   const openPostModal = () => {
@@ -884,34 +957,17 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
   const handleConfirmPost = async () => {
     if (selectedPlatforms.length === 0) return;
     setShowPlatformModal(false);
-    setPostError(null);
-
-    // ── Stage 1: Uploading simulation (0 → 60%) ───────────────────────────────
-    setPostStage('uploading');
-    setPostProgress(0);
-    await new Promise(resolve => {
-      let p = 0;
-      const t = setInterval(() => {
-        p += Math.random() * 8 + 4;
-        if (p >= 60) { p = 60; clearInterval(t); resolve(); }
-        setPostProgress(Math.round(p));
-      }, 180);
-    });
-
-    // ── Stage 2: Processing simulation (60 → 90%) ─────────────────────────────
-    setPostStage('processing');
-    await new Promise(resolve => {
-      let p = 60;
-      const t = setInterval(() => {
-        p += Math.random() * 4 + 2;
-        if (p >= 90) { p = 90; clearInterval(t); resolve(); }
-        setPostProgress(Math.round(p));
-      }, 220);
-    });
-
-    // ── Stage 3: Fire real API (90 → 100%) ───────────────────────────────────
-    setPostProgress(95);
+    
     try {
+      setPostStage("processing");
+      setPostProgress(10);
+      setPostError(null);
+      
+      // Fake progress for UX
+      const t = setInterval(() => { setPostProgress((p) => (p < 85 ? p + 5 : p)); }, 800);
+
+      const targetPlatforms = selectedPlatforms.map((p) => p.name);
+
       const response = await fetch("/api/export/post", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -920,21 +976,37 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
           videoId,
           durationInFrames,
           fps,
-          targetPlatforms: selectedPlatforms.map(p => p.name),
+          targetPlatforms,
           scheduledFor: scheduleDate || null,
           jobId: initialJob?.id || null,
+          downloadOnly: false,
         }),
       });
+
+      clearInterval(t);
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Failed to start post job");
+      
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to start export and post process");
+      }
+      
+      if (data.renderId && data.bucketName) {
+        addRenderTask(data.renderId, data.bucketName, { filename: `clip-${videoId}-${clipIndex}.mp4`, isPostJob: true });
+      }
 
-      // ── Stage 4: Done ──────────────────────────────────────────────────────
       setPostProgress(100);
-      setPostStage('done');
+      setPostStage("done");
+      
+      setTimeout(() => {
+        setPostStage(null);
+        if (scheduleDate) {
+          showAlert("Scheduled Successfully", "Your video is currently rendering. Once finished, it will automatically be scheduled on YouTube. This process happens in the background so you can safely leave this page.", "success");
+          router.push("/dashboard/calendar");
+        } else {
+          showAlert("Upload Started", "Your video is currently rendering. Once finished, it will automatically be uploaded to YouTube. YouTube processing may take a few minutes before the video is live on your channel. You can safely leave this page.", "success");
+        }
+      }, 2000);
 
-      // Brief pause to show the ✓ before redirect
-      await new Promise(r => setTimeout(r, 900));
-      router.push("/dashboard/calendar");
     } catch (err) {
       console.error("[handleConfirmPost]", err);
       setPostStage(null);
@@ -1030,27 +1102,120 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
           {/* Split Screen Template */}
           <div>
             <SectionLabel>Split Screen Template</SectionLabel>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {SPLIT_TEMPLATES.map((tmpl) => (
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              <button 
+                onClick={handleUploadSplit} 
+                disabled={isUploadingSplit}
+                style={{
+                  flex: 1, padding: "8px", borderRadius: 8,
+                  background: "rgba(99,102,241,0.1)", color: "#a5b4fc",
+                  border: `1px solid ${INDIGO_BORDER}`,
+                  fontSize: 11, fontWeight: 600, cursor: isUploadingSplit ? "default" : "pointer",
+                  display: "flex", justifyContent: "center", alignItems: "center", gap: 6,
+                  transition: "all 0.2s ease"
+                }}
+              >
+                {isUploadingSplit ? "Uploading..." : "+ Upload Video"}
+              </button>
+              <button 
+                onClick={() => setIsSplitModalOpen(true)}
+                style={{
+                  padding: "8px 16px", borderRadius: 8,
+                  background: "#ffffff", color: "#4b5563",
+                  border: `1px solid #d1d5db`,
+                  fontSize: 11, fontWeight: 600, cursor: "pointer",
+                  display: "flex", justifyContent: "center", alignItems: "center", gap: 6,
+                  transition: "all 0.2s ease"
+                }}
+              >
+                Library
+              </button>
+            </div>
+            {splitTemplate && splitTemplate.id !== "none" && (
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", background: "rgba(99,102,241,0.05)", borderRadius: 8, border: `1px solid ${INDIGO_BORDER}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 16 }}>{splitTemplate.emoji}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: "#0F2347" }}>{splitTemplate.name}</span>
+                </div>
+                <button onClick={() => setSplitTemplate(DEFAULT_SPLIT)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 14 }}>×</button>
+              </div>
+            )}
+            
+            {splitTemplate && splitTemplate.id !== "none" && (
+              <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
                 <button
-                  key={tmpl.id}
-                  onClick={() => setSplitTemplateId(tmpl.id)}
+                  onClick={() => setSplitPosition("top")}
                   style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "10px 12px", borderRadius: 8,
-                    background: splitTemplateId === tmpl.id ? "rgba(99,102,241,0.15)" : "#e5e7eb",
-                    border: `1px solid ${splitTemplateId === tmpl.id ? INDIGO : "#d1d5db"}`,
-                    color: splitTemplateId === tmpl.id ? "#0F2347" : "#4b5563",
-                    cursor: "pointer", transition: "all 0.2s ease", textAlign: "left"
+                    flex: 1, padding: "6px", borderRadius: 6,
+                    background: splitPosition === "top" ? "rgba(99,102,241,0.15)" : "#f9fafb",
+                    border: `1px solid ${splitPosition === "top" ? INDIGO : "#e5e7eb"}`,
+                    color: splitPosition === "top" ? INDIGO : "#4b5563",
+                    fontSize: 11, fontWeight: 600, cursor: "pointer",
                   }}
                 >
-                  <span style={{ fontSize: 16 }}>{tmpl.emoji}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600 }}>{tmpl.name}</span>
+                  Top
                 </button>
-              ))}
-            </div>
+                <button
+                  onClick={() => setSplitPosition("bottom")}
+                  style={{
+                    flex: 1, padding: "6px", borderRadius: 6,
+                    background: splitPosition === "bottom" ? "rgba(99,102,241,0.15)" : "#f9fafb",
+                    border: `1px solid ${splitPosition === "bottom" ? INDIGO : "#e5e7eb"}`,
+                    color: splitPosition === "bottom" ? INDIGO : "#4b5563",
+                    fontSize: 11, fontWeight: 600, cursor: "pointer",
+                  }}
+                >
+                  Bottom
+                </button>
+              </div>
+            )}
+            
+            {splitTemplate && splitTemplate.id !== "none" && (
+              <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "#4b5563" }}>Zoom ({Math.round(splitScale * 100)}%)</span>
+                    <button onClick={() => setSplitScale(1)} style={{ background: "none", border: "none", color: INDIGO, fontSize: 10, cursor: "pointer", padding: 0 }}>Reset</button>
+                  </div>
+                  <IndigoSlider 
+                    label=""
+                    value={splitScale * 100} 
+                    min={10} max={300} unit="%"
+                    onChange={(val) => setSplitScale(val / 100)}
+                    leftLabel="10%" rightLabel="300%"
+                  />
+                </div>
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "#4b5563" }}>X Offset ({Math.round(splitX)}%)</span>
+                    <button onClick={() => setSplitX(0)} style={{ background: "none", border: "none", color: INDIGO, fontSize: 10, cursor: "pointer", padding: 0 }}>Reset</button>
+                  </div>
+                  <IndigoSlider 
+                    label=""
+                    value={splitX + 100} 
+                    min={0} max={200} unit="%"
+                    onChange={(val) => setSplitX(val - 100)}
+                    leftLabel="-100%" rightLabel="100%"
+                  />
+                </div>
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: "#4b5563" }}>Y Offset ({Math.round(splitY)}%)</span>
+                    <button onClick={() => setSplitY(0)} style={{ background: "none", border: "none", color: INDIGO, fontSize: 10, cursor: "pointer", padding: 0 }}>Reset</button>
+                  </div>
+                  <IndigoSlider 
+                    label=""
+                    value={splitY + 100} 
+                    min={0} max={200} unit="%"
+                    onChange={(val) => setSplitY(val - 100)}
+                    leftLabel="-100%" rightLabel="100%"
+                  />
+                </div>
+              </div>
+            )}
+
             <p style={{ fontSize: 10, color: "#6b7280", margin: "8px 0 0 0", lineHeight: 1.4 }}>
-              Select a background video to play underneath your clip to boost audience retention.
+              Select a background video to play underneath your clip to boost audience retention. You can drag the video in the preview player to reposition it.
             </p>
           </div>
 
@@ -1240,7 +1405,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
 
           {/* Video Info */}
           <div style={{
-            background: "#111827", border: `1px solid #d1d5db`,
+            background: "#f9fafb", border: `1px solid #e5e7eb`,
             borderRadius: 8, padding: "12px",
           }}>
             <SectionLabel>Inspector</SectionLabel>
@@ -1378,7 +1543,51 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
             style={{ width: "100%", height: "100%" }}
             controls
             acknowledgeRemotionLicense
+            renderLoading={() => (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", background: "rgba(15,35,71,0.5)" }}>
+                <Loader2 className="animate-spin" size={32} color="#00C0D4" />
+                <span style={{ color: "#fff", marginTop: 12, fontSize: 14, fontWeight: 600, letterSpacing: "0.05em" }}>Buffering video stream...</span>
+              </div>
+            )}
+            errorFallback={(error) => (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: "20px", textAlign: "center", background: "#ffffff", color: "#f87171" }}>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 12 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Playback Error</span>
+                <span style={{ fontSize: 11, color: "#6b7280" }}>{error.message}</span>
+              </div>
+            )}
           />
+
+          {/* Interactive Split Screen Overlay */}
+          {splitTemplate && splitTemplate.id !== "none" && (
+            <div style={{
+              position: "absolute",
+              top: splitPosition === "top" ? 0 : "50%",
+              left: 0,
+              width: "100%",
+              height: splitPosition === "bottom" ? "calc(50% - 60px)" : "50%",
+              zIndex: 10,
+              overflow: "hidden"
+            }}>
+              <motion.div
+                onPan={(event, info) => {
+                  const target = event.target;
+                  const rect = target.getBoundingClientRect();
+                  const dx = (info.delta.x / rect.width) * 100;
+                  const dy = (info.delta.y / rect.height) * 100;
+                  setSplitX(prev => prev + dx);
+                  setSplitY(prev => prev + dy);
+                }}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  cursor: "grab",
+                  touchAction: "none"
+                }}
+                whileTap={{ cursor: "grabbing" }}
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -1473,6 +1682,48 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText }) 
           </div>
         </div>
       )}
+      
+      {/* Split Selection Modal */}
+      {isSplitModalOpen && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000,
+          background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center"
+        }}>
+          <div style={{
+            background: "#ffffff", width: 500, borderRadius: 12, padding: 24, border: `1px solid ${INDIGO_BORDER}`
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+              <h3 style={{ margin: 0, fontSize: 18, color: "#0F2347" }}>Select Split Screen Video</h3>
+              <button onClick={() => setIsSplitModalOpen(false)} style={{ background: "transparent", border: "none", color: "#4b5563", cursor: "pointer", fontSize: 20 }}>✕</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, maxHeight: "60vh", overflowY: "auto" }}>
+              {splitList.length === 0 && <div style={{ color: "#4b5563", fontSize: 13, gridColumn: "span 2", textAlign: "center", padding: 20 }}>No split screen videos found</div>}
+              {splitList.map(split => (
+                <button
+                  key={split.id}
+                  onClick={() => {
+                    setSplitTemplate(split);
+                    setIsSplitModalOpen(false);
+                  }}
+                  style={{
+                    padding: 16, background: "#e5e7eb", borderRadius: 8, border: "1px solid #d1d5db",
+                    color: "#0F2347", cursor: "pointer", display: "flex", flexDirection: "column", gap: 8, alignItems: "center",
+                    transition: "all 0.2s"
+                  }}
+                  onMouseOver={e => e.currentTarget.style.borderColor = INDIGO}
+                  onMouseOut={e => e.currentTarget.style.borderColor = "#d1d5db"}
+                >
+                  <div style={{ width: 40, height: 40, borderRadius: 20, background: INDIGO_SOFT, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+                    {split.emoji || "📱"}
+                  </div>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>{split.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ────────────────────────────────────────────────────────────────────────
           PLATFORM PICKER MODAL
       ──────────────────────────────────────────────────────────────────────── */}

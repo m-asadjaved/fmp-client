@@ -17,6 +17,10 @@ export const VideoComposition = ({
   activeWordColor = "#a3e635",
   verticalPosition = 85, // percentage from top (85 is near bottom)
   splitTemplate = null,
+  splitPosition = "bottom",
+  splitScale = 1,
+  splitX = 0,
+  splitY = 0,
 }) => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
@@ -137,6 +141,7 @@ export const VideoComposition = ({
       {/* Hook Meme Video */}
       {hook && hook.memeSrc && frame < hookDurationFrames && (
         <Video 
+          pauseWhenBuffering
           src={hook.memeSrc} 
           style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
         />
@@ -145,25 +150,35 @@ export const VideoComposition = ({
       {/* Main Video & Audio (Shifted) */}
       <Sequence from={hookDurationFrames}>
         {bgMusicSrc && (
-          <Audio src={bgMusicSrc} volume={bgMusicVolume / 100} />
+          <Audio src={bgMusicSrc} volume={bgMusicVolume / 100} pauseWhenBuffering />
         )}
 
         {splitTemplate ? (
           <>
             <Video 
+              pauseWhenBuffering
               src={videoUrl} 
-              style={{ width: '100%', height: '50%', objectFit: 'cover', position: 'absolute', top: 0 }} 
+              style={{ width: '100%', height: '50%', objectFit: 'cover', position: 'absolute', top: splitPosition === "bottom" ? 0 : "50%" }} 
             />
-            <Video 
-              src={splitTemplate.url} 
-              style={{ width: '100%', height: '50%', objectFit: 'cover', position: 'absolute', bottom: 0 }} 
-              muted
-              loop
-            />
+            <div style={{ width: '100%', height: '50%', position: 'absolute', top: splitPosition === "top" ? 0 : "50%", overflow: 'hidden', background: '#000' }}>
+              <Video 
+                pauseWhenBuffering
+                src={splitTemplate.url} 
+                style={{ 
+                  width: '100%', 
+                  height: '100%', 
+                  objectFit: 'contain', 
+                  transform: `scale(${splitScale}) translate(${splitX}%, ${splitY}%)` 
+                }} 
+                muted
+                loop
+              />
+            </div>
           </>
         ) : (
           videoUrl && (
             <Video 
+              pauseWhenBuffering
               src={videoUrl} 
               style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
             />
@@ -180,6 +195,7 @@ export const VideoComposition = ({
           <Sequence key={`broll-${idx}`} from={fromFrame} durationInFrames={durationInFrames}>
             <AbsoluteFill>
               <Video 
+                pauseWhenBuffering
                 src={broll.url} 
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
                 muted

@@ -192,25 +192,32 @@ export async function POST(request, context) {
 			);
 		}
 
-		// ── 5. Deduct Credits ──────────────────────────────────────────────────
-		const newBalance = userCredits.balance - creditsCost;
-
-		const { error: updateError } = await supabase
-			.from("user_credits")
-			.update({ balance: newBalance })
-			.eq("user_id", userId);
-
-		if (updateError) {
-			throw new Error("Failed to deduct credits");
+		// ── 5. Deduct Credits (Skip if retrying with existing AI response) ────
+		let shouldDeductCredits = true;
+		if (!regenerate && videoData?.ai_analysis && videoData.ai_analysis !== "") {
+			shouldDeductCredits = false;
 		}
 
-		await supabase.from("credit_transactions").insert({
-			user_id: userId,
-			amount: -creditsCost,
-			description: `Processed AI clips for video (${Math.round(durationSeconds)}s)`
-		});
+		if (shouldDeductCredits) {
+			const newBalance = userCredits.balance - creditsCost;
 
-		await supabase.from("videos").update({ credits_used: creditsCost }).eq("video_id", videoId);
+			const { error: updateError } = await supabase
+				.from("user_credits")
+				.update({ balance: newBalance })
+				.eq("user_id", userId);
+
+			if (updateError) {
+				throw new Error("Failed to deduct credits");
+			}
+
+			await supabase.from("credit_transactions").insert({
+				user_id: userId,
+				amount: -creditsCost,
+				description: `Processed AI clips for video (${Math.round(durationSeconds)}s)`
+			});
+
+			await supabase.from("videos").update({ credits_used: creditsCost }).eq("video_id", videoId);
+		}
 
 		// ── 6. Upsert the video_processing_req row (INSERT or UPDATE) ─────────
 		let videoReqData, upsertError;

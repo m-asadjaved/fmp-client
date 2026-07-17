@@ -21,6 +21,7 @@ export default async function EditorPage({ params, searchParams }) {
 
   let initialJob = null;
   let initialHookText = null;
+  let initialDurationSecs = null;
 
   const supabase = createClient(
     process.env.SUPABASE_URL || "",
@@ -52,8 +53,13 @@ export default async function EditorPage({ params, searchParams }) {
     if (reqData && reqData.ai_analysis) {
       const parsedAi = typeof reqData.ai_analysis === 'string' ? JSON.parse(reqData.ai_analysis) : reqData.ai_analysis;
       const shorts = parsedAi?.recommended_shorts || [];
-      if (shorts[clipIndex] && shorts[clipIndex].title_or_hook) {
-        initialHookText = shorts[clipIndex].title_or_hook;
+      if (shorts[clipIndex]) {
+        if (shorts[clipIndex].title_or_hook) {
+          initialHookText = shorts[clipIndex].title_or_hook;
+        }
+        if (shorts[clipIndex].duration_seconds) {
+          initialDurationSecs = shorts[clipIndex].duration_seconds;
+        }
       }
     }
   }
@@ -65,7 +71,7 @@ export default async function EditorPage({ params, searchParams }) {
 
   return (
     <main className="min-h-screen bg-background">
-      <CaptionEditor videoId={videoId} initialJob={initialJob} initialHookText={initialHookText} />
+      <CaptionEditor videoId={videoId} initialJob={initialJob} initialHookText={initialHookText} initialDurationSecs={initialDurationSecs} clipIndex={clipIndex} />
     </main>
   );
 }

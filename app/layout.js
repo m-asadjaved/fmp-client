@@ -40,7 +40,7 @@ export default function RootLayout({ children }) {
           shadow="0 0 10px #00C0D4,0 0 5px #00C0D4"
           zIndex={1600000}
         />
-        <ClerkProvider>
+        <ClerkProvider dynamic>
           <UploadProvider>
             <AlertProvider>
               <RenderProvider>
