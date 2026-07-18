@@ -38,6 +38,11 @@ export async function POST(req) {
       targetPlatforms,
       scheduledFor,
       downloadOnly,
+      splitTemplate,
+      splitPosition,
+      splitScale,
+      splitX,
+      splitY,
     } = body;
 
     const region = process.env.REMOTION_AWS_REGION || "us-east-1";
@@ -115,6 +120,11 @@ export async function POST(req) {
         bgMusicVolume,
         hook,
         theme,
+        splitTemplate,
+        splitPosition,
+        splitScale,
+        splitX,
+        splitY,
       },
       codec: "h264",
       framesPerLambda: 300,

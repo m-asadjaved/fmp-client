@@ -1,4 +1,5 @@
-import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { NextResponse } from "next/server";
 
 const s3Client = new S3Client({
@@ -12,7 +13,6 @@ const s3Client = new S3Client({
 export async function GET() {
   try {
     const bucketName = process.env.AWS_BUCKET_NAME;
-    const region = process.env.AWS_REGION;
     
     // We want to list all objects with the prefix 'hooks/memes/'
     const command = new ListObjectsV2Command({
@@ -26,8 +26,7 @@ export async function GET() {
       return NextResponse.json({ memes: [] });
     }
 
-    // Filter out the directory itself if it is returned, and format the results
-    const memes = response.Contents
+    const memesRaw = response.Contents
       .filter((item) => item.Key !== "hooks/memes/" && !item.Key.endsWith("/"))
       .map((item, index) => {
         // Extract a clean name from the filename
@@ -38,9 +37,24 @@ export async function GET() {
         return {
           id: `meme-${index}`,
           name: formattedName || "Meme Video",
-          url: `https://${bucketName}.s3.${region}.amazonaws.com/${item.Key}`,
+          key: item.Key
         };
       });
+
+    // Generate presigned URLs for all memes
+    const memes = await Promise.all(memesRaw.map(async (meme) => {
+      try {
+        const getCmd = new GetObjectCommand({
+          Bucket: bucketName,
+          Key: meme.key
+        });
+        const url = await getSignedUrl(s3Client, getCmd, { expiresIn: 604800 }); // 7 days
+        return { ...meme, url };
+      } catch (e) {
+        console.error("Error generating presigned url for", meme.key, e);
+        return { ...meme, url: null };
+      }
+    }));
 
     return NextResponse.json({ memes });
   } catch (error) {

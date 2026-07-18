@@ -17,8 +17,8 @@ export function useAlert() {
 export function AlertProvider({ children }) {
   const [alert, setAlertState] = useState(null);
 
-  const showAlert = useCallback((title, message, type = "info") => {
-    setAlertState({ title, message, type });
+  const showAlert = useCallback((title, message, type = "info", options = {}) => {
+    setAlertState({ title, message, type, ...options });
   }, []);
 
   const closeAlert = useCallback(() => {
@@ -73,19 +73,46 @@ export function AlertProvider({ children }) {
               </div>
               
               <div className="bg-gray-50 px-6 py-4 flex justify-end">
-                <button
-                  onClick={closeAlert}
-                  className={`
-                    px-5 py-2 text-sm font-semibold text-white rounded-lg transition-colors shadow-sm cursor-pointer border-none
-                    ${alert.type === "success" ? "bg-green-600 hover:bg-green-700" : ""}
-                    ${alert.type === "error" ? "bg-red-600 hover:bg-red-700" : ""}
-                    ${alert.type === "warning" ? "bg-amber-600 hover:bg-amber-700" : ""}
-                    ${alert.type === "info" ? "bg-blue-600 hover:bg-blue-700" : ""}
-                    ${!["success", "error", "warning", "info"].includes(alert.type) ? "bg-[#0F2347] hover:bg-[#1a3668]" : ""}
-                  `}
-                >
-                  Got it
-                </button>
+                {alert.onConfirm ? (
+                  <>
+                    <button
+                      onClick={closeAlert}
+                      className="px-5 py-2 text-sm font-semibold text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors border-none cursor-pointer mr-3"
+                    >
+                      {alert.cancelText || "Cancel"}
+                    </button>
+                    <button
+                      onClick={() => {
+                        alert.onConfirm();
+                        closeAlert();
+                      }}
+                      className={`
+                        px-5 py-2 text-sm font-semibold text-white rounded-lg transition-colors shadow-sm cursor-pointer border-none
+                        ${alert.type === "success" ? "bg-green-600 hover:bg-green-700" : ""}
+                        ${alert.type === "error" ? "bg-red-600 hover:bg-red-700" : ""}
+                        ${alert.type === "warning" ? "bg-amber-600 hover:bg-amber-700" : ""}
+                        ${alert.type === "info" ? "bg-blue-600 hover:bg-blue-700" : ""}
+                        ${!["success", "error", "warning", "info"].includes(alert.type) ? "bg-[#0F2347] hover:bg-[#1a3668]" : ""}
+                      `}
+                    >
+                      {alert.confirmText || "Confirm"}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={closeAlert}
+                    className={`
+                      px-5 py-2 text-sm font-semibold text-white rounded-lg transition-colors shadow-sm cursor-pointer border-none
+                      ${alert.type === "success" ? "bg-green-600 hover:bg-green-700" : ""}
+                      ${alert.type === "error" ? "bg-red-600 hover:bg-red-700" : ""}
+                      ${alert.type === "warning" ? "bg-amber-600 hover:bg-amber-700" : ""}
+                      ${alert.type === "info" ? "bg-blue-600 hover:bg-blue-700" : ""}
+                      ${!["success", "error", "warning", "info"].includes(alert.type) ? "bg-[#0F2347] hover:bg-[#1a3668]" : ""}
+                    `}
+                  >
+                    Got it
+                  </button>
+                )}
               </div>
             </motion.div>
           </div>

@@ -11,6 +11,7 @@ import { useAuth } from "@clerk/nextjs";
 import { motion } from "framer-motion";
 import { useAlert } from "@/contexts/AlertContext";
 import { useRenderContext } from "@/contexts/RenderContext";
+import SplitScreenModal from "./SplitScreenModal";
 
 // ── Indigo palette ─────────────────────────────────────────────────────────────
 const INDIGO = "#6366f1";
@@ -113,7 +114,7 @@ export const PLATFORMS = [
     border: "rgba(239,68,68,0.25)",
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
-        <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+        <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
       </svg>
     ),
     description: "Share to your YouTube channel",
@@ -127,7 +128,7 @@ export const PLATFORMS = [
     border: "rgba(168,85,247,0.25)",
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
-        <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.77 1.52V6.73a4.85 4.85 0 01-1-.04z"/>
+        <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.77 1.52V6.73a4.85 4.85 0 01-1-.04z" />
       </svg>
     ),
     description: "Post as a TikTok short",
@@ -141,7 +142,7 @@ export const PLATFORMS = [
     border: "rgba(225,29,116,0.25)",
     icon: (
       <svg viewBox="0 0 24 24" fill="currentColor" width="22" height="22">
-        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
+        <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z" />
       </svg>
     ),
     description: "Publish as an Instagram Reel",
@@ -151,10 +152,7 @@ export const PLATFORMS = [
 export const DEFAULT_SPLIT = { id: "none", name: "No Split Screen", url: null, emoji: "📱" };
 
 
-const DEFAULT_SUBTITLES = `[00:00:00] Was being in prison kind of fun? Um, fun?
-[00:00:07] No, I wouldn't say fun. Like, what was kind of cool about it,
-[00:00:12] I've always wanted to go to jail. You know, there's this old saying
-[00:00:17] that you don't go to jail to make friends. And I made some lifelong friends.`;
+const DEFAULT_SUBTITLES = ``;
 
 // ── Tiny primitives ───────────────────────────────────────────────────────────
 const SectionLabel = ({ children }) => (
@@ -213,9 +211,46 @@ const FieldInput = ({ value, onChange, placeholder, mono }) => (
 );
 
 // ── Subtitle textarea with header bar ────────────────────────────────────────
-const SubtitleEditor = ({ value, onChange, lineCount, onReset, videoId, onWordsChange }) => {
+const SubtitleEditor = ({ value, onChange, lineCount, onReset, videoId, clipIndex, words, onWordsChange }) => {
   const isDefault = value === DEFAULT_SUBTITLES;
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+
+  const handleTranslateToRoman = async () => {
+    if (!words || words.length === 0) {
+      alert("No subtitles found to translate. Please transcribe first.");
+      return;
+    }
+    try {
+      setIsTranslating(true);
+      const response = await fetch(`/api/video/subtitles/v2/${videoId}/${clipIndex || 0}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "translateToRomanHindi", words })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to translate subtitles");
+      }
+
+      const data = await response.json();
+      if (data.subtitles) {
+        onChange(data.subtitles);
+      }
+      if (data.words && onWordsChange) {
+        onWordsChange(data.words);
+      }
+    } catch (error) {
+      console.error("Translation Error:", error);
+      alert("Error translating subtitles. Please try again.");
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
+  
+
 
   const handleGenerateSubtitles = async () => {
     try {
@@ -226,7 +261,7 @@ const SubtitleEditor = ({ value, onChange, lineCount, onReset, videoId, onWordsC
         return;
       }
 
-      const response = await fetch(`/api/video/subtitles/v2/${videoId}`);
+      const response = await fetch(`/api/video/subtitles/v2/${videoId}/${clipIndex || 0}`);
       if (!response.ok) throw new Error("Failed to generate subtitles");
 
       const data = await response.json();
@@ -290,6 +325,27 @@ const SubtitleEditor = ({ value, onChange, lineCount, onReset, videoId, onWordsC
           </button>
 
           <button
+            onClick={handleTranslateToRoman}
+            disabled={isTranslating || isGenerating}
+            style={{
+              background: isTranslating ? "rgba(99,102,241,0.02)" : "rgba(99,102,241,0.1)",
+              border: `1px solid ${isTranslating ? "rgba(99,102,241,0.2)" : INDIGO_BORDER}`,
+              borderRadius: 6, color: isTranslating ? "#6b7280" : INDIGO,
+              fontSize: 10, fontWeight: 600, padding: "5px 12px",
+              cursor: (isTranslating || isGenerating) ? "not-allowed" : "pointer",
+              display: "flex", alignItems: "center", gap: 5,
+              transition: "all 0.15s ease-in-out", outline: "none",
+              textTransform: "uppercase", letterSpacing: "0.03em",
+              boxShadow: isTranslating ? "none" : `0 0 8px ${INDIGO_SOFT}`,
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: isTranslating ? 0.5 : 1 }}>
+              <path d="M4 19l4-14 4 14m-7-5h6" />
+            </svg>
+            {isTranslating ? "Translating..." : "To Roman"}
+          </button>
+
+          <button
             onClick={onReset}
             disabled={isDefault}
             style={{
@@ -338,7 +394,7 @@ const IndigoSlider = ({ label, value, min, max, unit, leftLabel, rightLabel, onC
 );
 
 // ── Live Transcript Component ──────────────────────────────────────────────────
-const LiveTranscript = ({ playerRef, captions, fps, hookDurationFrames, onEditCaption, brolls, onAddBroll, onRemoveBroll }) => {
+const LiveTranscript = ({ playerRef, captions, fps, hookDurationFrames, onEditCaption, brolls, onAddBroll, onRemoveBroll, onRegroupWords, wordsPerLine }) => {
   const [currentFrame, setCurrentFrame] = useState(0);
   const [showAll, setShowAll] = useState(false);
 
@@ -387,18 +443,46 @@ const LiveTranscript = ({ playerRef, captions, fps, hookDurationFrames, onEditCa
             Live Captions
           </span>
         </div>
-        <button 
-          onClick={() => setShowAll(!showAll)}
-          style={{
-            fontSize: 10, padding: "4px 8px", borderRadius: 4, 
-            background: showAll ? "rgba(239, 68, 68, 0.1)" : "rgba(99,102,241,0.1)", 
-            color: showAll ? "#f87171" : "#00C0D4", 
-            border: `1px solid ${showAll ? "rgba(239,68,68,0.3)" : INDIGO_BORDER}`, cursor: "pointer",
-            transition: "all 0.2s"
-          }}
-        >
-          {showAll ? "View Timeline" : "See All Captions"}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          {/* Words per line selector */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 9, color: "#6b7280", fontWeight: 700, textTransform: "uppercase" }}>Words:</span>
+            <div style={{ display: "flex", gap: 2 }}>
+              {[1, 2, 3, 4, 5, 6].map(num => {
+                const isSelected = wordsPerLine === num;
+                return (
+                <button
+                  key={num}
+                  onClick={() => onRegroupWords(num)}
+                  style={{
+                    width: 20, height: 20, borderRadius: 4, border: "1px solid #e5e7eb",
+                    background: isSelected ? INDIGO : "#ffffff", color: isSelected ? "#ffffff" : "#4b5563", fontSize: 10, fontWeight: 600,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: "pointer", transition: "all 0.1s"
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = INDIGO}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = "#e5e7eb"}
+                >
+                  {num}
+                </button>
+              );
+              })}
+            </div>
+          </div>
+
+          <button
+            onClick={() => setShowAll(!showAll)}
+            style={{
+              fontSize: 10, padding: "4px 8px", borderRadius: 4,
+              background: showAll ? "rgba(239, 68, 68, 0.1)" : "rgba(99,102,241,0.1)",
+              color: showAll ? "#f87171" : "#00C0D4",
+              border: `1px solid ${showAll ? "rgba(239,68,68,0.3)" : INDIGO_BORDER}`, cursor: "pointer",
+              transition: "all 0.2s"
+            }}
+          >
+            {showAll ? "View Timeline" : "See All Captions"}
+          </button>
+        </div>
       </div>
 
       {showAll ? (
@@ -420,57 +504,64 @@ const LiveTranscript = ({ playerRef, captions, fps, hookDurationFrames, onEditCa
             return (
               <div key={i} id={`caption-${i}`}
                 onClick={() => handleSeek(caption.startMs + 10)}
-              style={{
-                padding: "12px 14px", borderRadius: 10,
-                border: `1px solid ${isActive ? INDIGO_BORDER : "#e5e7eb"}`,
-                background: isActive ? "rgba(99,102,241,0.06)" : "#ffffff",
-                transition: "all 0.2s ease",
-                cursor: "pointer",
-                display: "flex", flexDirection: "column", gap: 6,
-              }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={{ fontSize: 10, color: isActive ? INDIGO_DIM : "#4b5563", fontFamily: "monospace" }}>
-                  {new Date(caption.startMs).toISOString().substring(11, 23)} - {new Date(caption.endMs).toISOString().substring(11, 23)}
-                </div>
-                {currentBroll ? (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onRemoveBroll(i); }}
-                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: "rgba(239, 68, 68, 0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.3)", cursor: "pointer" }}
-                  >
-                    Remove B-Roll
-                  </button>
-                ) : (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onAddBroll(i, caption.startMs, caption.endMs); }}
-                    style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: "rgba(99,102,241,0.1)", color: INDIGO, border: `1px solid ${INDIGO_BORDER}`, cursor: "pointer" }}
-                  >
-                    + Upload B-Roll
-                  </button>
-                )}
-              </div>
-              <textarea
-                value={caption.text.trimEnd()}
-                onChange={(e) => onEditCaption(i, e.target.value)}
-                onClick={(e) => e.stopPropagation()}
                 style={{
-                  width: "100%", background: "transparent", border: "none", color: isActive ? INDIGO : "#6b7280",
-                  fontSize: 13, lineHeight: 1.5, outline: "none", resize: "none", padding: 0,
-                  height: "auto", minHeight: 40, fontFamily: "'Inter', sans-serif"
-                }}
-              />
-              {currentBroll && (
-                 <div style={{ fontSize: 10, color: "#6b7280", wordBreak: "break-all", background: "#f9fafb", padding: "4px 8px", borderRadius: 4, display: "flex", justifyContent: "space-between" }}>
-                   <span>B-Roll {currentBroll.isUploading ? "(Uploading...)" : "(Ready)"}</span>
-                 </div>
-              )}
+                  padding: "12px 14px", borderRadius: 10,
+                  border: `1px solid ${isActive ? INDIGO_BORDER : "#e5e7eb"}`,
+                  background: isActive ? "rgba(99,102,241,0.06)" : "#ffffff",
+                  transition: "all 0.2s ease",
+                  cursor: "pointer",
+                  display: "flex", flexDirection: "column", gap: 6,
+                }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div style={{ fontSize: 10, color: isActive ? INDIGO_DIM : "#4b5563", fontFamily: "monospace" }}>
+                    {new Date(caption.startMs).toISOString().substring(11, 23)} - {new Date(caption.endMs).toISOString().substring(11, 23)}
+                  </div>
+                  {currentBroll ? (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onRemoveBroll(i); }}
+                      style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: "rgba(239, 68, 68, 0.1)", color: "#f87171", border: "1px solid rgba(239,68,68,0.3)", cursor: "pointer" }}
+                    >
+                      Remove B-Roll
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onAddBroll(i, caption.startMs, caption.endMs); }}
+                      style={{ fontSize: 10, padding: "2px 8px", borderRadius: 6, background: "rgba(99,102,241,0.1)", color: INDIGO, border: `1px solid ${INDIGO_BORDER}`, cursor: "pointer" }}
+                    >
+                      + Upload B-Roll
+                    </button>
+                  )}
+                </div>
+                <div style={{ marginTop: 6 }}>
+                  {isActive ? (
+                    <input
+                      type="text"
+                      value={caption.text}
+                      onChange={(e) => onEditCaption(i, e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        width: "100%", padding: "4px 8px", borderRadius: 4,
+                        border: `1px solid ${INDIGO}`, outline: "none",
+                        fontSize: 13, fontFamily: "'Inter', sans-serif"
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      fontSize: 13, color: "#111827",
+                      fontWeight: 500, lineHeight: 1.5,
+                    }}>
+                      {caption.text}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          {captions.length === 0 && (
+            <div style={{ textAlign: "center", color: "#6b7280", fontSize: 12, marginTop: 40 }}>
+              No subtitles found. Generate some using AI!
             </div>
-          );
-        })}
-        {captions.length === 0 && (
-          <div style={{ textAlign: "center", color: "#6b7280", fontSize: 12, marginTop: 40 }}>
-            No subtitles found. Generate some using AI!
-          </div>
-        )}
+          )}
         </div>
       )}
     </div>
@@ -482,6 +573,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
   const { showAlert } = useAlert();
   const { addRenderTask } = useRenderContext();
   const [subtitleInput, setSubtitleInput] = useState("");
+  const [wordsPerLine, setWordsPerLine] = useState(1);
   const [isSubtitlesLoading, setIsSubtitlesLoading] = useState(false);
   const [fontSize, setFontSize] = useState(56);
   const [activeTheme, setActiveTheme] = useState("classic");
@@ -498,23 +590,25 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
   const [splitScale, setSplitScale] = useState(1);
   const [splitX, setSplitX] = useState(0);
   const [splitY, setSplitY] = useState(0);
-  
+  const [isLoaded, setIsLoaded] = useState(false);
+
   // ── Preferences persistence state ─────────────────────────────────────────
   const [isSavingPrefs, setIsSavingPrefs] = useState(false);
+  const [isSavingClipPrefs, setIsSavingClipPrefs] = useState(false);
   const [prefsSavedAt, setPrefsSavedAt] = useState(null);
   const [prefsError, setPrefsError] = useState(null);
 
   // Construct the S3 URL dynamically based on the videoId parameter if provided.
-  const initialVideoUrl = videoId 
+  const initialVideoUrl = videoId
     ? `/api/video/output/${videoId}?index=${clipIndex}`
     : "";
-    
+
   const [videoSrc, setVideoSrc] = useState(initialVideoUrl);
   const [preloadedVideoSrc, setPreloadedVideoSrc] = useState(null);
   const [isPreloading, setIsPreloading] = useState(false);
   const [words, setWords] = useState([]);
   const [brolls, setBrolls] = useState([]);
-  
+
   const [hookEnabled, setHookEnabled] = useState(!!initialHookText);
   const [hookText, setHookText] = useState(initialHookText || "WAIT FOR IT...");
   const [hookDurationSecs, setHookDurationSecs] = useState(3);
@@ -538,23 +632,31 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
 
   // ── Load preferences on mount ───────────────────────────────────────────────
   useEffect(() => {
-    fetch('/api/preferences')
-      .then(res => res.json())
-      .then(({ preferences: p }) => {
-        if (!p) return;
-        if (p.active_theme)          setActiveTheme(p.active_theme);
-        if (p.animation_override)    setAnimationOverride(p.animation_override);
-        if (p.font_size != null)     setFontSize(p.font_size);
-        if (p.vertical_position != null) setVerticalPosition(p.vertical_position);
-        if (p.bg_music_volume != null)   setBgMusicVolume(p.bg_music_volume);
-        if (p.hook_enabled != null && !initialHookText) setHookEnabled(p.hook_enabled);
-        if (p.hook_text && !initialHookText) setHookText(p.hook_text);
-        if (p.hook_duration_secs != null) setHookDurationSecs(p.hook_duration_secs);
-        if (p.hook_font_size != null)    setHookFontSize(p.hook_font_size);
-        if (p.hook_font_color)       setHookFontColor(p.hook_font_color);
-        if (p.hook_vertical_position != null) setHookVerticalPosition(p.hook_vertical_position);
-      })
-      .catch(err => console.warn("Could not load preferences:", err));
+    Promise.all([
+      fetch('/api/preferences').then(res => res.json()).catch(() => ({})),
+      (videoId && clipIndex !== undefined)
+        ? fetch(`/api/video/preferences/v2/${videoId}/${clipIndex}`).then(res => res.json()).catch(() => ({}))
+        : Promise.resolve({})
+    ]).then(([globalRes, clipRes]) => {
+      const globalP = globalRes.preferences || {};
+      const clipP = clipRes.preferences || {};
+      
+      // Combine them: clip preferences override global preferences
+      const p = { ...globalP, ...clipP };
+      
+      if (Object.keys(p).length === 0) return;
+      if (p.activeTheme || p.active_theme) setActiveTheme(p.activeTheme || p.active_theme);
+      if (p.animationOverride || p.animation_override) setAnimationOverride(p.animationOverride || p.animation_override);
+      if (p.fontSize ?? p.font_size != null) setFontSize(p.fontSize ?? p.font_size);
+      if (p.verticalPosition ?? p.vertical_position != null) setVerticalPosition(p.verticalPosition ?? p.vertical_position);
+      if (p.bgMusicVolume ?? p.bg_music_volume != null) setBgMusicVolume(p.bgMusicVolume ?? p.bg_music_volume);
+      if ((p.hookEnabled ?? p.hook_enabled != null) && !initialHookText) setHookEnabled(p.hookEnabled ?? p.hook_enabled);
+      if ((p.hookText || p.hook_text) && !initialHookText) setHookText(p.hookText || p.hook_text);
+      if (p.hookDurationSecs ?? p.hook_duration_secs != null) setHookDurationSecs(p.hookDurationSecs ?? p.hook_duration_secs);
+      if (p.hookFontSize ?? p.hook_font_size != null) setHookFontSize(p.hookFontSize ?? p.hook_font_size);
+      if (p.hookFontColor || p.hook_font_color) setHookFontColor(p.hookFontColor || p.hook_font_color);
+      if (p.hookVerticalPosition ?? p.hook_vertical_position != null) setHookVerticalPosition(p.hookVerticalPosition ?? p.hook_vertical_position);
+    }).catch(err => console.warn("Could not load preferences:", err));
 
     // ── Fetch Memes & Splits on mount ─────────────────────────────────────────
     fetch('/api/memes')
@@ -569,15 +671,92 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
     fetch('/api/splits')
       .then(res => res.json())
       .then(data => {
-        if (data.templates) {
-          setSplitList(data.templates);
+        if (data.defaultTemplates || data.userSplits) {
+          const all = [...(data.defaultTemplates || []), ...(data.userSplits || [])];
+          setSplitList(all);
+          try {
+            const stored = localStorage.getItem("fmp_split_settings");
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              if (parsed.splitTemplateId) {
+                const found = all.find(t => t.id === parsed.splitTemplateId);
+                if (found) setSplitTemplate(found);
+              }
+            }
+          } catch (e) { }
         }
       })
       .catch(err => console.error("Failed to fetch split templates", err));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Save preferences handler ─────────────────────────────────────────────────
+  // Load basic split settings on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("fmp_split_settings");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.splitPosition) setSplitPosition(parsed.splitPosition);
+        if (parsed.splitScale !== undefined) setSplitScale(parsed.splitScale);
+        if (parsed.splitX !== undefined) setSplitX(parsed.splitX);
+        if (parsed.splitY !== undefined) setSplitY(parsed.splitY);
+      }
+    } catch (e) { }
+    setIsLoaded(true);
+  }, []);
+
+  // Save split settings when they change
+  useEffect(() => {
+    if (!isLoaded) return;
+    try {
+      localStorage.setItem("fmp_split_settings", JSON.stringify({
+        splitTemplateId: splitTemplate?.id || "none",
+        splitPosition,
+        splitScale,
+        splitX,
+        splitY
+      }));
+    } catch (e) { }
+  }, [splitTemplate, splitPosition, splitScale, splitX, splitY, isLoaded]);
+
+  // ── Save Clip preferences handler ────────────────────────────────────────────
+  const handleSaveClipPreferences = useCallback(async () => {
+    setIsSavingClipPrefs(true);
+    setPrefsError(null);
+    try {
+      const res = await fetch(`/api/video/preferences/v2/${videoId}/${clipIndex || 0}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          preferences: {
+            activeTheme,
+            animationOverride,
+            fontSize,
+            verticalPosition,
+            bgMusicVolume,
+            hookEnabled,
+            hookText,
+            hookDurationSecs,
+            hookFontSize,
+            hookFontColor,
+            hookVerticalPosition,
+          }
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to save clip settings');
+      setPrefsSavedAt(new Date());
+    } catch (err) {
+      setPrefsError(err.message);
+      showAlert("Error", "Error saving clip settings: " + err.message, "error");
+    } finally {
+      setIsSavingClipPrefs(false);
+    }
+  }, [
+    videoId, clipIndex, activeTheme, animationOverride, fontSize, verticalPosition, bgMusicVolume,
+    hookEnabled, hookText, hookDurationSecs, hookFontSize, hookFontColor, hookVerticalPosition
+  ]);
+
+  // ── Save Global preferences handler ──────────────────────────────────────────
   const handleSavePreferences = useCallback(async () => {
     setIsSavingPrefs(true);
     setPrefsError(null);
@@ -656,7 +835,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
   useEffect(() => {
     if (videoId) {
       setIsSubtitlesLoading(true);
-      fetch(`/api/video/subtitles/v2/${videoId}`)
+      fetch(`/api/video/subtitles/v2/${videoId}/${clipIndex}`)
         .then(res => res.json())
         .then(data => {
           if (data.subtitles) {
@@ -680,7 +859,41 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
     }
   }, [videoId]);
 
-  const handleEditCaption = (index, newText) => {
+  
+  
+  const handleRegroupWords = (maxWords, currentWords = words) => {
+    setWordsPerLine(maxWords);
+    if (!currentWords || currentWords.length === 0) {
+      alert("No words data available. Please transcribe first.");
+      return;
+    }
+    let newSubtitle = "";
+    for (let i = 0; i < currentWords.length; i += maxWords) {
+      const chunk = currentWords.slice(i, i + maxWords);
+      const startWord = chunk[0];
+      const text = chunk.map(w => (w.text || w.word || "")).join(" ");
+      
+      const startTime = startWord.start !== undefined ? startWord.start : (startWord.startMs / 1000 || 0);
+      const totalMs = Math.floor(startTime * 1000);
+      const ms = totalMs % 1000;
+      const s = Math.floor(totalMs / 1000) % 60;
+      const m = Math.floor(totalMs / 60000) % 60;
+      const h = Math.floor(totalMs / 3600000);
+      
+      const timeStr = `[${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(ms).padStart(3, '0')}]`;
+      newSubtitle += `${timeStr} ${text}\n`;
+    }
+    setSubtitleInput(newSubtitle);
+  };
+
+  // Auto-apply wordsPerLine when words array changes (e.g. after translation)
+  useEffect(() => {
+    if (words && words.length > 0 && wordsPerLine > 1) {
+      handleRegroupWords(wordsPerLine, words);
+    }
+  }, [words]);
+
+const handleEditCaption = (index, newText) => {
     const updatedCaptions = [...captions];
     updatedCaptions[index].text = newText;
 
@@ -700,7 +913,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
   const baseDurationFrames = (videoMeta && videoMeta.durationInSeconds && fps)
     ? Math.ceil(videoMeta.durationInSeconds * fps)
     : (Math.ceil((initialDurationSecs || (durationMs / 1000)) * fps) || 450);
-    
+
   const hookDurationFrames = (hookEnabled && hookMemeSrc) ? Math.ceil(hookDurationSecs * fps) : 0;
   const durationInFrames = baseDurationFrames + hookDurationFrames;
 
@@ -735,7 +948,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      
+
       const localUrl = URL.createObjectURL(file);
       setBrolls(prev => {
         const filtered = prev.filter(b => b.captionIndex !== index);
@@ -751,13 +964,13 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
         });
         if (!response.ok) throw new Error('Failed to get upload URL');
         const { uploadUrl, publicUrl } = await response.json();
-        
+
         await fetch(uploadUrl, {
           method: 'PUT',
           body: file,
           headers: { 'Content-Type': file.type }
         });
-        
+
         setBrolls(prev => prev.map(b => b.captionIndex === index ? { ...b, url: publicUrl, isUploading: false } : b));
       } catch (err) {
         console.error("B-Roll upload failed", err);
@@ -778,7 +991,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
       const res = await fetch(videoSrc);
       const blob = await res.blob();
       setPreloadedVideoSrc(URL.createObjectURL(blob));
-    } catch(e) {
+    } catch (e) {
       console.error(e);
       alert("Failed to preload video.");
     }
@@ -792,7 +1005,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      
+
       const localUrl = URL.createObjectURL(file);
       setBgMusicSrc(localUrl);
       setIsUploadingBgMusic(true);
@@ -806,13 +1019,13 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
         });
         if (!response.ok) throw new Error('Failed to get upload URL');
         const { uploadUrl, publicUrl } = await response.json();
-        
+
         await fetch(uploadUrl, {
           method: 'PUT',
           body: file,
           headers: { 'Content-Type': file.type }
         });
-        
+
         setBgMusicSrc(publicUrl);
       } catch (err) {
         console.error("BG Music upload failed", err);
@@ -831,7 +1044,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      
+
       const localUrl = URL.createObjectURL(file);
       setHookMemeSrc(localUrl);
       setIsUploadingMeme(true);
@@ -845,13 +1058,13 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
         });
         if (!response.ok) throw new Error('Failed to get upload URL');
         const { uploadUrl, publicUrl } = await response.json();
-        
+
         await fetch(uploadUrl, {
           method: 'PUT',
           body: file,
           headers: { 'Content-Type': file.type }
         });
-        
+
         setHookMemeSrc(publicUrl);
       } catch (err) {
         console.error("Meme/Hook upload failed", err);
@@ -870,7 +1083,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
     input.onchange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      
+
       const localUrl = URL.createObjectURL(file);
       setSplitTemplate({ id: "uploading", name: "Uploading...", url: localUrl, emoji: "⏳" });
       setIsUploadingSplit(true);
@@ -883,13 +1096,13 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
         });
         if (!response.ok) throw new Error('Failed to get upload URL');
         const { uploadUrl, publicUrl } = await response.json();
-        
+
         await fetch(uploadUrl, {
           method: 'PUT',
           body: file,
           headers: { 'Content-Type': file.type }
         });
-        
+
         const newTemplate = { id: `custom-${Date.now()}`, name: "Custom Video", url: publicUrl, emoji: "🎥" };
         setSplitTemplate(newTemplate);
         setSplitList(prev => [...prev, newTemplate]);
@@ -954,15 +1167,68 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
   };
 
   // ── Confirm: run simulation then fire API ─────────────────────────────────────
-  const handleConfirmPost = async () => {
-    if (selectedPlatforms.length === 0) return;
-    setShowPlatformModal(false);
-    
+  
+  // ── Download: start render and add task ─────────────────────────────────────
+  const handleDownloadVideo = async () => {
     try {
       setPostStage("processing");
       setPostProgress(10);
       setPostError(null);
+
+      const t = setInterval(() => { setPostProgress((p) => (p < 85 ? p + 5 : p)); }, 800);
+
+      const response = await fetch("/api/export/post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...inputProps,
+          videoId,
+          durationInFrames,
+          fps,
+          targetPlatforms: [],
+          scheduledFor: null,
+          jobId: null,
+          downloadOnly: true,
+        }),
+      });
+
+      clearInterval(t);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to start export process");
+      }
+
+      if (data.renderId && data.bucketName) {
+        addRenderTask(data.renderId, data.bucketName, { filename: `clip-${videoId}-${clipIndex}.mp4`, isPostJob: false });
+      }
+
+      setPostStage("done");
+      setPostProgress(100);
       
+      setTimeout(() => {
+        setPostStage(null);
+        setPostProgress(0);
+        showAlert("Render Started", "Your video is rendering. You can track the progress and download it from the top right Render Tasks menu once it finishes.", "success");
+      }, 2000);
+
+    } catch (err) {
+      console.error("[handleDownloadVideo]", err);
+      setPostStage(null);
+      setPostProgress(0);
+      setPostError(err.message);
+    }
+  };
+
+  const handleConfirmPost = async () => {
+    if (selectedPlatforms.length === 0) return;
+    setShowPlatformModal(false);
+
+    try {
+      setPostStage("processing");
+      setPostProgress(10);
+      setPostError(null);
+
       // Fake progress for UX
       const t = setInterval(() => { setPostProgress((p) => (p < 85 ? p + 5 : p)); }, 800);
 
@@ -985,18 +1251,18 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
 
       clearInterval(t);
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || "Failed to start export and post process");
       }
-      
+
       if (data.renderId && data.bucketName) {
         addRenderTask(data.renderId, data.bucketName, { filename: `clip-${videoId}-${clipIndex}.mp4`, isPostJob: true });
       }
 
       setPostProgress(100);
       setPostStage("done");
-      
+
       setTimeout(() => {
         setPostStage(null);
         if (scheduleDate) {
@@ -1061,8 +1327,8 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
           <div>
             <SectionLabel>Background Music</SectionLabel>
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-              <button 
-                onClick={handleUploadBgMusic} 
+              <button
+                onClick={handleUploadBgMusic}
                 disabled={isUploadingBgMusic}
                 style={{
                   flex: 1, padding: "8px", borderRadius: 8,
@@ -1076,8 +1342,8 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
                 {isUploadingBgMusic ? "Uploading..." : "+ Upload Audio"}
               </button>
               {bgMusicSrc && (
-                <button 
-                  onClick={() => setBgMusicSrc("")} 
+                <button
+                  onClick={() => setBgMusicSrc("")}
                   style={{
                     padding: "8px 12px", borderRadius: 8,
                     background: "rgba(239, 68, 68, 0.1)", color: "#f87171",
@@ -1103,24 +1369,10 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
           <div>
             <SectionLabel>Split Screen Template</SectionLabel>
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-              <button 
-                onClick={handleUploadSplit} 
-                disabled={isUploadingSplit}
-                style={{
-                  flex: 1, padding: "8px", borderRadius: 8,
-                  background: "rgba(99,102,241,0.1)", color: "#a5b4fc",
-                  border: `1px solid ${INDIGO_BORDER}`,
-                  fontSize: 11, fontWeight: 600, cursor: isUploadingSplit ? "default" : "pointer",
-                  display: "flex", justifyContent: "center", alignItems: "center", gap: 6,
-                  transition: "all 0.2s ease"
-                }}
-              >
-                {isUploadingSplit ? "Uploading..." : "+ Upload Video"}
-              </button>
-              <button 
+              <button
                 onClick={() => setIsSplitModalOpen(true)}
                 style={{
-                  padding: "8px 16px", borderRadius: 8,
+                  flex: 1, padding: "8px 16px", borderRadius: 8,
                   background: "#ffffff", color: "#4b5563",
                   border: `1px solid #d1d5db`,
                   fontSize: 11, fontWeight: 600, cursor: "pointer",
@@ -1128,7 +1380,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
                   transition: "all 0.2s ease"
                 }}
               >
-                Library
+                {splitTemplate && splitTemplate.id !== "none" ? `${splitTemplate.emoji || '📱'} ${splitTemplate.name}` : "Choose Split Screen"}
               </button>
             </div>
             {splitTemplate && splitTemplate.id !== "none" && (
@@ -1140,7 +1392,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
                 <button onClick={() => setSplitTemplate(DEFAULT_SPLIT)} style={{ background: "none", border: "none", color: "#ef4444", cursor: "pointer", fontSize: 14 }}>×</button>
               </div>
             )}
-            
+
             {splitTemplate && splitTemplate.id !== "none" && (
               <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
                 <button
@@ -1169,7 +1421,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
                 </button>
               </div>
             )}
-            
+
             {splitTemplate && splitTemplate.id !== "none" && (
               <div style={{ marginTop: 12, display: "flex", flexDirection: "column", gap: 12 }}>
                 <div>
@@ -1177,9 +1429,9 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
                     <span style={{ fontSize: 11, fontWeight: 600, color: "#4b5563" }}>Zoom ({Math.round(splitScale * 100)}%)</span>
                     <button onClick={() => setSplitScale(1)} style={{ background: "none", border: "none", color: INDIGO, fontSize: 10, cursor: "pointer", padding: 0 }}>Reset</button>
                   </div>
-                  <IndigoSlider 
+                  <IndigoSlider
                     label=""
-                    value={splitScale * 100} 
+                    value={splitScale * 100}
                     min={10} max={300} unit="%"
                     onChange={(val) => setSplitScale(val / 100)}
                     leftLabel="10%" rightLabel="300%"
@@ -1190,9 +1442,9 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
                     <span style={{ fontSize: 11, fontWeight: 600, color: "#4b5563" }}>X Offset ({Math.round(splitX)}%)</span>
                     <button onClick={() => setSplitX(0)} style={{ background: "none", border: "none", color: INDIGO, fontSize: 10, cursor: "pointer", padding: 0 }}>Reset</button>
                   </div>
-                  <IndigoSlider 
+                  <IndigoSlider
                     label=""
-                    value={splitX + 100} 
+                    value={splitX + 100}
                     min={0} max={200} unit="%"
                     onChange={(val) => setSplitX(val - 100)}
                     leftLabel="-100%" rightLabel="100%"
@@ -1203,9 +1455,9 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
                     <span style={{ fontSize: 11, fontWeight: 600, color: "#4b5563" }}>Y Offset ({Math.round(splitY)}%)</span>
                     <button onClick={() => setSplitY(0)} style={{ background: "none", border: "none", color: INDIGO, fontSize: 10, cursor: "pointer", padding: 0 }}>Reset</button>
                   </div>
-                  <IndigoSlider 
+                  <IndigoSlider
                     label=""
-                    value={splitY + 100} 
+                    value={splitY + 100}
                     min={0} max={200} unit="%"
                     onChange={(val) => setSplitY(val - 100)}
                     leftLabel="-100%" rightLabel="100%"
@@ -1225,12 +1477,12 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
           <div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <SectionLabel>Video Hook</SectionLabel>
-              <button 
+              <button
                 onClick={() => setHookEnabled(!hookEnabled)}
                 style={{
-                  fontSize: 10, padding: "4px 8px", borderRadius: 4, 
-                  background: hookEnabled ? "rgba(34, 197, 94, 0.1)" : "rgba(161, 161, 170, 0.1)", 
-                  color: hookEnabled ? "#4ade80" : "#4b5563", 
+                  fontSize: 10, padding: "4px 8px", borderRadius: 4,
+                  background: hookEnabled ? "rgba(34, 197, 94, 0.1)" : "rgba(161, 161, 170, 0.1)",
+                  color: hookEnabled ? "#4ade80" : "#4b5563",
                   border: `1px solid ${hookEnabled ? "rgba(34, 197, 94, 0.3)" : "#d1d5db"}`, cursor: "pointer",
                 }}
               >
@@ -1242,8 +1494,8 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
                 <div>
                   <span style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, display: "block", marginBottom: 6 }}>Meme Video (Plays before main video)</span>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button 
-                      onClick={handleUploadMeme} 
+                    <button
+                      onClick={handleUploadMeme}
                       disabled={isUploadingMeme}
                       style={{
                         flex: 1, padding: "8px", borderRadius: 8,
@@ -1256,7 +1508,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
                     >
                       {isUploadingMeme ? "Uploading..." : "+ Upload Meme (3s)"}
                     </button>
-                    <button 
+                    <button
                       onClick={() => setIsMemeModalOpen(true)}
                       style={{
                         padding: "8px 12px", borderRadius: 8,
@@ -1268,8 +1520,8 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
                       Library
                     </button>
                     {hookMemeSrc && (
-                      <button 
-                        onClick={() => setHookMemeSrc("")} 
+                      <button
+                        onClick={() => setHookMemeSrc("")}
                         style={{
                           padding: "8px 12px", borderRadius: 8,
                           background: "rgba(239, 68, 68, 0.1)", color: "#f87171",
@@ -1284,22 +1536,22 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
                 </div>
 
                 <FieldInput value={hookText} onChange={setHookText} placeholder="WAIT FOR IT..." />
-                
+
                 <IndigoSlider
                   label="Meme Duration" value={hookDurationSecs} min={1} max={10} unit="s"
                   leftLabel="1s" rightLabel="10s" onChange={setHookDurationSecs}
                 />
-                
+
                 <IndigoSlider
                   label="Position" value={hookVerticalPosition} min={0} max={100} unit="%"
                   leftLabel="Top" rightLabel="Bottom" onChange={setHookVerticalPosition}
                 />
-                
+
                 <IndigoSlider
                   label="Font Size" value={hookFontSize} min={32} max={120} unit="px"
                   leftLabel="32px" rightLabel="120px" onChange={setHookFontSize}
                 />
-                
+
                 <div>
                   <span style={{ fontSize: 10, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700, display: "block", marginBottom: 6 }}>Color</span>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1416,50 +1668,109 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
             <InfoRow label="Subtitles" value={`${lineCount} lines`} />
           </div>
 
-          {/* ── Save Preferences Button ── */}
-          <div>
+
+          {/* ── Save Buttons ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 12 }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              {/* Save Clip Settings */}
+              <button
+                onClick={handleSaveClipPreferences}
+                disabled={isSavingClipPrefs}
+                title="Save these settings for this clip only"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  flex: 1, padding: "10px 10px", borderRadius: 8, border: `1px solid ${INDIGO_BORDER}`,
+                  background: isSavingClipPrefs ? "rgba(99,102,241,0.05)" : "rgba(99,102,241,0.12)",
+                  color: isSavingClipPrefs ? INDIGO_DIM : "#a5b4fc",
+                  fontSize: 11, fontWeight: 700, fontFamily: "'Inter', sans-serif",
+                  cursor: isSavingClipPrefs ? "not-allowed" : "pointer", transition: "all 0.2s ease",
+                }}
+              >
+                {isSavingClipPrefs ? "Saving..." : (
+                  <>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                      <polyline points="17 21 17 13 7 13 7 21" />
+                      <polyline points="7 3 7 8 15 8" />
+                    </svg>
+                    Save (Clip)
+                  </>
+                )}
+              </button>
+
+              {/* Set as Global Default */}
+              <button
+                onClick={() => {
+                  showAlert(
+                    "Save Defaults?", 
+                    "This will overwrite the default settings for ALL clips. Are you sure you want to save this as a global preference?", 
+                    "warning", 
+                    { onConfirm: handleSavePreferences, confirmText: "Save Defaults" }
+                  );
+                }}
+                disabled={isSavingPrefs}
+                title="Set these settings as the default for all future clips"
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  flex: 1, padding: "10px 10px", borderRadius: 8, border: `1px solid rgba(245, 158, 11, 0.3)`,
+                  background: isSavingPrefs ? "rgba(245, 158, 11, 0.05)" : "rgba(245, 158, 11, 0.1)",
+                  color: isSavingPrefs ? "#fcd34d" : "#fbbf24",
+                  fontSize: 11, fontWeight: 700, fontFamily: "'Inter', sans-serif",
+                  cursor: isSavingPrefs ? "not-allowed" : "pointer", transition: "all 0.2s ease",
+                }}
+              >
+                {isSavingPrefs ? "Saving..." : (
+                  <>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <path d="M12 8v4" />
+                      <path d="M12 16h.01" />
+                    </svg>
+                    Save Defaults
+                  </>
+                )}
+              </button>
+            </div>
+            
+            <p style={{ fontSize: 10, color: "#6b7280", textAlign: "center", marginTop: 2 }}>
+              <b>Tip:</b> "Save Defaults" applies these settings to all videos.
+            </p>
+
+            {prefsError && (
+              <div style={{
+                padding: "8px 12px", background: "#fef2f2", border: "1px solid #fecaca",
+                color: "#ef4444", borderRadius: 8, fontSize: 11, marginTop: 4
+              }}>
+                {prefsError}
+              </div>
+            )}
+          </div>
+
+
+
+          {/* ── Download Button ── */}
+          <div style={{ marginBottom: 12 }}>
             <button
-              onClick={handleSavePreferences}
-              disabled={isSavingPrefs}
+              onClick={handleDownloadVideo}
+              disabled={!!postStage}
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-                width: "100%", padding: "10px 16px", borderRadius: 10, border: `1px solid ${INDIGO_BORDER}`,
-                background: isSavingPrefs ? "rgba(99,102,241,0.05)" : "rgba(99,102,241,0.12)",
-                color: isSavingPrefs ? INDIGO_DIM : "#a5b4fc",
-                fontSize: 12.5, fontWeight: 700, fontFamily: "'Inter', sans-serif",
-                cursor: isSavingPrefs ? "not-allowed" : "pointer", transition: "all 0.2s ease",
+                width: "100%", padding: "13px 16px", borderRadius: 10, border: "1px solid #e5e7eb",
+                background: postStage ? "#f3f4f6" : "#ffffff",
+                color: postStage ? "#9ca3af" : "#374151", fontSize: 13.5, fontWeight: 700,
+                fontFamily: "'Inter', sans-serif",
+                cursor: postStage ? "not-allowed" : "pointer",
+                transition: "all 0.2s ease",
                 letterSpacing: "-0.01em",
               }}
             >
-              {isSavingPrefs ? (
-                <>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"
-                    style={{ animation: "spin 1s linear infinite" }}>
-                    <path d="M21 12a9 9 0 1 1-6.219-8.56" strokeLinecap="round" />
-                  </svg>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                    <polyline points="17 21 17 13 7 13 7 21" />
-                    <polyline points="7 3 7 8 15 8" />
-                  </svg>
-                  Save Preferences
-                </>
-              )}
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              Render & Download
             </button>
-            {prefsSavedAt && !prefsError && (
-              <p style={{ fontSize: 10.5, color: "#4ade80", textAlign: "center", margin: "6px 0 0", fontWeight: 600 }}>
-                ✓ Saved {prefsSavedAt.toLocaleTimeString()}
-              </p>
-            )}
-            {prefsError && (
-              <p style={{ fontSize: 10.5, color: "#f87171", textAlign: "center", margin: "6px 0 0" }}>
-                ✕ {prefsError}
-              </p>
-            )}
           </div>
 
           {/* ── Post Button ── */}
@@ -1551,7 +1862,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
             )}
             errorFallback={(error) => (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: "20px", textAlign: "center", background: "#ffffff", color: "#f87171" }}>
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 12 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 12 }}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                 <span style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Playback Error</span>
                 <span style={{ fontSize: 11, color: "#6b7280" }}>{error.message}</span>
               </div>
@@ -1593,7 +1904,7 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
 
       {/* ── RIGHT SIDEBAR (Captions & Transcript) ─────────────────────── */}
       <div style={{
-        width: 400, display: "flex", flexDirection: "column",
+        width: 480, display: "flex", flexDirection: "column",
         borderLeft: `1px solid #e5e7eb`, background: "#ffffff", zIndex: 10, position: "relative"
       }}>
         {isSubtitlesLoading && (
@@ -1623,20 +1934,23 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
               setBrolls([]);
             }}
             videoId={videoId}
+            clipIndex={clipIndex}
+            words={words}
             onWordsChange={setWords}
           />
         </div>
         <div style={{ height: 1, background: "#111827" }} />
         <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-          <LiveTranscript 
-            playerRef={playerRef} 
-            captions={captions} 
-            fps={fps} 
+          <LiveTranscript
+            playerRef={playerRef}
+            captions={captions}
+            fps={fps}
             hookDurationFrames={hookDurationFrames}
-            onEditCaption={handleEditCaption} 
+            onEditCaption={handleEditCaption}
             brolls={brolls}
             onAddBroll={handleAddBroll}
             onRemoveBroll={handleRemoveBroll}
+            onRegroupWords={handleRegroupWords}
           />
         </div>
       </div>
@@ -1682,47 +1996,36 @@ export default function CaptionEditor({ videoId, initialJob, initialHookText, in
           </div>
         </div>
       )}
-      
+
       {/* Split Selection Modal */}
-      {isSplitModalOpen && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000,
-          background: "rgba(0,0,0,0.8)", display: "flex", alignItems: "center", justifyContent: "center"
-        }}>
-          <div style={{
-            background: "#ffffff", width: 500, borderRadius: 12, padding: 24, border: `1px solid ${INDIGO_BORDER}`
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-              <h3 style={{ margin: 0, fontSize: 18, color: "#0F2347" }}>Select Split Screen Video</h3>
-              <button onClick={() => setIsSplitModalOpen(false)} style={{ background: "transparent", border: "none", color: "#4b5563", cursor: "pointer", fontSize: 20 }}>✕</button>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, maxHeight: "60vh", overflowY: "auto" }}>
-              {splitList.length === 0 && <div style={{ color: "#4b5563", fontSize: 13, gridColumn: "span 2", textAlign: "center", padding: 20 }}>No split screen videos found</div>}
-              {splitList.map(split => (
-                <button
-                  key={split.id}
-                  onClick={() => {
-                    setSplitTemplate(split);
-                    setIsSplitModalOpen(false);
-                  }}
-                  style={{
-                    padding: 16, background: "#e5e7eb", borderRadius: 8, border: "1px solid #d1d5db",
-                    color: "#0F2347", cursor: "pointer", display: "flex", flexDirection: "column", gap: 8, alignItems: "center",
-                    transition: "all 0.2s"
-                  }}
-                  onMouseOver={e => e.currentTarget.style.borderColor = INDIGO}
-                  onMouseOut={e => e.currentTarget.style.borderColor = "#d1d5db"}
-                >
-                  <div style={{ width: 40, height: 40, borderRadius: 20, background: INDIGO_SOFT, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
-                    {split.emoji || "📱"}
-                  </div>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{split.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      <SplitScreenModal
+        isOpen={isSplitModalOpen}
+        onClose={() => setIsSplitModalOpen(false)}
+        defaultTemplates={splitList.filter(s => s.id !== "none" && !s.id.startsWith("custom"))}
+        userSplits={splitList.filter(s => s.id.startsWith("custom"))}
+        selectedSplit={splitTemplate}
+        onSelectSplit={(split) => setSplitTemplate(split)}
+        onUploadSuccess={() => {
+          fetch('/api/splits')
+            .then(res => res.json())
+            .then(data => {
+              if (data.defaultTemplates || data.userSplits) {
+                const all = [...(data.defaultTemplates || []), ...(data.userSplits || [])];
+                setSplitList(all);
+              }
+            });
+        }}
+        onDeleteSplit={() => {
+          fetch('/api/splits')
+            .then(res => res.json())
+            .then(data => {
+              if (data.defaultTemplates || data.userSplits) {
+                const all = [...(data.defaultTemplates || []), ...(data.userSplits || [])];
+                setSplitList(all);
+              }
+            });
+        }}
+      />
 
       {/* ────────────────────────────────────────────────────────────────────────
           PLATFORM PICKER MODAL

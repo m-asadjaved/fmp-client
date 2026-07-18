@@ -186,6 +186,194 @@ Defined in `DESIGN.md` as "Lumina AI" design tokens:
 
 ## Feature Updates & Changelog
 
+# fmp-client — Project Overview
+
+## What Is This?
+
+**StreamCut** (a.k.a. ClipAI) is an AI-powered video clipping SaaS built for content creators, social media managers, and digital marketers. Users upload long-form videos, the AI analyzes them to identify the single best viral short-form clip (~45–57 seconds), processes the clip via AWS Lambda, and the user can then edit it with customizable captions before exporting via Remotion.
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | **Next.js 16** (App Router, JS) |
+| UI Styling | **Tailwind CSS v4** |
+| Auth | **Clerk** (`@clerk/nextjs`) |
+| Database | **Supabase** (PostgreSQL) |
+| File Storage | **AWS S3** |
+| Video Processing | **AWS Lambda** (custom function) |
+| AI Analysis | **Google Gemini** (`@google/genai`) |
+| Video Rendering/Export | **Remotion + Remotion Lambda** |
+| Billing | **Clerk PricingTable** |
+
+---
+
+## App Architecture
+
+```
+/app
+├── page.js              ← Public landing page (StreamCut brand)
+├── layout.js            ← Root layout (ClerkProvider, Geist font)
+├── globals.css          ← Global Tailwind styles
+│
+├── dashboard/
+│   ├── page.jsx         ← Redirects to v2
+│   └── v2/page.jsx      ← Main authenticated dashboard
+│
+├── clips/
+│   └── v2/[videoId]/page.jsx  ← AI clips review + caption editor page
+│
+├── editor/
+│   └── [id]/page.js     ← (Legacy/separate) video editor
+│
+├── purchase-success/    ← Post-Clerk checkout success page
+│
+├── components/
+│   ├── CaptionEditor.jsx     ← Full caption editing UI component
+│   ├── VideoComposition.jsx  ← Remotion composition wrapper
+│   └── VideoUploader.jsx     ← File upload component
+│
+├── contexts/
+│   ├── AlertContext.jsx      ← Global alert state
+│   └── RenderContext.jsx     ← Rendering state management
+│
+├── utils/
+│   └── parseSubtitles.js    ← Subtitle timestamp parser
+│
+└── api/                 ← All Next.js API routes
+    ├── upload/          ← GET (history) + POST (presigned S3 URL + DB record)
+    ├── video/[videoId]/ ← GET (ownership check → S3 redirect)
+    ├── video_processing/[videoId]/ ← POST (AI analysis + Lambda trigger)
+    ├── export/          ← POST (Remotion Lambda render job)
+    ├── credits/         ← Credit balance management
+    ├── memes/           ← (Unknown — likely meme overlay feature)
+    ├── thumbnail/       ← Thumbnail generation/retrieval
+    ├── webhook/clips/   ← Webhook receiver for Lambda processing status
+    └── api/video/output/ + subtitles/  ← Output/subtitle delivery routes
+│
+/server                  ← Backend Python/Node scripts & functions
+├── face_detector/       ← Face detection utilities
+├── lambda/              ← AWS Lambda handlers
+├── video_compressor/    ← Video compression logic
+└── video_engine/        ← Core video processing engine
+```
+
+---
+
+## Core User Flow
+
+```
+1. Landing Page (/)
+   └─ Sign in via Clerk → Redirected to /dashboard
+
+2. Dashboard (/dashboard/v2)
+   ├─ View uploaded videos (fetched from Supabase `videos` table)
+   ├─ See AI credits balance (from `user_credits` table)
+   ├─ Upload new video:
+   │   ├─ Client generates thumbnail (canvas frame extract)
+   │   ├─ POST /api/upload → gets presigned S3 URL
+   │   ├─ XHR PUT directly to S3 (with progress tracking)
+   │   └─ DB record inserted in Supabase `videos`
+   └─ "Make AI Clips" → navigates to /clips/v2/[videoId]
+
+3. AI Clips Page (/clips/v2/[videoId])
+   ├─ POST /api/video_processing/[videoId]:
+   │   ├─ Sends video to Gemini AI (video URL + detailed prompt)
+   │   ├─ AI returns: recommended clip (start/end time) + full subtitles
+   │   ├─ Stores result in `video_processing_req` table
+   │   └─ Triggers AWS Lambda to cut + process the clip
+   ├─ Webhook (/api/webhook/clips) receives Lambda completion callback
+   └─ User sees processed clip + can edit captions in CaptionEditor
+
+4. Caption Editor (CaptionEditor.jsx)
+   ├─ Edit subtitle text, timing, style
+   ├─ Preview via Remotion Player
+   └─ Export → POST /api/export → Remotion Lambda renders final video
+```
+
+---
+
+## Key Data Models (Supabase)
+
+| Table | Purpose |
+|---|---|
+| `videos` | Uploaded video metadata (S3 key, URL, duration, thumbnail, credits used) |
+| `video_processing_req` | AI processing state per video (`status`, `ai_analysis` JSON) |
+| `video_processing_logs` | Step-by-step processing log entries |
+| `user_credits` | Credit balance per Clerk user (`balance`, `plan`, `plan_credits`) |
+
+**Credit system**: 1 credit = 1200 seconds of video. Cost = `duration / 1200`. Deducted via Supabase RPC `deduct_credits`.
+
+---
+
+## AI Integration (Gemini)
+
+- Model: `gemini-3.1-flash-lite` (with `gemini-2.5-pro` commented out)
+- Input: Raw video URL (from S3) + detailed system prompt
+- Output (structured JSON schema):
+  - `recommended_shorts`: Exactly 1 clip with `start_time`, `end_time`, `duration_seconds` (45–57s), `title_or_hook`, `rationale`
+  - `full_subtitles`: Timestamped subtitle string (normalized to clip start = `00:00:00.000`, max 5 words/segment)
+
+---
+
+## AWS Infrastructure
+
+| Resource | Purpose |
+|---|---|
+| S3 Bucket `fmp-641079926683-us-east-1-an` | Stores raw videos (`raw_videos/`), thumbnails (`thumbnail/`), and processed outputs (`processed_videos/`) |
+| AWS Lambda (custom URL) | Video cutting/processing engine (FFmpeg-based, invoked via POST) |
+| Remotion Lambda | Cloud rendering of captioned videos |
+
+---
+
+## Remotion Setup
+
+- `remotion/Root.jsx` — Root composition file
+- `remotion/index.js` — Entry point
+- Export API calls `renderMediaOnLambda` with composition `"CaptionComposition"` and props: `videoUrl`, `captions`, `words`, `overlays`, `fontSize`, `verticalPosition`, `brolls`, `bgMusicSrc`, `hook`, `theme`
+
+---
+
+## Auth & Access Control
+
+- **Clerk** handles all auth (modal sign-in, `useAuth`, `auth()` on server)
+- All API routes verify `userId` from Clerk before accessing Supabase
+- Dashboard and clip pages show locked/auth screens if unauthenticated
+- **Billing**: Clerk `PricingTable` on landing page with checkout redirects (`/purchase-success`)
+
+---
+
+## Design System
+
+Defined in `DESIGN.md` as "Lumina AI" design tokens:
+- **Brand**: Corporate/Modern + subtle Glassmorphism
+- **Primary color**: Deep blue (`#0058bc`)
+- **Accents**: Neon purple (`#A855F7`) for AI features, Teal (`#14B8A6`) for status
+- **Font**: Inter exclusively
+- **Spacing**: 4px baseline grid, 1280px max-width container
+- Tailwind custom tokens in `tailwind.config.js` (brand-primary, brand-neon-purple, brand-vibrant-teal, brand-border-subtle, brand-surfaceBg, etc.)
+
+---
+
+## Files of Note
+
+| File | Role |
+|---|---|
+| `app/page.js` | Landing page — Hero, features, pricing, FAQ, CTA (inline styles) |
+| `app/dashboard/v2/page.jsx` | Dashboard — upload, history, credits, video cards |
+| `app/api/upload/route.js` | Core upload pipeline (presigned S3 URL, credits, Supabase) |
+| `app/api/video_processing/[videoId]/route.js` | AI + Lambda orchestration |
+| `app/api/export/route.js` | Remotion Lambda render trigger |
+| `app/components/CaptionEditor.jsx` | Caption editing UI (51KB — most complex component) |
+| `DESIGN.md` | Complete design token reference |
+| `.env.local` | All secrets (Clerk, AWS, Supabase, Gemini, Pixabay) |
+
+---
+
+## Feature Updates & Changelog
+
 *(Per the strict project rules, any new features, edits, or updates MUST be logged here to maintain an up-to-date project overview.)*
 
 - **[2026-07-15]**: Improved UX feedback for video rendering and uploading. Replaced basic native alerts in `GeneratedClipPreview.jsx` with detailed custom UI alerts (via `useAlert`), informing users that they can safely leave the page while YouTube processes the upload in the background. Updated the global `RenderContext.jsx` toast UI to explicitly display "Rendered! Uploading to YouTube..." so users understand the backend processing delay.
@@ -193,3 +381,9 @@ Defined in `DESIGN.md` as "Lumina AI" design tokens:
 - **[2026-07-15]**: Fixed a bug where YouTube uploads were not triggered after a successful Remotion render if the user stayed on the preview page or calendar. Added a trigger in `RenderContext.jsx` to call `/api/export/poll` immediately upon render completion for post jobs.
 - **[2026-07-15]**: Established strict documentation rules. The `project_overview.md` file is now the central source of truth and must be updated automatically upon feature changes. Included `contexts` and `server` folders in the documented project architecture.
 - **[2026-07-16]**: Added a compute and cost-efficient S3 polling mechanism to display real-time video compression statuses on the dashboard. Created a Next.js API route (`/api/upload/compression-status`) to batch check S3 `HeadObject` for compressed outputs, and updated the UI to show a dynamic processing spinner over newly uploaded videos until the Fargate task completes.
+- **[2026-07-18]**: Fixed a rendering bug where split screen configurations (such as gameplay layouts) were being ignored by Remotion. The `splitTemplate`, `splitPosition`, `splitScale`, `splitX`, and `splitY` properties were missing from the destructured payload in the `/api/export` and `/api/export/post` API routes, causing them to fall back to the default `null` state during lambda execution. These properties are now properly passed to `renderMediaOnLambda`.
+- **[2026-07-18]**: Fixed `MediaPlaybackError` (CORS / 403 Forbidden) when playing video templates and memes in the local browser. Refactored `/api/splits` and `/api/memes` to dynamically generate AWS S3 Presigned URLs instead of returning hardcoded S3 bucket URLs.
+- **[2026-07-18]**: Added local storage persistence (`fmp_split_settings`) for split-screen layout preferences across `CaptionEditor.jsx` and `GeneratedClipPreview.jsx` so that users do not need to re-select their templates and positioning between sessions.
+- **[2026-07-18]**: Upgraded the subtitle generation architecture to use the live ElevenLabs Scribe v2 API (`scribe_v2`) for high-accuracy batch transcription, replacing the previous hardcoded mock responses in `/api/video/subtitles/v2/[id]/route.js`. The application now fetches the processed audio from S3 and pipes it directly to ElevenLabs for frame-accurate word-level timestamps.
+- **[2026-07-18]**: Optimized ElevenLabs API usage and costs by switching from full-video STT to per-clip STT generation. The frontend now fetches STT specifically for generated clips, and the backend securely caches the ElevenLabs JSON responses in the `video_processing_req` database row (`ai_analysis.recommended_shorts[clipIndex].stt_data`) to prevent redundant transcription costs.
+- **[2026-07-18]**: Completely redesigned the Split Screen selection interface. Replaced the simple dropdown with a feature-rich `SplitScreenModal.jsx` that categorizes predefined gaming and ASMR videos. Added a "Your Uploads" tab that allows users to seamlessly upload their own custom gameplay backgrounds to S3 via presigned URLs and manage/delete them directly from the UI.

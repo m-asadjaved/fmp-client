@@ -11,11 +11,10 @@ import { CAPTION_THEMES, PLATFORMS, DEFAULT_SPLIT } from "../../../../components
 import { useRenderContext } from "@/contexts/RenderContext";
 import { useAlert } from "@/contexts/AlertContext";
 import { Loader2, Trash2 } from "lucide-react";
+import SplitScreenModal from "../../../../components/SplitScreenModal";
+
 const INDIGO = "#6366f1";
-const DEFAULT_SUBTITLES = `[00:00:00] Was being in prison kind of fun? Um, fun?
-[00:00:07] No, I wouldn't say fun. Like, what was kind of cool about it,
-[00:00:12] I've always wanted to go to jail. You know, there's this old saying
-[00:00:17] that you don't go to jail to make friends. And I made some lifelong friends.`;
+const DEFAULT_SUBTITLES = ``;
 
 const parseStartTimeToMs = (timeStr) => {
   if (!timeStr) return 0;
@@ -34,8 +33,9 @@ const parseStartTimeToMs = (timeStr) => {
 export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
   const router = useRouter();
   const { showAlert } = useAlert();
-  const [subtitleInput, setSubtitleInput] = useState("");
-  const [words, setWords] = useState([]);
+  const [clipSubtitles, setClipSubtitles] = useState({});
+  const [clipWords, setClipWords] = useState({});
+  const fetchedSttRef = React.useRef(new Set());
   const [activeTheme, setActiveTheme] = useState("classic");
   const [animationOverride, setAnimationOverride] = useState("theme");
   const [fontSize, setFontSize] = useState(56);
@@ -63,11 +63,14 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
   const [postError, setPostError] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [splitTemplate, setSplitTemplate] = useState(DEFAULT_SPLIT);
-  const [splitList, setSplitList] = useState([]);
+  const [defaultTemplates, setDefaultTemplates] = useState([]);
+  const [userSplits, setUserSplits] = useState([]);
+  const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
   const [splitPosition, setSplitPosition] = useState("bottom");
   const [splitScale, setSplitScale] = useState(1);
   const [splitX, setSplitX] = useState(0);
   const [splitY, setSplitY] = useState(0);
+  const [disabledSplits, setDisabledSplits] = useState({});
   const { addRenderTask, tasks } = useRenderContext();
 
   const handleDelete = async (clipId) => {
@@ -113,7 +116,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
   useEffect(() => {
     const load = async () => {
       try {
-        const [pr, sr] = await Promise.all([fetch("/api/preferences"), fetch(`/api/video/subtitles/v2/${videoId}`)]);
+        const pr = await fetch("/api/preferences");
         if (pr.ok) {
           const { preferences: p } = await pr.json();
           if (p) {
@@ -130,42 +133,110 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
             if (p.hook_vertical_position != null) setHookVerticalPosition(p.hook_vertical_position);
           }
         }
-        if (sr.ok) {
-          const d = await sr.json();
-          setSubtitleInput(d.subtitles || DEFAULT_SUBTITLES);
-          if (d.words) setWords(d.words);
-        } else setSubtitleInput(DEFAULT_SUBTITLES);
-      } catch { setSubtitleInput(DEFAULT_SUBTITLES); }
-      finally { setIsLoaded(true); }
+      } catch (err) {
+        console.error("Failed to load preferences", err);
+      } finally { setIsLoaded(true); }
     };
     load();
-    
+
     fetch('/api/splits')
       .then(res => res.json())
       .then(data => {
-        if (data.templates) setSplitList(data.templates);
+        if (data.defaultTemplates || data.userSplits) {
+          const defaults = data.defaultTemplates || [];
+          const users = data.userSplits || [];
+          setDefaultTemplates(defaults);
+          setUserSplits(users);
+          
+          try {
+            const stored = localStorage.getItem("fmp_split_settings");
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              if (parsed.splitTemplateId) {
+                const found = [...defaults, ...users].find(t => t.id === parsed.splitTemplateId);
+                if (found) setSplitTemplate(found);
+              }
+            }
+          } catch (e) { }
+        }
       })
       .catch(err => console.error("Failed to fetch split templates", err));
   }, [videoId]);
 
-  const captions = useMemo(() => parseSubtitleString(subtitleInput), [subtitleInput]);
+  // Fetch STT for available clips
+  useEffect(() => {
+    if (!availableClips.length) return;
+    availableClips.forEach(clip => {
+      const idx = clip.index;
+      if (fetchedSttRef.current.has(idx)) return;
+      fetchedSttRef.current.add(idx);
 
-  const buildInputProps = useMemo(() => (clipUrl, customHookText) => {
+      fetch(`/api/video/subtitles/v2/${videoId}/${idx}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data) {
+            setClipSubtitles(prev => ({ ...prev, [idx]: data.subtitles || DEFAULT_SUBTITLES }));
+            if (data.words) setClipWords(prev => ({ ...prev, [idx]: data.words }));
+          } else {
+            setClipSubtitles(prev => ({ ...prev, [idx]: DEFAULT_SUBTITLES }));
+          }
+        })
+        .catch(err => {
+          console.error("Failed to fetch STT for clip", idx, err);
+          setClipSubtitles(prev => ({ ...prev, [idx]: DEFAULT_SUBTITLES }));
+        });
+    });
+  }, [availableClips, videoId]);
+
+  // Load basic split settings on mount
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("fmp_split_settings");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.splitPosition) setSplitPosition(parsed.splitPosition);
+        if (parsed.splitScale !== undefined) setSplitScale(parsed.splitScale);
+        if (parsed.splitX !== undefined) setSplitX(parsed.splitX);
+        if (parsed.splitY !== undefined) setSplitY(parsed.splitY);
+      }
+    } catch (e) { }
+  }, []);
+
+  // Save split settings when they change
+  useEffect(() => {
+    if (!isLoaded) return;
+    try {
+      localStorage.setItem("fmp_split_settings", JSON.stringify({
+        splitTemplateId: splitTemplate?.id || "none",
+        splitPosition,
+        splitScale,
+        splitX,
+        splitY
+      }));
+    } catch (e) { }
+  }, [splitTemplate, splitPosition, splitScale, splitX, splitY, isLoaded]);
+
+  const buildInputProps = useMemo(() => (clipUrl, customHookText, clipIndex) => {
     const themeObj = { ...CAPTION_THEMES[activeTheme] };
     if (animationOverride !== "theme") themeObj.animation = animationOverride;
     const finalHookText = customHookText || hookText;
     const isHookActive = customHookText ? true : hookEnabled;
+    const subStr = clipSubtitles[clipIndex] || DEFAULT_SUBTITLES;
+    const cWords = clipWords[clipIndex] || [];
+    const caps = parseSubtitleString(subStr);
+    const isSplitDisabled = disabledSplits[clipIndex];
+
     return {
       videoUrl: clipUrl, fontSize, fontFamily: "Arial, sans-serif", verticalPosition,
-      captions, theme: themeObj, words, overlays: [], brolls, bgMusicSrc, bgMusicVolume,
-      splitTemplate: splitTemplate?.url ? splitTemplate : null,
+      captions: caps, theme: themeObj, words: cWords, overlays: [], brolls, bgMusicSrc, bgMusicVolume,
+      splitTemplate: (!isSplitDisabled && splitTemplate?.url) ? splitTemplate : null,
       splitPosition,
       splitScale,
       splitX,
       splitY,
       hook: isHookActive ? { text: finalHookText, durationSecs: hookDurationSecs, fontSize: hookFontSize, fontColor: hookFontColor, verticalPosition: hookVerticalPosition, memeSrc: hookMemeSrc } : null,
     };
-  }, [fontSize, verticalPosition, captions, words, activeTheme, animationOverride, brolls, bgMusicSrc, bgMusicVolume, hookEnabled, hookText, hookDurationSecs, hookFontSize, hookFontColor, hookVerticalPosition, hookMemeSrc, splitTemplate, splitPosition, splitScale, splitX, splitY]);
+  }, [fontSize, verticalPosition, clipSubtitles, clipWords, activeTheme, animationOverride, brolls, bgMusicSrc, bgMusicVolume, hookEnabled, hookText, hookDurationSecs, hookFontSize, hookFontColor, hookVerticalPosition, hookMemeSrc, splitTemplate, splitPosition, splitScale, splitX, splitY, disabledSplits]);
 
   const getFrames = (idx, customHookText) => {
     const fps = clipMetas[idx]?.fps ?? 30;
@@ -177,7 +248,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
   const togglePlatform = (p) => setSelectedPlatforms((prev) => prev.some((x) => x.id === p.id) ? prev.filter((x) => x.id !== p.id) : [...prev, p]);
 
   const handleOpenPost = (idx, clipUrl, clipId, customHookText, aiMeta) => {
-    const inputProps = buildInputProps(clipUrl, customHookText);
+    const inputProps = buildInputProps(clipUrl, customHookText, idx);
     const metaKey = clipId || clipUrl;
     const fps = clipMetas[metaKey]?.fps ?? 30;
     const durationInFrames = (() => {
@@ -196,12 +267,12 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
     if (!activeClipData || selectedPlatforms.length === 0) return;
     const { idx, inputProps, durationInFrames, fps, clipUrl, customHookText, aiMeta } = activeClipData;
     setShowPlatformModal(false);
-    
+
     try {
       setPostStage("processing");
       setPostProgress(10);
       setPostError(null);
-      
+
       // Fake progress for UX
       const t = setInterval(() => { setPostProgress((p) => (p < 85 ? p + 5 : p)); }, 800);
 
@@ -223,18 +294,18 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
 
       clearInterval(t);
       const data = await res.json();
-      
+
       if (!res.ok) {
         throw new Error(data.error || "Failed to start export and post process");
       }
-      
+
       if (data.renderId && data.bucketName) {
         addRenderTask(data.renderId, data.bucketName, { filename: `clip-${videoId}-${idx}.mp4`, isPostJob: true });
       }
 
       setPostProgress(100);
       setPostStage("done");
-      
+
       setTimeout(() => {
         setPostStage(null);
         if (scheduleDate) {
@@ -258,7 +329,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
 
   const handleDownload = async (idx, clipUrl, clipId, customHookText, aiMeta) => {
     setDownloadingIdx(idx);
-    const inputProps = buildInputProps(clipUrl, customHookText);
+    const inputProps = buildInputProps(clipUrl, customHookText, idx);
     const metaKey = clipId || clipUrl;
     const fps = clipMetas[metaKey]?.fps ?? 30;
     const durationInFrames = (() => {
@@ -268,10 +339,10 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
       const isHookActive = customHookText ? true : hookEnabled;
       return base + ((isHookActive && hookMemeSrc) ? Math.ceil(hookDurationSecs * fps) : 0);
     })();
-    
-    // Check if we already rendered this exact configuration
-    const configHash = JSON.stringify({ inputProps, durationInFrames, fps });
-    
+
+    // Check if we already rendered this exact configuration. Added version: 2 to invalidate bad cache.
+    const configHash = JSON.stringify({ inputProps, durationInFrames, fps, version: 2 });
+
     // 1. Check persistent localStorage (survives page reloads)
     try {
       const stored = localStorage.getItem(getCacheKey(idx));
@@ -283,7 +354,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
           return;
         }
       }
-    } catch(e) {}
+    } catch (e) { }
 
     // 2. Check memory fallback (just in case localStorage is disabled)
     if (cachedRenders[idx] && cachedRenders[idx].hash === configHash) {
@@ -299,14 +370,14 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
       const d = await r.json();
       if (!r.ok) throw new Error(d.error || "Failed");
       const { renderId, bucketName } = d;
-      
+
       const newCache = { hash: configHash, renderId, bucketName };
       setCachedRenders(prev => ({ ...prev, [idx]: newCache }));
-      try { localStorage.setItem(getCacheKey(idx), JSON.stringify(newCache)); } catch(e){}
-      
+      try { localStorage.setItem(getCacheKey(idx), JSON.stringify(newCache)); } catch (e) { }
+
       addRenderTask(renderId, bucketName, { filename: `clip-${videoId}-${idx}.mp4` });
-    } catch (e) { 
-      setPostError(e.message); 
+    } catch (e) {
+      setPostError(e.message);
     } finally {
       setDownloadingIdx(null);
     }
@@ -324,70 +395,95 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
     <div className="flex flex-col gap-10 w-full pt-4 animate-fadeIn">
       {/* Global Split Screen Selector */}
       <div style={{ padding: "16px 24px", background: "#ffffff", borderRadius: 16, border: "1px solid #e5e7eb", display: "flex", flexDirection: "column", gap: 16, boxShadow: "0 4px 12px rgba(15,35,71,0.03)" }}>
-         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-               <div style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(99,102,241,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>📱</div>
-               <div>
-                  <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "#0F2347" }}>Split Screen Template</h3>
-                  <p style={{ margin: 0, fontSize: 13, color: "#6b7280" }}>Select a gameplay video to play underneath your clips</p>
-               </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ width: 44, height: 44, borderRadius: 10, background: "rgba(99,102,241,0.1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22 }}>📱</div>
+            <div>
+              <h3 style={{ margin: "0 0 4px", fontSize: 16, fontWeight: 700, color: "#0F2347" }}>Split Screen Template</h3>
+              <p style={{ margin: 0, fontSize: 13, color: "#6b7280" }}>Select a gameplay video to play underneath your clips</p>
             </div>
-            <div style={{ display: "flex", gap: 12 }}>
-              {splitTemplate && splitTemplate.id !== "none" && (
-                <select
-                  value={splitPosition}
-                  onChange={e => setSplitPosition(e.target.value)}
-                  style={{ padding: "12px 16px", borderRadius: 10, border: "1px solid #d1d5db", background: "#f9fafb", color: "#0F2347", fontSize: 14, fontWeight: 600, outline: "none", cursor: "pointer" }}
-                >
-                  <option value="top">Gameplay Top</option>
-                  <option value="bottom">Gameplay Bottom</option>
-                </select>
-              )}
-              <select 
-                value={splitTemplate?.url || ""} 
-                onChange={e => {
-                  const selected = splitList.find(s => s.url === e.target.value) || DEFAULT_SPLIT;
-                  setSplitTemplate(selected);
-                }}
-                style={{ padding: "12px 16px", borderRadius: 10, border: "1px solid #d1d5db", background: "#f9fafb", color: "#0F2347", fontSize: 14, fontWeight: 600, outline: "none", cursor: "pointer", minWidth: 200 }}
+          </div>
+          <div style={{ display: "flex", gap: 12 }}>
+            {splitTemplate && splitTemplate.id !== "none" && (
+              <select
+                value={splitPosition}
+                onChange={e => setSplitPosition(e.target.value)}
+                style={{ padding: "12px 16px", borderRadius: 10, border: "1px solid #d1d5db", background: "#f9fafb", color: "#0F2347", fontSize: 14, fontWeight: 600, outline: "none", cursor: "pointer" }}
               >
-                <option value="">No Split Screen</option>
-                {splitList.map(s => <option key={s.id} value={s.url}>{s.emoji} {s.name}</option>)}
+                <option value="top">Gameplay Top</option>
+                <option value="bottom">Gameplay Bottom</option>
               </select>
+            )}
+            
+            <button
+              onClick={() => setIsSplitModalOpen(true)}
+              style={{ padding: "12px 16px", borderRadius: 10, border: "1px solid #d1d5db", background: "#f9fafb", color: "#0F2347", fontSize: 14, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}
+            >
+              <span>{splitTemplate ? `${splitTemplate.emoji} ${splitTemplate.name}` : "Choose Split Screen"}</span>
+            </button>
+          </div>
+        </div>
+        {splitTemplate && splitTemplate.id !== "none" && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, paddingTop: 16, borderTop: "1px solid #e5e7eb" }}>
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#4b5563" }}>Zoom ({Math.round(splitScale * 100)}%)</span>
+                <button onClick={() => setSplitScale(1)} style={{ background: "none", border: "none", color: "#6366f1", fontSize: 11, cursor: "pointer", padding: 0 }}>Reset</button>
+              </div>
+              <input type="range" min="10" max="300" value={splitScale * 100} onChange={e => setSplitScale(e.target.value / 100)} style={{ width: "100%", accentColor: "#6366f1" }} />
             </div>
-         </div>
-         {splitTemplate && splitTemplate.id !== "none" && (
-           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 20, paddingTop: 16, borderTop: "1px solid #e5e7eb" }}>
-             <div>
-               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                 <span style={{ fontSize: 12, fontWeight: 600, color: "#4b5563" }}>Zoom ({Math.round(splitScale * 100)}%)</span>
-                 <button onClick={() => setSplitScale(1)} style={{ background: "none", border: "none", color: "#6366f1", fontSize: 11, cursor: "pointer", padding: 0 }}>Reset</button>
-               </div>
-               <input type="range" min="10" max="300" value={splitScale * 100} onChange={e => setSplitScale(e.target.value / 100)} style={{ width: "100%", accentColor: "#6366f1" }} />
-             </div>
-             <div>
-               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                 <span style={{ fontSize: 12, fontWeight: 600, color: "#4b5563" }}>Pan X ({Math.round(splitX)}%)</span>
-                 <button onClick={() => setSplitX(0)} style={{ background: "none", border: "none", color: "#6366f1", fontSize: 11, cursor: "pointer", padding: 0 }}>Reset</button>
-               </div>
-               <input type="range" min="0" max="200" value={splitX + 100} onChange={e => setSplitX(e.target.value - 100)} style={{ width: "100%", accentColor: "#6366f1" }} />
-             </div>
-             <div>
-               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                 <span style={{ fontSize: 12, fontWeight: 600, color: "#4b5563" }}>Pan Y ({Math.round(splitY)}%)</span>
-                 <button onClick={() => setSplitY(0)} style={{ background: "none", border: "none", color: "#6366f1", fontSize: 11, cursor: "pointer", padding: 0 }}>Reset</button>
-               </div>
-               <input type="range" min="0" max="200" value={splitY + 100} onChange={e => setSplitY(e.target.value - 100)} style={{ width: "100%", accentColor: "#6366f1" }} />
-             </div>
-           </div>
-         )}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#4b5563" }}>Pan X ({Math.round(splitX)}%)</span>
+                <button onClick={() => setSplitX(0)} style={{ background: "none", border: "none", color: "#6366f1", fontSize: 11, cursor: "pointer", padding: 0 }}>Reset</button>
+              </div>
+              <input type="range" min="0" max="200" value={splitX + 100} onChange={e => setSplitX(e.target.value - 100)} style={{ width: "100%", accentColor: "#6366f1" }} />
+            </div>
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: "#4b5563" }}>Pan Y ({Math.round(splitY)}%)</span>
+                <button onClick={() => setSplitY(0)} style={{ background: "none", border: "none", color: "#6366f1", fontSize: 11, cursor: "pointer", padding: 0 }}>Reset</button>
+              </div>
+              <input type="range" min="0" max="200" value={splitY + 100} onChange={e => setSplitY(e.target.value - 100)} style={{ width: "100%", accentColor: "#6366f1" }} />
+            </div>
+          </div>
+        )}
       </div>
+
+      <SplitScreenModal
+        isOpen={isSplitModalOpen}
+        onClose={() => setIsSplitModalOpen(false)}
+        defaultTemplates={defaultTemplates}
+        userSplits={userSplits}
+        selectedSplit={splitTemplate}
+        onSelectSplit={(split) => setSplitTemplate(split)}
+        onUploadSuccess={() => {
+          fetch('/api/splits')
+            .then(res => res.json())
+            .then(data => {
+              if (data.defaultTemplates || data.userSplits) {
+                setDefaultTemplates(data.defaultTemplates || []);
+                setUserSplits(data.userSplits || []);
+              }
+            });
+        }}
+        onDeleteSplit={() => {
+          fetch('/api/splits')
+            .then(res => res.json())
+            .then(data => {
+              if (data.defaultTemplates || data.userSplits) {
+                setDefaultTemplates(data.defaultTemplates || []);
+                setUserSplits(data.userSplits || []);
+              }
+            });
+        }}
+      />
       {availableClips.map((clip, idx) => {
         const metaKey = clip.id || clip.url;
         const aiMeta = recommendedShorts[clip.index] || null;
         const clipUrl = clip.url;
         const fps = clipMetas[metaKey]?.fps ?? 30;
-        
+
         // Helper to get duration since we replaced getFrames
         const customHookText = aiMeta?.title_or_hook;
         const isHookActive = customHookText ? true : hookEnabled;
@@ -398,20 +494,19 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
           const base = Math.ceil(baseSecs * cFps);
           return base + ((isHookActive && hookMemeSrc) ? Math.ceil(hookDurationSecs * cFps) : 0);
         };
-        
+
         const durationInFrames = getFrames();
-        const inputProps = buildInputProps(clipUrl, customHookText);
+        const inputProps = buildInputProps(clipUrl, customHookText, clip.index);
         const score = aiMeta?.virality_score;
         const isClipRendering = tasks && Object.values(tasks).some(t => t.status === "rendering" && t.metadata?.filename === `clip-${videoId}-${idx}.mp4`);
-        
-        const clipStartMs = aiMeta?.start_time ? parseStartTimeToMs(aiMeta.start_time) : 0;
-        const clipEndMs = clipStartMs + (aiMeta?.duration_seconds || 0) * 1000;
-        const clipCaptions = captions.filter(c => c.endMs > clipStartMs && c.startMs < clipEndMs);
+
+        const subStr = clipSubtitles[clip.index] || "";
+        const clipCaptions = subStr ? parseSubtitleString(subStr) : [];
         const clipText = clipCaptions.map(c => c.text).join(' ');
 
         return (
           <div key={clip.id || idx} className="flex flex-col md:flex-row" style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 40px rgba(15,35,71,0.06)", opacity: deletingId === clip.id ? 0.5 : 1 }}>
-            
+
             {/* ── Player (Left Side) ── */}
             <div className="w-full md:w-[35%] border-b md:border-b-0 md:border-r border-[#e5e7eb]" style={{ display: "flex", justifyContent: "center", padding: "24px", background: "#f9fafb" }}>
               <div style={{ height: "58vh", minHeight: 360, aspectRatio: "9/16", borderRadius: 10, overflow: "hidden", boxShadow: "0 0 0 1px #e5e7eb, 0 24px 64px rgba(0,0,0,0.8)", background: "#000" }}>
@@ -421,16 +516,16 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
                     <span className="text-sm font-medium">Deleting clip...</span>
                   </div>
                 ) : (
-                  <Player 
-                    component={VideoComposition} 
-                    inputProps={inputProps} 
-                    durationInFrames={durationInFrames} 
-                    fps={fps} 
-                    compositionHeight={1920} 
-                    compositionWidth={1080} 
-                    style={{ width: "100%", height: "100%" }} 
-                    controls 
-                    acknowledgeRemotionLicense 
+                  <Player
+                    component={VideoComposition}
+                    inputProps={inputProps}
+                    durationInFrames={durationInFrames}
+                    fps={fps}
+                    compositionHeight={1920}
+                    compositionWidth={1080}
+                    style={{ width: "100%", height: "100%" }}
+                    controls
+                    acknowledgeRemotionLicense
                     renderLoading={() => (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", background: "rgba(15,35,71,0.5)" }}>
                         <Loader2 className="animate-spin" size={32} color="#00C0D4" />
@@ -439,7 +534,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
                     )}
                     errorFallback={(error) => (
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", padding: "20px", textAlign: "center", background: "#ffffff", color: "#f87171" }}>
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 12 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 12 }}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" /></svg>
                         <span style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Playback Error</span>
                         <span style={{ fontSize: 11, color: "#4b5563", wordBreak: "break-all" }}>{error.message || "Failed to decode video stream."}</span>
                         <a href={clipUrl} target="_blank" rel="noreferrer" style={{ marginTop: 16, padding: "8px 16px", borderRadius: 6, background: "#e5e7eb", border: "1px solid #d1d5db", color: "#0F2347", fontSize: 12, textDecoration: "none" }}>View Original Video</a>
@@ -498,30 +593,50 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
                     <p style={{ margin: 0, fontSize: 13, color: "#4b5563", lineHeight: 1.6, fontStyle: "italic", background: "rgba(15,35,71,0.04)", padding: "12px 16px", borderRadius: 8, border: "1px solid #e5e7eb" }}>"{clipText}"</p>
                   </div>
                 )}
+                {splitTemplate && splitTemplate.id !== "none" && (
+                  <div style={{ marginTop: 16 }}>
+                    <button 
+                      onClick={() => setDisabledSplits(prev => ({ ...prev, [clip.index]: !prev[clip.index] }))}
+                      style={{ fontSize: 12, fontWeight: 700, color: disabledSplits[clip.index] ? "#4b5563" : "#f87171", background: disabledSplits[clip.index] ? "#f9fafb" : "rgba(239,68,68,0.08)", border: `1px solid ${disabledSplits[clip.index] ? "#e5e7eb" : "rgba(239,68,68,0.2)"}`, borderRadius: 6, padding: "6px 12px", cursor: "pointer", transition: "all 0.2s ease", display: "inline-flex", alignItems: "center", gap: 6 }}
+                    >
+                      {disabledSplits[clip.index] ? (
+                        <>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                          Enable Split Screen
+                        </>
+                      ) : (
+                        <>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                          Remove Split Screen
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* ── Actions ── */}
               <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 12, background: "#ffffff" }}>
-              <button onClick={() => handleOpenPost(idx, clipUrl, clip.id, customHookText, aiMeta)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "13px", borderRadius: 10, border: "none", background: `linear-gradient(135deg,#0F2347,${INDIGO})`, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 24px rgba(124,58,237,0.4)", opacity: postStage ? 0.5 : 1 }}>
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-                Post Video Now
-              </button>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                <button onClick={() => handleDownload(idx, clipUrl, clip.id, customHookText, aiMeta)} title={isClipRendering ? "Your video is in rendering you can see the progress from the right bottom task button" : undefined} disabled={!!postStage || downloadingIdx === idx || isClipRendering} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #d1d5db", background: "#ffffff", color: "#0F2347", fontSize: 13, fontWeight: 600, cursor: isClipRendering ? "not-allowed" : "pointer", opacity: (postStage || downloadingIdx === idx || isClipRendering) ? 0.5 : 1 }}>
-                  {downloadingIdx === idx ? (
-                    <Loader2 className="animate-spin" size={14} />
-                  ) : (
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                  )}
-                  {downloadingIdx === idx ? "Starting..." : isClipRendering ? "Rendering..." : "Download"}
+                <button onClick={() => handleOpenPost(idx, clipUrl, clip.id, customHookText, aiMeta)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", padding: "13px", borderRadius: 10, border: "none", background: `linear-gradient(135deg,#0F2347,${INDIGO})`, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 24px rgba(124,58,237,0.4)", opacity: postStage ? 0.5 : 1 }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+                  Post Video Now
                 </button>
-                <button onClick={() => router.push(`/editor/${videoId}?index=${idx}`)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #d1d5db", background: "#ffffff", color: "#0F2347", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: postStage ? 0.5 : 1 }}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                  Edit Clip
-                </button>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <button onClick={() => handleDownload(idx, clipUrl, clip.id, customHookText, aiMeta)} title={isClipRendering ? "Your video is in rendering you can see the progress from the right bottom task button" : undefined} disabled={!!postStage || downloadingIdx === idx || isClipRendering} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #d1d5db", background: "#ffffff", color: "#0F2347", fontSize: 13, fontWeight: 600, cursor: isClipRendering ? "not-allowed" : "pointer", opacity: (postStage || downloadingIdx === idx || isClipRendering) ? 0.5 : 1 }}>
+                    {downloadingIdx === idx ? (
+                      <Loader2 className="animate-spin" size={14} />
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                    )}
+                    {downloadingIdx === idx ? "Starting..." : isClipRendering ? "Rendering..." : "Download"}
+                  </button>
+                  <button onClick={() => router.push(`/editor/${videoId}?index=${idx}`)} disabled={!!postStage} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 10, border: "1px solid #d1d5db", background: "#ffffff", color: "#0F2347", fontSize: 13, fontWeight: 600, cursor: "pointer", opacity: postStage ? 0.5 : 1 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" /></svg>
+                    Edit Clip
+                  </button>
+                </div>
+                {postError && <p style={{ fontSize: 11, color: "#f87171", textAlign: "center", background: "rgba(239,68,68,0.08)", padding: "8px", borderRadius: 6, margin: 0 }}>✕ {postError}</p>}
               </div>
-              {postError && <p style={{ fontSize: 11, color: "#f87171", textAlign: "center", background: "rgba(239,68,68,0.08)", padding: "8px", borderRadius: 6, margin: 0 }}>✕ {postError}</p>}
-            </div>
             </div>
           </div>
         );
@@ -544,7 +659,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
                     <div style={{ width: 44, height: 44, borderRadius: 10, flexShrink: 0, background: isSel ? `${platform.color}18` : "#ffffff", border: `1px solid ${isSel ? platform.border : "#e5e7eb"}`, display: "flex", alignItems: "center", justifyContent: "center", color: isSel ? platform.color : "#9ca3af" }}>{platform.icon}</div>
                     <div style={{ flex: 1 }}><div style={{ fontSize: 14, fontWeight: 700, color: isSel ? "#0F2347" : "#d4d4d8" }}>{platform.name}</div><div style={{ fontSize: 12, color: isSel ? "#4b5563" : "#9ca3af", marginTop: 2 }}>{isAvailable ? platform.description : "Temporarily unavailable"}</div></div>
                     <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${isSel ? platform.color : "#d1d5db"}`, background: isSel ? platform.color : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {isSel && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                      {isSel && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>}
                     </div>
                   </button>
                 );

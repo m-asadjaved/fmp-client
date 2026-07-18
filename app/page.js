@@ -56,7 +56,7 @@ export default function SsembleCloneLanding() {
       showAlert('Invalid File', 'Please select a valid video file.', 'error');
       return;
     }
-    
+
     if (isSignedIn) {
       setPendingFile(selectedFile);
       router.push('/dashboard');
@@ -159,13 +159,10 @@ export default function SsembleCloneLanding() {
             {/* Input Action */}
             <div className="w-full max-w-2xl mt-2 px-4 sm:px-0 flex flex-col gap-4">
               <div className="flex flex-col sm:flex-row items-center bg-gray-50 sm:rounded-2xl sm:border-2 border-gray-200 transition-colors shadow-sm overflow-hidden gap-3 sm:gap-0 bg-transparent sm:bg-gray-50 p-0 sm:p-1 opacity-80 cursor-not-allowed relative">
-                <div className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none">
-                  <span className="bg-[#0F2347] text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest shadow-md">Coming Soon</span>
-                </div>
                 <input
                   type="url"
                   disabled
-                  placeholder="YouTube URL integration under construction"
+                  placeholder="YouTube URL integration under development"
                   className="w-full sm:flex-1 px-6 py-4 text-lg focus:outline-none rounded-2xl sm:rounded-none border-2 border-gray-200 sm:border-none shadow-md sm:shadow-none bg-gray-50 text-gray-400 cursor-not-allowed"
                 />
                 <AuthButtonWrapper forceRedirectUrl="/dashboard">
@@ -189,9 +186,8 @@ export default function SsembleCloneLanding() {
                   onDragLeave={() => setIsDragActive(false)}
                   onDrop={(e) => { e.preventDefault(); setIsDragActive(false); if (e.dataTransfer.files?.[0]) handleFileSelection(e.dataTransfer.files[0]); }}
                   onClick={() => fileInputRef.current?.click()}
-                  className={`w-full min-h-[160px] flex flex-col items-center justify-center text-center rounded-2xl cursor-pointer p-6 transition-all border-2 border-dashed ${
-                    isDragActive ? "bg-[#00C0D4]/5 border-[#0F2347]" : "bg-white border-gray-200 hover:border-gray-400 shadow-md hover:shadow-lg"
-                  }`}
+                  className={`w-full min-h-[160px] flex flex-col items-center justify-center text-center rounded-2xl cursor-pointer p-6 transition-all border-2 border-dashed ${isDragActive ? "bg-[#00C0D4]/5 border-[#0F2347]" : "bg-white border-gray-200 hover:border-gray-400 shadow-md hover:shadow-lg"
+                    }`}
                 >
                   <div className="bg-gray-50 p-3 rounded-full text-gray-500 mb-3 border border-gray-200 shadow-sm">
                     <UploadCloud className="w-6 h-6" />
