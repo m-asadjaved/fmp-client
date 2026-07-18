@@ -430,21 +430,21 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
                 <span style={{ fontSize: 12, fontWeight: 600, color: "#4b5563" }}>Zoom ({Math.round(splitScale * 100)}%)</span>
                 <button onClick={() => setSplitScale(1)} style={{ background: "none", border: "none", color: "#6366f1", fontSize: 11, cursor: "pointer", padding: 0 }}>Reset</button>
               </div>
-              <input type="range" min="10" max="300" value={splitScale * 100} onChange={e => setSplitScale(e.target.value / 100)} style={{ width: "100%", accentColor: "#6366f1" }} />
+              <input type="range" min="10" max="300" value={splitScale * 100} onChange={e => setSplitScale(e.target.value / 100)} style={{ width: "100%" }} />
             </div>
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "#4b5563" }}>Pan X ({Math.round(splitX)}%)</span>
                 <button onClick={() => setSplitX(0)} style={{ background: "none", border: "none", color: "#6366f1", fontSize: 11, cursor: "pointer", padding: 0 }}>Reset</button>
               </div>
-              <input type="range" min="0" max="200" value={splitX + 100} onChange={e => setSplitX(e.target.value - 100)} style={{ width: "100%", accentColor: "#6366f1" }} />
+              <input type="range" min="0" max="200" value={splitX + 100} onChange={e => setSplitX(e.target.value - 100)} style={{ width: "100%" }} />
             </div>
             <div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: "#4b5563" }}>Pan Y ({Math.round(splitY)}%)</span>
                 <button onClick={() => setSplitY(0)} style={{ background: "none", border: "none", color: "#6366f1", fontSize: 11, cursor: "pointer", padding: 0 }}>Reset</button>
               </div>
-              <input type="range" min="0" max="200" value={splitY + 100} onChange={e => setSplitY(e.target.value - 100)} style={{ width: "100%", accentColor: "#6366f1" }} />
+              <input type="range" min="0" max="200" value={splitY + 100} onChange={e => setSplitY(e.target.value - 100)} style={{ width: "100%" }} />
             </div>
           </div>
         )}

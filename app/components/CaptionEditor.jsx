@@ -1597,10 +1597,28 @@ const handleEditCaption = (index, newText) => {
                     border: `1px solid ${activeTheme === theme.id ? INDIGO : "#e5e7eb"}`,
                     color: activeTheme === theme.id ? INDIGO : "#4b5563",
                     fontSize: 12, fontWeight: 600, cursor: "pointer",
-                    transition: "all 0.2s ease"
+                    transition: "all 0.2s ease",
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 8
                   }}
                 >
-                  {theme.name}
+                  <div style={{
+                    width: "100%", height: 38, borderRadius: 4,
+                    background: "#111827", display: "flex", justifyContent: "center", alignItems: "center",
+                    overflow: "hidden"
+                  }}>
+                    <span style={{
+                      color: theme.activeWordColor,
+                      textShadow: theme.textShadow,
+                      textTransform: theme.textTransform,
+                      fontWeight: theme.fontWeight,
+                      fontSize: 18,
+                      fontFamily: "var(--font-geist-sans), 'Inter', sans-serif",
+                      lineHeight: 1
+                    }}>
+                      Aa
+                    </span>
+                  </div>
+                  <span>{theme.name}</span>
                 </button>
               ))}
             </div>
@@ -1618,22 +1636,45 @@ const handleEditCaption = (index, newText) => {
                 { id: "slide", name: "Slide" },
                 { id: "fade", name: "Fade" },
                 { id: "none", name: "None" }
-              ].map(anim => (
-                <button
-                  key={anim.id}
-                  onClick={() => setAnimationOverride(anim.id)}
-                  style={{
-                    padding: "8px", borderRadius: 8,
-                    background: animationOverride === anim.id ? "rgba(99,102,241,0.15)" : "#f9fafb",
-                    border: `1px solid ${animationOverride === anim.id ? INDIGO : "#e5e7eb"}`,
-                    color: animationOverride === anim.id ? INDIGO : "#4b5563",
-                    fontSize: 12, fontWeight: 600, cursor: "pointer",
-                    transition: "all 0.2s ease"
-                  }}
-                >
-                  {anim.name}
-                </button>
-              ))}
+              ].map(anim => {
+                let animStyle = {};
+                if (anim.id === "pop") animStyle = { animation: "previewPop 1s infinite alternate ease-in-out" };
+                else if (anim.id === "slide") animStyle = { animation: "previewSlide 1s infinite alternate ease-in-out" };
+                else if (anim.id === "fade") animStyle = { animation: "previewFade 1s infinite alternate ease-in-out" };
+                else if (anim.id === "theme") animStyle = { animation: "previewColor 2s infinite alternate ease-in-out" };
+                
+                return (
+                  <button
+                    key={anim.id}
+                    onClick={() => setAnimationOverride(anim.id)}
+                    style={{
+                      padding: "8px", borderRadius: 8,
+                      background: animationOverride === anim.id ? "rgba(99,102,241,0.15)" : "#f9fafb",
+                      border: `1px solid ${animationOverride === anim.id ? INDIGO : "#e5e7eb"}`,
+                      color: animationOverride === anim.id ? INDIGO : "#4b5563",
+                      fontSize: 12, fontWeight: 600, cursor: "pointer",
+                      transition: "all 0.2s ease",
+                      display: "flex", flexDirection: "column", alignItems: "center", gap: 8
+                    }}
+                  >
+                    <div style={{
+                      width: "100%", height: 38, borderRadius: 4,
+                      background: "#e5e7eb", display: "flex", justifyContent: "center", alignItems: "center",
+                      overflow: "hidden"
+                    }}>
+                      {anim.id === "none" ? (
+                        <div style={{ width: 16, height: 16, background: "#9ca3af", borderRadius: 4 }} />
+                      ) : (
+                        <div style={{
+                          width: 16, height: 16, background: INDIGO, borderRadius: 4,
+                          ...animStyle
+                        }} />
+                      )}
+                    </div>
+                    <span>{anim.name}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 

@@ -88,3 +88,107 @@
 ::-webkit-scrollbar-thumb:hover {
   background: var(--on-surface-variant);
 }
+
+/* Custom Modern Range Sliders */
+input[type=range] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type=range]:focus {
+  outline: none;
+}
+
+/* WebKit Track */
+input[type=range]::-webkit-slider-runnable-track {
+  width: 100%;
+  height: 6px;
+  background: var(--border-subtle);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+input[type=range]:hover::-webkit-slider-runnable-track {
+  background: #d1d5db;
+}
+
+/* WebKit Thumb */
+input[type=range]::-webkit-slider-thumb {
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: var(--neon-purple); /* Using neon purple for a modern AI feel */
+  -webkit-appearance: none;
+  margin-top: -6px; /* (6/2) - (18/2) = -6 */
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  border: 2px solid #fff;
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease, background 0.15s ease;
+}
+
+input[type=range]::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 8px rgba(168, 85, 247, 0.3);
+}
+
+input[type=range]:active::-webkit-slider-thumb {
+  transform: scale(0.95);
+  background: #9333ea; /* Darker purple on active */
+}
+
+/* Firefox Track */
+input[type=range]::-moz-range-track {
+  width: 100%;
+  height: 6px;
+  background: var(--border-subtle);
+  border-radius: 9999px;
+  transition: background 0.2s ease;
+}
+
+input[type=range]:hover::-moz-range-track {
+  background: #d1d5db;
+}
+
+/* Firefox Thumb */
+input[type=range]::-moz-range-thumb {
+  height: 18px;
+  width: 18px;
+  border-radius: 50%;
+  background: var(--neon-purple);
+  border: 2px solid #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.15);
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.15s ease, background 0.15s ease;
+}
+
+input[type=range]::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 4px 8px rgba(168, 85, 247, 0.3);
+}
+
+input[type=range]:active::-moz-range-thumb {
+  transform: scale(0.95);
+  background: #9333ea;
+}
+
+/* Caption Animation Previews */
+@keyframes previewPop {
+  0% { transform: scale(0.85); }
+  100% { transform: scale(1.25); }
+}
+
+@keyframes previewSlide {
+  0% { transform: translateY(6px); }
+  100% { transform: translateY(-6px); }
+}
+
+@keyframes previewFade {
+  0% { opacity: 0.2; }
+  100% { opacity: 1; }
+}
+
+@keyframes previewColor {
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(90deg); }
+}

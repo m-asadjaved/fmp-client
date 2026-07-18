@@ -14,9 +14,15 @@ export function parseSubtitleString(input) {
 
       if (!text) return null;
 
-      const startMs = (hours * 3600 + minutes * 60 + seconds) * 1000 + ms;
+      let startMs = (hours * 3600 + minutes * 60 + seconds) * 1000 + ms;
+      const originalStartMs = startMs;
 
-      // endMs = next caption's startMs, or startMs + 5s for the last one
+      // Force the first caption to start from 0 so there's no initial gap
+      if (index === 0) {
+        startMs = 0;
+      }
+
+      // endMs = next caption's original startMs, or originalStartMs + 5s for the last one
       const nextMatch = matches[index + 1];
       let endMs;
       if (nextMatch) {
@@ -26,7 +32,7 @@ export function parseSubtitleString(input) {
         const nms = nextMatch[4] ? parseInt(nextMatch[4]) : 0;
         endMs = (nh * 3600 + nm * 60 + ns) * 1000 + nms;
       } else {
-        endMs = startMs + 5000;
+        endMs = originalStartMs + 5000;
       }
 
       return {
@@ -34,7 +40,7 @@ export function parseSubtitleString(input) {
         text: text + " ",
         startMs,
         endMs,
-        timestampMs: startMs,
+        timestampMs: originalStartMs, // Keep the original timestamp for UI reference
       };
     })
     .filter((c) => c !== null);
