@@ -18,7 +18,7 @@
 | Video Processing | **AWS Lambda** (custom function) |
 | AI Analysis | **Google Gemini** (`@google/genai`) |
 | Video Rendering/Export | **Remotion + Remotion Lambda** |
-| Billing | **Clerk PricingTable** |
+| Billing | **Paddle Billing (Subscriptions & Tax)** |
 
 ---
 
@@ -390,3 +390,6 @@ Defined in `DESIGN.md` as "Lumina AI" design tokens:
 - **[2026-07-18]**: Modernized and improved the UI of all `input[type="range"]` sliders across the application (such as those in the Caption Editor and Split Screen configurations). Added custom WebKit and Firefox styling in `globals.css` with sleek neon purple thumbs, subtle borders, and smooth scaling/shadow animations on hover and active states.
 - **[2026-07-18]**: Replaced plain text buttons for "Caption Theme" and "Animation Style" in the Caption Editor with rich visual previews. Themes now render a miniature "Aa" sample displaying the exact text shadow, active word color, and font weight. Animation styles now feature a dynamic animated icon utilizing custom CSS keyframes (`previewPop`, `previewSlide`, etc.) to demonstrate the effect on hover/active states seamlessly.
 - **[2026-07-18]**: Fixed a bug where captions were not immediately visible at the start of a video due to initial gaps in the extracted timestamps. Modified `parseSubtitles.js` to automatically set the `startMs` of the very first caption line to `0` while retaining its proper `endMs`, ensuring the first caption covers the entirety of the beginning of the video.
+- **[2026-07-18]**: Improved UI presentation on the AI clips review page by capping the displayed "Clip Subtitles" preview text to a maximum of 1000 characters. Added an interactive "view full subtitles" / "view less" toggle button (styled in brand indigo with an underline) so users can seamlessly expand or collapse long transcripts without cluttering the screen.
+- **[2026-07-18]**: Refactored the dashboard Sidebar to improve Clerk settings navigation. The Clerk settings and sign-out menu are now intuitively triggered by clicking the gear (`Settings`) icon instead of the profile picture. The profile picture is now a static indicator of the logged-in user.
+- **[2026-07-18]**: Fully transitioned the billing architecture from Clerk PricingTable to **Paddle.com**. Integrated `@paddle/paddle-js` into the frontend landing page to trigger secure overlay checkouts with Clerk `userId` tracking. Implemented a robust backend webhook handler (`/api/webhooks/paddle`) utilizing `@paddle/paddle-node` to verify signatures and securely sync subscription statuses and credit allocations to Supabase.

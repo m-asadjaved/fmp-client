@@ -71,6 +71,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
   const [splitX, setSplitX] = useState(0);
   const [splitY, setSplitY] = useState(0);
   const [disabledSplits, setDisabledSplits] = useState({});
+  const [expandedSubtitles, setExpandedSubtitles] = useState({});
   const { addRenderTask, tasks } = useRenderContext();
 
   const handleDelete = async (clipId) => {
@@ -502,7 +503,10 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
 
         const subStr = clipSubtitles[clip.index] || "";
         const clipCaptions = subStr ? parseSubtitleString(subStr) : [];
-        const clipText = clipCaptions.map(c => c.text).join(' ');
+        const fullClipText = clipCaptions.map(c => c.text).join(' ');
+        const isExpanded = expandedSubtitles[clip.index];
+        const isLong = fullClipText.length > 1000;
+        const clipText = (!isExpanded && isLong) ? fullClipText.substring(0, 1000) + "..." : fullClipText;
 
         return (
           <div key={clip.id || idx} className="flex flex-col md:flex-row" style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 40px rgba(15,35,71,0.06)", opacity: deletingId === clip.id ? 0.5 : 1 }}>
@@ -587,10 +591,20 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
                   </div>
                 )}
                 {aiMeta?.rationale && <p style={{ margin: 0, fontSize: 14, color: "#d4d4d8", lineHeight: 1.6 }}>{aiMeta.rationale}</p>}
-                {clipText && (
+                {fullClipText && (
                   <div style={{ marginTop: 20 }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.05em", display: "block", marginBottom: 8 }}>Clip Subtitles</span>
-                    <p style={{ margin: 0, fontSize: 13, color: "#4b5563", lineHeight: 1.6, fontStyle: "italic", background: "rgba(15,35,71,0.04)", padding: "12px 16px", borderRadius: 8, border: "1px solid #e5e7eb" }}>"{clipText}"</p>
+                    <p style={{ margin: 0, fontSize: 13, color: "#4b5563", lineHeight: 1.6, fontStyle: "italic", background: "rgba(15,35,71,0.04)", padding: "12px 16px", borderRadius: 8, border: "1px solid #e5e7eb" }}>
+                      "{clipText}"
+                      {isLong && (
+                        <button 
+                          onClick={() => setExpandedSubtitles(prev => ({ ...prev, [clip.index]: !prev[clip.index] }))} 
+                          style={{ background: "none", border: "none", color: INDIGO, textDecoration: "underline", cursor: "pointer", padding: "0 0 0 5px", fontSize: 13, fontWeight: 600 }}
+                        >
+                          {isExpanded ? "view less" : "view full subtitles"}
+                        </button>
+                      )}
+                    </p>
                   </div>
                 )}
                 {splitTemplate && splitTemplate.id !== "none" && (

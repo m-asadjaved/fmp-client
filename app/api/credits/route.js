@@ -55,6 +55,29 @@ async function getClerkUserMetadata(userId) {
   }
 }
 
+// Hardcoded fallback for Paddle Price IDs to guarantee parsing
+function getTierFromPriceId(priceId) {
+  if (!priceId || priceId === "free" || priceId === "free:month") return { name: "free", interval: "month" };
+  
+  const cleanId = priceId.trim();
+  
+  // Exact string matching for bulletproof reliability
+  if (cleanId === "pri_01kxtpqmm034m2ymjkah17vmn6") return { name: "starter", interval: "month" };
+  if (cleanId === "pri_01kxtpqmz7wc24fxb7r2ecfxd3") return { name: "starter", interval: "year" };
+  if (cleanId === "pri_01kxtpqnqnt90va0vsgv2zbnvs") return { name: "pro", interval: "month" };
+  if (cleanId === "pri_01kxtpqp2zdvv6xczyv0mcjdyx") return { name: "pro", interval: "year" };
+  if (cleanId === "pri_01kxtpqpsyg69pjp8d9yrxhybg") return { name: "advanced", interval: "month" };
+  if (cleanId === "pri_01kxtpqq4jeq9by7t5r9r1dajt") return { name: "advanced", interval: "year" };
+  
+  // Legacy plan format like "pro:month"
+  if (cleanId.includes(":")) {
+    const [tier, interval] = cleanId.split(":");
+    return { name: tier, interval };
+  }
+  
+  return { name: cleanId, interval: "month" };
+}
+
 export async function GET() {
   try {
     const { userId } = await auth();
@@ -78,25 +101,33 @@ export async function GET() {
 
     let currentPlan;
     let interval;
+    let rawPlanKey;
 
-    if (clerkMeta?.plan) {
-      // Clerk returned fresh data
+    if (existingUser?.plan && existingUser.plan.startsWith("pri_")) {
+      // Paddle Price ID stored directly in database
+      rawPlanKey = existingUser.plan;
+      const mapped = getTierFromPriceId(existingUser.plan);
+      currentPlan = mapped.name;
+      interval = mapped.interval;
+    } else if (clerkMeta?.plan) {
+      // Legacy Clerk Metadata
       currentPlan = clerkMeta.plan;
       interval = clerkMeta.interval || "month";
+      rawPlanKey = `${currentPlan}:${interval}`;
     } else if (existingUser?.plan) {
-      // Clerk unavailable — parse plan from Supabase (format: "pro:month")
+      // Legacy Supabase Format ("pro:month")
       const [storedPlan, storedInterval] = existingUser.plan.split(":");
       currentPlan = storedPlan || "free";
       interval = storedInterval || "month";
+      rawPlanKey = existingUser.plan;
     } else {
-      // Brand new user and Clerk is down — use safe defaults
       currentPlan = "free";
       interval = "month";
+      rawPlanKey = "free:month";
     }
 
     // Monthly credit grant for this plan
     const planCredits = PLAN_CREDITS[currentPlan] ?? 1;
-    const planKey = `${currentPlan}:${interval}`; // e.g. "pro:month"
 
     let finalBalance = 0;
 
@@ -105,7 +136,7 @@ export async function GET() {
       await supabase.from("user_credits").insert({
         user_id: userId,
         balance: planCredits,
-        plan: planKey,
+        plan: rawPlanKey,
         plan_credits: planCredits,
       });
 
@@ -120,7 +151,7 @@ export async function GET() {
 
       finalBalance = planCredits;
     } else {
-      const planChanged = existingUser.plan !== planKey;
+      const planChanged = existingUser.plan !== rawPlanKey;
 
       if (planChanged && clerkMeta) {
         // ── Plan changed (only update if Clerk confirmed the new plan) ────
@@ -130,7 +161,7 @@ export async function GET() {
           .from("user_credits")
           .update({
             balance: finalBalance,
-            plan: planKey,
+            plan: rawPlanKey,
             plan_credits: planCredits,
           })
           .eq("user_id", userId);
