@@ -280,7 +280,7 @@ export default function AIClipsPage({ params }) {
 		if (!USE_REAL_PIPELINE || !videoId || phase !== "processing") return;
 
 		intentionallyClosed.current = false;
-		const eventSource = new EventSource(`/api/webhook/clips?id=${videoId}`);
+		const eventSource = new EventSource(`/api/webhooks/clips?id=${videoId}`);
 
 		eventSource.onmessage = (event) => {
 			try {

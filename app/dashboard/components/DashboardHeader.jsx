@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Bell, Cloud, Hourglass, Video, Loader2 } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
+import { PLAN_LIMITS } from "../../config/plan-limits";
 
 export function DashboardHeader() {
   const pathname = usePathname();
@@ -12,35 +14,9 @@ export function DashboardHeader() {
   const [metrics, setMetrics] = useState({ credits: 0, activeProjects: 0, storageGB: "0.00" });
   const [loadingMetrics, setLoadingMetrics] = useState(true);
 
-  // Dynamic titles based on pathname
-  let title = "Overview";
-  let subtitleText = "Live Status";
-  let subtitleStyle = {
-    background: "rgba(74, 222, 128, 0.1)",
-    color: "#4ade80",
-    border: "1px solid rgba(74, 222, 128, 0.2)",
-    textTransform: "uppercase",
-  };
-
-  if (pathname.includes("/calendar")) {
-    title = "Content Calendar";
-    subtitleText = "Manage and track your scheduled video posts";
-    subtitleStyle = {
-      color: "#4b5563",
-      fontWeight: "normal",
-      textTransform: "none",
-    };
-  } else if (pathname.includes("/assets")) {
-    title = "Assets Workspace";
-    subtitleText = "Manage your raw footage and media";
-    subtitleStyle = {
-      color: "#4b5563",
-      fontWeight: "normal",
-      textTransform: "none",
-    };
-  }
-
-  // Fetch notifications and metrics
+  const { user } = useUser();
+  const [currentPlan, setCurrentPlan] = useState(null);
+  const [currentPlanId, setCurrentPlanId] = useState("free");
   useEffect(() => {
     fetch('/api/user/notifications')
       .then(res => res.json())
@@ -63,6 +39,17 @@ export function DashboardHeader() {
       })
       .catch(err => console.error("Error fetching storage:", err))
       .finally(() => setLoadingMetrics(false));
+
+    fetch('/api/credits')
+      .then(res => res.json())
+      .then(data => {
+        if (data.currentPlan) {
+          const rawId = data.currentPlan.toLowerCase();
+          setCurrentPlanId(rawId.startsWith("pri_") ? "pro" : rawId);
+          setCurrentPlan(rawId.charAt(0).toUpperCase() + rawId.slice(1));
+        }
+      })
+      .catch(console.error);
   }, []);
 
   return (
@@ -74,13 +61,26 @@ export function DashboardHeader() {
       boxShadow: "0 4px 20px rgba(0,0,0,0.03)",
       zIndex: 10
     }}>
-      <div style={{ display: "flex", flexDirection: pathname.includes("/calendar") || pathname.includes("/assets") ? "column" : "row", alignItems: pathname.includes("/calendar") || pathname.includes("/assets") ? "flex-start" : "center", gap: pathname.includes("/calendar") || pathname.includes("/assets") ? 4 : 12 }}>
-        <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0F2347", letterSpacing: "-0.03em", margin: 0 }}>
-          {title}
-        </h2>
-        <span style={{ fontSize: 13, ...subtitleStyle, padding: pathname.includes("/calendar") || pathname.includes("/assets") ? 0 : "2px 8px", borderRadius: 12, fontWeight: pathname.includes("/calendar") || pathname.includes("/assets") ? 400 : 700, letterSpacing: pathname.includes("/calendar") || pathname.includes("/assets") ? "normal" : "0.05em" }}>
-          {subtitleText}
-        </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#e5e7eb", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", border: "2px solid #f3f4f6" }}>
+          {user?.imageUrl ? (
+            <img src={user.imageUrl} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          ) : (
+            <div style={{ width: "100%", height: "100%", background: "#d1d5db" }} />
+          )}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span style={{ fontSize: 16, fontWeight: 800, color: "#0F2347", letterSpacing: "-0.02em" }}>
+            {user?.fullName || user?.primaryEmailAddress?.emailAddress || "My Account"}
+          </span>
+          {currentPlan ? (
+            <span style={{ fontSize: 12, color: "#00C0D4", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>
+              {currentPlan}
+            </span>
+          ) : (
+            <Loader2 size={14} style={{ animation: "spin 1s linear infinite", color: "#00C0D4" }} />
+          )}
+        </div>
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
@@ -92,7 +92,7 @@ export function DashboardHeader() {
             <>
               <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#f9fafb", border: "1px solid #f3f4f6", padding: "4px 12px", borderRadius: 20 }}>
                 <Cloud size={14} color="#00C0D4" />
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#4b5563" }}>{metrics.storageGB}GB <span style={{ color: "#9ca3af", fontWeight: 500 }}>/ 10GB</span></span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#4b5563" }}>{metrics.storageGB}GB <span style={{ color: "#9ca3af", fontWeight: 500 }}>/ {PLAN_LIMITS[currentPlanId]?.maxStorageGB || 10}GB</span></span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, background: "#f9fafb", border: "1px solid #f3f4f6", padding: "4px 12px", borderRadius: 20 }}>
                 <Hourglass size={14} color="#f472b6" />

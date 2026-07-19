@@ -1,5 +1,20 @@
 import { createClient } from "@supabase/supabase-js";
 import { EventName } from "@paddle/paddle-node-sdk";
+import { PLAN_LIMITS } from "../../config/plan-limits";
+
+function getCreditsFromPriceId(priceId) {
+  if (!priceId || priceId === "free" || priceId === "free:month") return PLAN_LIMITS.free.creditsPerMonth;
+  
+  if (priceId === process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTH || priceId === process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO_YEAR) return PLAN_LIMITS.pro.creditsPerMonth;
+  if (priceId === process.env.NEXT_PUBLIC_PADDLE_PRICE_EXPERT_MONTH || priceId === process.env.NEXT_PUBLIC_PADDLE_PRICE_EXPERT_YEAR) return PLAN_LIMITS.expert.creditsPerMonth;
+  if (priceId === process.env.NEXT_PUBLIC_PADDLE_PRICE_BUSINESS_MONTH || priceId === process.env.NEXT_PUBLIC_PADDLE_PRICE_BUSINESS_YEAR) return PLAN_LIMITS.business.creditsPerMonth;
+  
+  if (priceId.includes("pro")) return PLAN_LIMITS.pro.creditsPerMonth;
+  if (priceId.includes("expert")) return PLAN_LIMITS.expert.creditsPerMonth;
+  if (priceId.includes("business")) return PLAN_LIMITS.business.creditsPerMonth;
+
+  return PLAN_LIMITS.free.creditsPerMonth;
+}
 
 export async function processEvent(event) {
   switch (event.eventType) {
@@ -29,7 +44,7 @@ async function upsertSubscription(event) {
   const sub = event.data;
 
   // Extract customData userId just in case we need to link it to user_credits
-  const userId = sub.customData?.userId;
+  let userId = sub.customData?.userId;
 
   // Paddle webhooks are not guaranteed to be ordered — subscription.created can
   // arrive before customer.created. Defensively upsert a minimal customer row
@@ -65,12 +80,39 @@ async function upsertSubscription(event) {
     throw error;
   }
 
+  // Fallback to lookup from user_credits if webhook lacks customData (e.g. dashboard cancel)
+  if (!userId) {
+    const { data: lookup } = await supabase
+      .from("user_credits")
+      .select("user_id")
+      .or(`paddle_subscription_id.eq.${sub.id},paddle_customer_id.eq.${sub.customerId}`)
+      .limit(1)
+      .single();
+    if (lookup) {
+      userId = lookup.user_id;
+    }
+  }
+
   // Also update user_credits for backwards compatibility in UI
   if (userId) {
     const isFree = sub.status === "canceled" || sub.status === "past_due";
-    await supabase.from("user_credits").update({
-      plan: isFree ? "free:month" : (sub.items?.[0]?.price?.id || "free:month")
-    }).eq("user_id", userId);
+    const newPlanId = isFree ? "free:month" : (sub.items?.[0]?.price?.id || "free:month");
+
+    const { data: existingCredits } = await supabase.from("user_credits").select("plan").eq("user_id", userId).single();
+    
+    let updatePayload = {
+      plan: newPlanId,
+      paddle_customer_id: sub.customerId,
+      paddle_subscription_id: sub.id
+    };
+
+    if (existingCredits && existingCredits.plan !== newPlanId) {
+      const newCredits = getCreditsFromPriceId(newPlanId);
+      updatePayload.plan_credits = newCredits;
+      updatePayload.balance = newCredits; // overwrite balance with new plan credits
+    }
+
+    await supabase.from("user_credits").update(updatePayload).eq("user_id", userId);
   }
 }
 
@@ -102,9 +144,20 @@ async function handleTransactionCompleted(event) {
     // do not always inherit customData from the checkout session.
     const priceId = txn.items?.[0]?.price?.id;
     if (priceId) {
-      const { error } = await supabase.from("user_credits").update({
-        plan: priceId
-      }).eq("user_id", userId);
+      const { data: existingCredits } = await supabase.from("user_credits").select("plan").eq("user_id", userId).single();
+      
+      let updatePayload = {
+        plan: priceId,
+        paddle_customer_id: txn.customerId || null
+      };
+
+      if (existingCredits && existingCredits.plan !== priceId) {
+        const newCredits = getCreditsFromPriceId(priceId);
+        updatePayload.plan_credits = newCredits;
+        updatePayload.balance = newCredits;
+      }
+
+      const { error } = await supabase.from("user_credits").update(updatePayload).eq("user_id", userId);
       
       if (error) {
         console.error("Failed to update user_credits plan:", error);

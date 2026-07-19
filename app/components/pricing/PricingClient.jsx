@@ -1,37 +1,87 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useUser } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
+import { useUser, useClerk } from '@clerk/nextjs';
 import { usePaddlePrices } from '../../hooks/usePaddlePrices';
+import { updateSubscription } from '../../actions/subscription';
 import { PricingTier } from '../../constants/pricing-tier';
 import { Check } from 'lucide-react';
 
 export function PricingClient({ paddle, country }) {
   const { user } = useUser();
+  const clerk = useClerk();
+  const router = useRouter();
   const [frequency, setFrequency] = useState('month');
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [activePlan, setActivePlan] = React.useState(null);
   const { prices, loading } = usePaddlePrices(paddle, country);
 
-  const handleSubscribe = (tier) => {
-    const priceId = tier.priceId[frequency];
-    const checkoutConfig = {
-      items: [{ priceId, quantity: 1 }],
-      settings: {
-        displayMode: 'overlay',
-        variant: 'one-page',
-        successUrl: typeof window !== 'undefined' ? `${window.location.origin}/welcome` : '/welcome'
-      }
-    };
+  React.useEffect(() => {
+    if (!user) {
+      setActivePlan("free");
+      return;
+    }
+    fetch('/api/credits', { cache: 'no-store' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.currentPlan) {
+          setActivePlan(data.currentPlan);
+        } else {
+          setActivePlan("free");
+        }
+      })
+      .catch((err) => {
+        console.error(err);
+        setActivePlan("free");
+      });
+  }, [user]);
 
-    if (user?.primaryEmailAddress?.emailAddress) {
-      checkoutConfig.customer = { email: user.primaryEmailAddress.emailAddress };
-      checkoutConfig.customData = { userId: user.id };
+  const handleSubscribe = async (tier) => {
+    if (!user) {
+      clerk.openSignIn();
+      return;
     }
 
+    if (isUpgrading) return;
+    setIsUpgrading(true);
+
+    const priceId = tier.priceId[frequency];
+
     try {
-      paddle?.Checkout.open(checkoutConfig);
+      // 1. Attempt to upgrade existing subscription
+      const updateResult = await updateSubscription(priceId);
+
+      // 2. If no active subscription, fall back to opening checkout
+      if (updateResult?.error === "No active subscription") {
+        const checkoutConfig = {
+          items: [{ priceId, quantity: 1 }],
+          settings: {
+            displayMode: 'overlay',
+            variant: 'one-page',
+            successUrl: typeof window !== 'undefined' ? `${window.location.origin}/welcome` : '/welcome'
+          }
+        };
+
+        if (user?.primaryEmailAddress?.emailAddress) {
+          checkoutConfig.customer = { email: user.primaryEmailAddress.emailAddress };
+          checkoutConfig.customData = { userId: user.id };
+        }
+
+        paddle?.Checkout.open(checkoutConfig);
+      } else if (updateResult?.error) {
+        // Handle explicit upgrade failures
+        alert("Upgrade failed: " + updateResult.error);
+      } else if (updateResult?.success) {
+        // Upgrade succeeded
+        alert("Your subscription has been successfully updated!");
+        router.push('/dashboard');
+      }
     } catch (err) {
-      console.error("Failed to open Paddle checkout:", err);
-      alert("Checkout failed to open: " + err.message);
+      console.error("Subscription process failed:", err);
+      alert("An error occurred: " + err.message);
+    } finally {
+      setIsUpgrading(false);
     }
   };
 
@@ -108,6 +158,15 @@ export function PricingClient({ paddle, country }) {
             }
           }
 
+          const isCurrentPlan = activePlan && (activePlan === tier.id || Object.values(tier.priceId).includes(activePlan));
+          const hasAnyPlan = activePlan && activePlan !== 'free' && activePlan !== 'free:month';
+          const isButtonDisabled = loading || !displayPrice || hasAnyPlan;
+
+          let buttonText = `Upgrade to ${tier.name}`;
+          if (isCurrentPlan) {
+            buttonText = "Current Plan";
+          }
+
           return (
             <div
               key={tier.id}
@@ -145,7 +204,7 @@ export function PricingClient({ paddle, country }) {
                         {originalMonthlyPrice}
                       </span>
                     )}
-                    <span className={`text-5xl font-extrabold tracking-tight ${frequency === 'year' ? 'text-[#ff6b00]' : 'text-slate-900'}`}>
+                    <span className="text-5xl font-extrabold tracking-tight text-[#ff6b00]">
                       {loading || !displayPrice ? '...' : displayPrice}
                     </span>
                     {frequency === 'month' && !loading && displayPrice && (
@@ -191,14 +250,16 @@ export function PricingClient({ paddle, country }) {
 
               <button
                 onClick={() => handleSubscribe(tier)}
-                disabled={loading || !displayPrice}
+                disabled={isButtonDisabled}
                 className={`w-full rounded-xl py-3.5 px-6 font-semibold text-sm transition-all duration-200 ${
-                  tier.featured
-                    ? 'bg-[#0058bc] text-white hover:bg-[#004a9e] shadow-md hover:shadow-lg active:scale-[0.98]'
-                    : 'bg-slate-50 text-slate-900 hover:bg-slate-100 border border-slate-200/60 hover:border-slate-300 shadow-sm active:scale-[0.98]'
+                  isCurrentPlan 
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    : tier.featured
+                      ? 'bg-[#0058bc] text-white hover:bg-[#004a9e] shadow-md hover:shadow-lg active:scale-[0.98]'
+                      : 'bg-slate-50 text-slate-900 hover:bg-slate-100 border border-slate-200/60 hover:border-slate-300 shadow-sm active:scale-[0.98]'
                 } disabled:opacity-50 disabled:pointer-events-none`}
               >
-                Upgrade to {tier.name}
+                {buttonText}
               </button>
             </div>
           );

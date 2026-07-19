@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createPortalSession } from "../../actions/portal";
-import { useUser } from "@clerk/nextjs";
+import { useUser, UserProfile } from "@clerk/nextjs";
 
 export default function AccountPage() {
   const { isLoaded, isSignedIn, user } = useUser();
@@ -31,43 +31,45 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-      <div className="bg-white shadow overflow-hidden sm:rounded-lg">
+    <div className="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8 space-y-8 flex flex-col items-center">
+      
+      {/* Clerk User Profile Management */}
+      <div className="w-full max-w-[55rem] flex justify-center">
+        <UserProfile 
+          routing="hash" 
+          appearance={{
+            elements: {
+              rootBox: "w-full shadow sm:rounded-lg",
+              card: "w-full shadow-none"
+            }
+          }}
+        />
+      </div>
+
+      {/* Subscription Management */}
+      <div className="bg-white shadow overflow-hidden sm:rounded-lg w-full max-w-[55rem]">
         <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">Account Settings</h3>
+          <h3 className="text-lg leading-6 font-medium text-gray-900">Billing & Subscription</h3>
           <p className="mt-1 max-w-2xl text-sm text-gray-500">
-            Manage your email, preferences, and billing.
+            Update your payment method, view invoices, or manage your subscription plan securely through Paddle.
           </p>
         </div>
         <div className="px-4 py-5 sm:p-6">
-          <dl className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2">
-            <div className="sm:col-span-1">
-              <dt className="text-sm font-medium text-gray-500">Email address</dt>
-              <dd className="mt-1 text-sm text-gray-900">{user.primaryEmailAddress?.emailAddress}</dd>
-            </div>
-            <div className="sm:col-span-2">
-              <dt className="text-sm font-medium text-gray-500 mb-2">Subscription Management</dt>
-              <dd className="mt-1 text-sm text-gray-900">
-                <button
-                  onClick={handleManageSubscription}
-                  disabled={loading}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#0058bc] hover:bg-[#004a9e] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0058bc] disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? "Loading..." : "Manage Subscription"}
-                </button>
-                {error && (
-                  <p className="mt-2 text-sm text-red-600">
-                    {error}
-                  </p>
-                )}
-                <p className="mt-2 text-sm text-gray-500">
-                  Update your payment method, view invoices, or cancel your subscription via the Paddle Customer Portal.
-                </p>
-              </dd>
-            </div>
-          </dl>
+          <button
+            onClick={handleManageSubscription}
+            disabled={loading}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#0058bc] hover:bg-[#004a9e] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0058bc] disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? "Loading..." : "Open Billing Portal"}
+          </button>
+          {error && (
+            <p className="mt-2 text-sm text-red-600">
+              {error}
+            </p>
+          )}
         </div>
       </div>
+
     </div>
   );
 }

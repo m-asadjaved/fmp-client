@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { SignInButton, UserButton, useAuth, useClerk } from '@clerk/nextjs';
+import { SignInButton, UserButton, useAuth, useClerk, useUser } from '@clerk/nextjs';
 import { Link, Sparkles, Share, Play, UploadCloud } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useUpload } from '@/contexts/UploadContext';
@@ -67,6 +67,25 @@ export default function SsembleCloneLanding({ country }) {
     }).then(setPaddle);
   }, []);
 
+  const [currentPlan, setCurrentPlan] = React.useState(null);
+  const { user } = useUser();
+
+  React.useEffect(() => {
+    if (!isSignedIn) return;
+    fetch('/api/credits', { cache: 'no-store' })
+      .then(res => res.json())
+      .then(data => {
+        if (data.currentPlan) {
+          let displayName = data.currentPlan;
+          if (displayName.toLowerCase().startsWith("pri_")) {
+            displayName = "Pro";
+          }
+          setCurrentPlan(displayName.charAt(0).toUpperCase() + displayName.slice(1));
+        }
+      })
+      .catch(console.error);
+  }, [isSignedIn]);
+
   const [isDragActive, setIsDragActive] = React.useState(false);
   const fileInputRef = React.useRef(null);
 
@@ -125,10 +144,20 @@ export default function SsembleCloneLanding({ country }) {
               </>
             ) : (
               <>
-                <a href="/dashboard" className="px-4 py-2 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100 transition-colors">
+                <div className="flex items-center gap-2 mr-2">
+                  <UserButton afterSignOutUrl="/" />
+                  <div className="flex flex-col text-left hidden md:flex">
+                    <span className="text-sm font-bold text-gray-700 leading-tight">{user?.fullName || user?.primaryEmailAddress?.emailAddress || "My Account"}</span>
+                    {currentPlan ? (
+                      <span className="text-[10px] font-bold text-[#00C0D4] uppercase tracking-wider">{currentPlan}</span>
+                    ) : (
+                      <div className="animate-spin rounded-full h-3 w-3 border-2 border-[#00C0D4] border-t-transparent mt-0.5" />
+                    )}
+                  </div>
+                </div>
+                <a href="/dashboard" className="px-4 py-2 text-sm font-semibold text-white bg-[#00C0D4] rounded-md shadow-sm hover:bg-[#00A6B8] transition-colors">
                   Dashboard
                 </a>
-                <UserButton afterSignOutUrl="/" />
               </>
             )}
           </div>

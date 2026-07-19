@@ -9,13 +9,7 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY || ""
 );
 
-// Monthly credit allowance per plan
-const PLAN_CREDITS = {
-  free: 1,
-  pro: 30,
-  expert: 70,
-  business: 150,
-};
+import { PLAN_LIMITS } from "../../config/plan-limits";
 
 /**
  * Attempt to fetch Clerk user metadata with a timeout.
@@ -55,13 +49,44 @@ async function getClerkUserMetadata(userId) {
   }
 }
 
-// Hardcoded fallback for Paddle Price IDs to guarantee parsing
+const PRICE_ID_MAP = {
+  // Legacy
+  "pri_01kxtpqmm034m2ymjkah17vmn6": { name: "pro", interval: "month" },
+  "pri_01kxtpqmz7wc24fxb7r2ecfxd3": { name: "pro", interval: "year" },
+  "pri_01kxtpqnqnt90va0vsgv2zbnvs": { name: "expert", interval: "month" },
+  "pri_01kxtpqp2zdvv6xczyv0mcjdyx": { name: "expert", interval: "year" },
+  "pri_01kxtpqpsyg69pjp8d9yrxhybg": { name: "business", interval: "month" },
+  "pri_01kxtpqq4jeq9by7t5r9r1dajt": { name: "business", interval: "year" },
+
+  // Pre-trial-removal
+  "pri_01kxw2nfqc83xasghh0vsakfw6": { name: "pro", interval: "month" },
+  "pri_01kxw2ng1w60e6ewdyw2j5pwd0": { name: "pro", interval: "year" },
+  "pri_01kxw2ngpeer0yphs1r68v3tp6": { name: "expert", interval: "month" },
+  "pri_01kxw2nhha05b51crn6t149b92": { name: "expert", interval: "year" },
+  "pri_01kxw2njj30p865v3bg6qja7bx": { name: "business", interval: "month" },
+  "pri_01kxw2njtv466g5k4cny9xnv9w": { name: "business", interval: "year" },
+
+  // No-trial
+  "pri_01kxweecrqfhaeer2sdsff513c": { name: "pro", interval: "month" },
+  "pri_01kxweed5jbcfxq3v3xe9za6jg": { name: "pro", interval: "year" },
+  "pri_01kxweedyshw4g01hwstm1jcbf": { name: "expert", interval: "month" },
+  "pri_01kxweeebaa7p82bhwp4em78b1": { name: "expert", interval: "year" },
+  "pri_01kxweef571e6rvr2j13m5wgzj": { name: "business", interval: "month" },
+  "pri_01kxweeg0sqj29jachjw5yjwr8": { name: "business", interval: "year" },
+
+  // Max-qty-1
+  "pri_01kxwfd1290tvqfsbqrfkb6q0a": { name: "pro", interval: "month" },
+  "pri_01kxwfd1f5pdwng1rpdzncthrj": { name: "pro", interval: "year" },
+  "pri_01kxwfd28sxm3aet61g1t3t4w5": { name: "expert", interval: "month" },
+  "pri_01kxwfd340pyb63f0t6cajjv5e": { name: "expert", interval: "year" },
+  "pri_01kxwfd3y60yk8eykqtw83rg0s": { name: "business", interval: "month" },
+  "pri_01kxwfd4akckzngrdrb727c132": { name: "business", interval: "year" }
+};
+
 function getTierFromPriceId(priceId) {
   if (!priceId || priceId === "free" || priceId === "free:month") return { name: "free", interval: "month" };
-  
   const cleanId = priceId.trim();
   
-  // Environment variable matching for dynamic updates
   if (cleanId === process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTH) return { name: "pro", interval: "month" };
   if (cleanId === process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO_YEAR) return { name: "pro", interval: "year" };
   if (cleanId === process.env.NEXT_PUBLIC_PADDLE_PRICE_EXPERT_MONTH) return { name: "expert", interval: "month" };
@@ -69,15 +94,8 @@ function getTierFromPriceId(priceId) {
   if (cleanId === process.env.NEXT_PUBLIC_PADDLE_PRICE_BUSINESS_MONTH) return { name: "business", interval: "month" };
   if (cleanId === process.env.NEXT_PUBLIC_PADDLE_PRICE_BUSINESS_YEAR) return { name: "business", interval: "year" };
   
-  // Legacy exact string matching for bulletproof reliability
-  if (cleanId === "pri_01kxtpqmm034m2ymjkah17vmn6") return { name: "starter", interval: "month" };
-  if (cleanId === "pri_01kxtpqmz7wc24fxb7r2ecfxd3") return { name: "starter", interval: "year" };
-  if (cleanId === "pri_01kxtpqnqnt90va0vsgv2zbnvs") return { name: "pro", interval: "month" };
-  if (cleanId === "pri_01kxtpqp2zdvv6xczyv0mcjdyx") return { name: "pro", interval: "year" };
-  if (cleanId === "pri_01kxtpqpsyg69pjp8d9yrxhybg") return { name: "advanced", interval: "month" };
-  if (cleanId === "pri_01kxtpqq4jeq9by7t5r9r1dajt") return { name: "advanced", interval: "year" };
+  if (PRICE_ID_MAP[cleanId]) return PRICE_ID_MAP[cleanId];
   
-  // Legacy plan format like "pro:month"
   if (cleanId.includes(":")) {
     const [tier, interval] = cleanId.split(":");
     return { name: tier, interval };
@@ -119,13 +137,23 @@ export async function GET() {
       interval = mapped.interval;
     } else if (clerkMeta?.plan) {
       // Legacy Clerk Metadata
-      currentPlan = clerkMeta.plan;
+      let mappedPlan = clerkMeta.plan;
+      if (mappedPlan === "starter") mappedPlan = "pro";
+      else if (mappedPlan === "pro") mappedPlan = "expert";
+      else if (mappedPlan === "advanced") mappedPlan = "business";
+
+      currentPlan = mappedPlan;
       interval = clerkMeta.interval || "month";
       rawPlanKey = `${currentPlan}:${interval}`;
     } else if (existingUser?.plan) {
       // Legacy Supabase Format ("pro:month")
       const [storedPlan, storedInterval] = existingUser.plan.split(":");
-      currentPlan = storedPlan || "free";
+      let mappedPlan = storedPlan || "free";
+      if (mappedPlan === "starter") mappedPlan = "pro";
+      else if (mappedPlan === "pro") mappedPlan = "expert";
+      else if (mappedPlan === "advanced") mappedPlan = "business";
+
+      currentPlan = mappedPlan;
       interval = storedInterval || "month";
       rawPlanKey = existingUser.plan;
     } else {
@@ -135,7 +163,7 @@ export async function GET() {
     }
 
     // Monthly credit grant for this plan
-    const planCredits = PLAN_CREDITS[currentPlan] ?? 1;
+    const planCredits = PLAN_LIMITS[currentPlan]?.creditsPerMonth ?? 1;
 
     let finalBalance = 0;
 

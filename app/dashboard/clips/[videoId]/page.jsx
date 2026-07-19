@@ -26,28 +26,28 @@ export default function AIClipsPage({ params }) {
   const isProcessing = phase === 'processing';
 
   const pipelineSteps = [
-    { title: 'Initializing S3 Workspace Pipeline',  desc: 'Verifying asset checksums and mapping handles.' },
-    { title: 'AI Transcription Engine (Whisper)',    desc: 'Extracting clean audio channels and compiling text arrays.' },
-    { title: 'Neural Scene & Face Detection',        desc: 'Analyzing frames for high-engagement indicators.' },
-    { title: 'Dynamic Framing & Captions Render',   desc: 'Applying 9:16 cropping metrics and embedding subtitles.' },
+    { title: 'Initializing S3 Workspace Pipeline', desc: 'Verifying asset checksums and mapping handles.' },
+    { title: 'AI Transcription Engine (Whisper)', desc: 'Extracting clean audio channels and compiling text arrays.' },
+    { title: 'Neural Scene & Face Detection', desc: 'Analyzing frames for high-engagement indicators.' },
+    { title: 'Dynamic Framing & Captions Render', desc: 'Applying 9:16 cropping metrics and embedding subtitles.' },
   ];
 
   // ─── Lambda call ─────────────────────────────────────────────────────────────
   const startProcessing = async () => {
     setLambdaLoading(true);
     let targetPhase = null; // track intended phase
-  
+
     try {
       const response = await fetch(`/api/video_processing/${videoId}`, {
         method: "POST",
       });
-  
+
       const data = await response.json();
-  
+
       if (!response.ok) {
         throw new Error(data.error || "Something went wrong");
       }
-  
+
       if (data.videoStatus === "exist") {
         setCurrentStep(pipelineSteps.length - 1);
         setLogs([
@@ -60,7 +60,7 @@ export default function AIClipsPage({ params }) {
         setTimeout(() => setAlertVisible(false), 4000);
         targetPhase = "processing";
       }
-  
+
     } catch (err) {
       console.error("Lambda call failed:", err);
     } finally {
@@ -79,7 +79,7 @@ export default function AIClipsPage({ params }) {
     if (!videoId || phase !== 'processing') return;
 
     intentionallyClosed.current = false;
-    const eventSource = new EventSource(`/api/webhook/clips?id=${videoId}`);
+    const eventSource = new EventSource(`/api/webhooks/clips?id=${videoId}`);
 
     eventSource.onmessage = (event) => {
       try {
@@ -87,16 +87,16 @@ export default function AIClipsPage({ params }) {
 
         if (data.status === 'completed') {
           setCurrentStep(pipelineSteps.length - 1);
-        
+
           setLogs((prev) => [
             ...prev,
             'SUCCESS: Webhook broadcast matched!',
             'SUCCESS: Processing finalized.',
             'SUCCESS: Canvas ready.'
           ]);
-        
+
           setPhase('done');
-        
+
           intentionallyClosed.current = true;
           eventSource.close();
         } else if (data.status === 'FAILED') {
@@ -161,7 +161,7 @@ export default function AIClipsPage({ params }) {
     return () => clearInterval(logIntervalRef.current);
   }, [isProcessing, videoId]);
 
-  function handleViewGeneratedVideo(){
+  function handleViewGeneratedVideo() {
     router.push(`/dashboard/clips/output/${videoId}`);
   }
 
@@ -274,11 +274,10 @@ export default function AIClipsPage({ params }) {
                 <button
                   onClick={startProcessing}
                   disabled={lambdaLoading}
-                  className={`w-full py-3 px-4 rounded-xl font-bold text-sm font-mono tracking-wide transition-all duration-300 flex items-center justify-center gap-2 ${
-                    lambdaLoading
+                  className={`w-full py-3 px-4 rounded-xl font-bold text-sm font-mono tracking-wide transition-all duration-300 flex items-center justify-center gap-2 ${lambdaLoading
                       ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed'
                       : 'bg-lime-500 hover:bg-lime-400 active:scale-[0.98] text-black shadow-lg shadow-lime-500/20'
-                  }`}
+                    }`}
                 >
                   {lambdaLoading ? (
                     <>
@@ -368,9 +367,8 @@ export default function AIClipsPage({ params }) {
                   {pipelineSteps.map((_, i) => (
                     <div
                       key={i}
-                      className={`h-1 flex-1 rounded-full transition-all duration-700 ${
-                        i <= currentStep ? 'bg-lime-500' : 'bg-neutral-800'
-                      }`}
+                      className={`h-1 flex-1 rounded-full transition-all duration-700 ${i <= currentStep ? 'bg-lime-500' : 'bg-neutral-800'
+                        }`}
                     />
                   ))}
                 </div>
@@ -398,8 +396,8 @@ export default function AIClipsPage({ params }) {
                     const colorClass = log.startsWith('SUCCESS:')
                       ? 'text-lime-400 font-semibold'
                       : log.startsWith('ERROR:')
-                      ? 'text-red-400 font-semibold'
-                      : 'text-neutral-400';
+                        ? 'text-red-400 font-semibold'
+                        : 'text-neutral-400';
                     return (
                       <div key={i} className={`border-l-2 pl-2 border-neutral-800 ${colorClass}`}>
                         {log}
@@ -413,11 +411,10 @@ export default function AIClipsPage({ params }) {
                 <button
                   disabled={isProcessing}
                   onClick={handleViewGeneratedVideo}
-                  className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs font-mono tracking-wide transition-all duration-300 ${
-                    isProcessing
+                  className={`w-full py-2.5 px-4 rounded-xl font-bold text-xs font-mono tracking-wide transition-all duration-300 ${isProcessing
                       ? 'bg-neutral-950 border border-neutral-800 text-neutral-600 cursor-not-allowed'
                       : 'bg-lime-500 hover:bg-lime-400 text-black shadow-lg'
-                  }`}
+                    }`}
                 >
                   {isProcessing
                     ? '⚡ Awaiting External Webhook Signal...'

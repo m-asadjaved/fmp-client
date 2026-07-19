@@ -36,6 +36,7 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
   const [clipSubtitles, setClipSubtitles] = useState({});
   const [clipWords, setClipWords] = useState({});
   const fetchedSttRef = React.useRef(new Set());
+  const fetchedMetasRef = React.useRef(new Set());
   const [activeTheme, setActiveTheme] = useState("classic");
   const [animationOverride, setAnimationOverride] = useState("theme");
   const [fontSize, setFontSize] = useState(56);
@@ -105,14 +106,18 @@ export default function GeneratedClipPreview({ videoId, aiAnalysis }) {
     if (!availableClips.length) return;
     availableClips.forEach((clip) => {
       const metaKey = clip.id || clip.url;
-      // Don't refetch if we already have the meta for this exact clip
-      if (clipMetas[metaKey]) return;
+      if (fetchedMetasRef.current.has(metaKey)) return;
+      fetchedMetasRef.current.add(metaKey);
 
       parseMedia({ src: clip.url, fields: { durationInSeconds: true, fps: true }, acknowledgeRemotionLicense: true })
         .then((m) => setClipMetas((p) => ({ ...p, [metaKey]: { durationInSeconds: m.durationInSeconds, fps: m.fps } })))
-        .catch(console.error);
+        .catch((err) => {
+          console.error("parseMedia error for", clip.url, err);
+          // Set fallback to avoid getting stuck
+          setClipMetas((p) => ({ ...p, [metaKey]: { durationInSeconds: null, fps: 30, error: true } }));
+        });
     });
-  }, [availableClips, clipMetas]);
+  }, [availableClips]);
 
   useEffect(() => {
     const load = async () => {

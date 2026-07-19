@@ -19,7 +19,9 @@ export default function DashboardLayout({ children }) {
       {/* ── MAIN CONTENT ── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "#f3f4f6" }}>
         <DashboardHeader />
-        {children}
+        <main style={{ flex: 1, overflowY: "auto" }}>
+          {children}
+        </main>
       </div>
     </div>
   );

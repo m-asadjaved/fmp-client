@@ -9,28 +9,14 @@ import { UserButton, useUser } from "@clerk/nextjs";
 export function Sidebar() {
   const pathname = usePathname();
   const { user } = useUser();
-  const [currentPlan, setCurrentPlan] = React.useState("loading...");
 
-  React.useEffect(() => {
-    fetch('/api/credits', { cache: 'no-store' })
-      .then(res => res.json())
-      .then(data => {
-        if (data.currentPlan) {
-          let displayName = data.currentPlan;
-          if (displayName.toLowerCase().startsWith("pri_")) {
-            displayName = "Pro"; // Fallback to mask ID
-          }
-          setCurrentPlan(displayName.charAt(0).toUpperCase() + displayName.slice(1));
-        }
-      })
-      .catch(console.error);
-  }, []);
 
   const NAV_ITEMS = [
     { label: "Overview", icon: LayoutDashboard, href: "/dashboard" },
     { label: "Assets", icon: Database, href: "/dashboard/assets" },
     { label: "Calendar", icon: Calendar, href: "/dashboard/calendar" },
     { label: "New Post", icon: Video, href: "/editor" },
+    { label: "Account", icon: Settings, href: "/dashboard/account" },
   ];
 
   return (
@@ -92,28 +78,7 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* Footer / User Profile */}
-      <div style={{ padding: "24px 20px", borderTop: "1px solid #e5e7eb", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#e5e7eb", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            {user?.imageUrl ? (
-              <img src={user.imageUrl} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            ) : (
-              <div style={{ width: "100%", height: "100%", background: "#d1d5db" }} />
-            )}
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: "#4b5563" }}>{user?.fullName || "My Account"}</span>
-            <span style={{ fontSize: 12, color: "#00C0D4", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{currentPlan}</span>
-          </div>
-        </div>
-        <div style={{ position: "relative", width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-          <Settings size={18} color="#4b5563" />
-          <div style={{ position: "absolute", inset: 0, opacity: 0.001, zIndex: 10 }}>
-            <UserButton appearance={{ elements: { userButtonAvatarBox: { width: "26px", height: "26px", cursor: "pointer" } } }} />
-          </div>
-        </div>
-      </div>
+
     </aside>
   );
 }

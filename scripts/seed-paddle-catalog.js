@@ -22,7 +22,7 @@ async function seed() {
       description: "Pro Monthly",
       unitPrice: { amount: "1500", currencyCode: "USD" },
       billingCycle: { interval: "month", frequency: 1 },
-      trialPeriod: { interval: "day", frequency: 7 },
+      quantity: { minimum: 1, maximum: 1 },
     });
 
     const proYearly = await paddle.prices.create({
@@ -30,7 +30,7 @@ async function seed() {
       description: "Pro Yearly",
       unitPrice: { amount: "7200", currencyCode: "USD" },
       billingCycle: { interval: "year", frequency: 1 },
-      trialPeriod: { interval: "day", frequency: 7 },
+      quantity: { minimum: 1, maximum: 1 },
     });
     
     result.pro = { product: pro.id, monthly: proMonthly.id, yearly: proYearly.id };
@@ -47,7 +47,7 @@ async function seed() {
       description: "Expert Monthly",
       unitPrice: { amount: "3000", currencyCode: "USD" },
       billingCycle: { interval: "month", frequency: 1 },
-      trialPeriod: { interval: "day", frequency: 7 },
+      quantity: { minimum: 1, maximum: 1 },
     });
 
     const expertYearly = await paddle.prices.create({
@@ -55,7 +55,7 @@ async function seed() {
       description: "Expert Yearly",
       unitPrice: { amount: "14400", currencyCode: "USD" },
       billingCycle: { interval: "year", frequency: 1 },
-      trialPeriod: { interval: "day", frequency: 7 },
+      quantity: { minimum: 1, maximum: 1 },
     });
     
     result.expert = { product: expert.id, monthly: expertMonthly.id, yearly: expertYearly.id };
@@ -72,7 +72,7 @@ async function seed() {
       description: "Business Monthly",
       unitPrice: { amount: "6000", currencyCode: "USD" },
       billingCycle: { interval: "month", frequency: 1 },
-      trialPeriod: { interval: "day", frequency: 7 },
+      quantity: { minimum: 1, maximum: 1 },
     });
 
     const businessYearly = await paddle.prices.create({
@@ -80,7 +80,7 @@ async function seed() {
       description: "Business Yearly",
       unitPrice: { amount: "28800", currencyCode: "USD" },
       billingCycle: { interval: "year", frequency: 1 },
-      trialPeriod: { interval: "day", frequency: 7 },
+      quantity: { minimum: 1, maximum: 1 },
     });
     
     result.business = { product: business.id, monthly: businessMonthly.id, yearly: businessYearly.id };
