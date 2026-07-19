@@ -65,6 +65,8 @@ export async function POST(req) {
         splitY,
       },
       codec: "h264",
+      crf: 17,
+      jpegQuality: 100,
       framesPerLambda: 300,
       privacy: "public", // Makes the output S3 object publicly readable
     });
