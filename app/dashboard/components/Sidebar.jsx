@@ -9,7 +9,7 @@ import { UserButton, useUser } from "@clerk/nextjs";
 export function Sidebar() {
   const pathname = usePathname();
   const { user } = useUser();
-  const [currentPlan, setCurrentPlan] = React.useState("Free");
+  const [currentPlan, setCurrentPlan] = React.useState("loading...");
 
   React.useEffect(() => {
     fetch('/api/credits', { cache: 'no-store' })
@@ -104,7 +104,7 @@ export function Sidebar() {
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <span style={{ fontSize: 14, fontWeight: 700, color: "#4b5563" }}>{user?.fullName || "My Account"}</span>
-            <span style={{ fontSize: 12, color: "#00C0D4", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{currentPlan} Plan</span>
+            <span style={{ fontSize: 12, color: "#00C0D4", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{currentPlan}</span>
           </div>
         </div>
         <div style={{ position: "relative", width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>

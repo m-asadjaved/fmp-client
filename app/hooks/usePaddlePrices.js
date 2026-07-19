@@ -12,7 +12,11 @@ function getLineItems() {
 
 function getPriceAmounts(pricesResponse) {
   return pricesResponse.data.details.lineItems.reduce((acc, item) => {
-    acc[item.price.id] = item.formattedTotals.total;
+    acc[item.price.id] = {
+      formattedTotal: item.formattedTotals.total,
+      rawTotal: item.totals.total, // e.g. 7200 for $72.00
+      currencyCode: item.price.unitPrice.currencyCode
+    };
     return acc;
   }, {});
 }

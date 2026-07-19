@@ -36,8 +36,12 @@ async function upsertSubscription(event) {
   // first so the FK constraint on subscriptions.customer_id is always satisfied.
   if (sub.customerId) {
     const { error: customerError } = await supabase.from("customers").upsert(
-      { customer_id: sub.customerId, updated_at: new Date().toISOString() },
-      { onConflict: "customer_id", ignoreDuplicates: false }
+      { 
+        customer_id: sub.customerId, 
+        email: `pending-${sub.customerId}@placeholder.com`,
+        updated_at: new Date().toISOString() 
+      },
+      { onConflict: "customer_id", ignoreDuplicates: true }
     );
     if (customerError) {
       console.error("Error upserting customer (from subscription event):", customerError);

@@ -61,7 +61,15 @@ function getTierFromPriceId(priceId) {
   
   const cleanId = priceId.trim();
   
-  // Exact string matching for bulletproof reliability
+  // Environment variable matching for dynamic updates
+  if (cleanId === process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTH) return { name: "pro", interval: "month" };
+  if (cleanId === process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO_YEAR) return { name: "pro", interval: "year" };
+  if (cleanId === process.env.NEXT_PUBLIC_PADDLE_PRICE_EXPERT_MONTH) return { name: "expert", interval: "month" };
+  if (cleanId === process.env.NEXT_PUBLIC_PADDLE_PRICE_EXPERT_YEAR) return { name: "expert", interval: "year" };
+  if (cleanId === process.env.NEXT_PUBLIC_PADDLE_PRICE_BUSINESS_MONTH) return { name: "business", interval: "month" };
+  if (cleanId === process.env.NEXT_PUBLIC_PADDLE_PRICE_BUSINESS_YEAR) return { name: "business", interval: "year" };
+  
+  // Legacy exact string matching for bulletproof reliability
   if (cleanId === "pri_01kxtpqmm034m2ymjkah17vmn6") return { name: "starter", interval: "month" };
   if (cleanId === "pri_01kxtpqmz7wc24fxb7r2ecfxd3") return { name: "starter", interval: "year" };
   if (cleanId === "pri_01kxtpqnqnt90va0vsgv2zbnvs") return { name: "pro", interval: "month" };
