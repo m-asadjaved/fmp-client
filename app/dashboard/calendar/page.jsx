@@ -29,7 +29,7 @@ export default function CalendarPage() {
   const { isSignedIn, isLoaded } = useAuth();
   const router = useRouter();
   const { showAlert } = useAlert();
-  
+
   const [currentDate, setCurrentDate] = useState(new Date());
   const [jobs, setJobs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -122,27 +122,27 @@ export default function CalendarPage() {
 
   return (
     <div style={{
-      height: "100%", backgroundColor: "#f9fafb", color: "#0F2347",
+      height: "100%", backgroundColor: "var(--surface-bg)", color: "var(--on-surface)",
       fontFamily: "'Inter', sans-serif", display: "flex", flexDirection: "column"
     }}>
 
 
       {/* ── CALENDAR GRID ── */}
       <main style={{ flex: 1, padding: "32px 40px", overflowY: "auto" }}>
-        <div style={{ 
-          background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 16,
+        <div style={{
+          background: "var(--surface)", border: "1px solid var(--border-subtle)", borderRadius: 16,
           overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.4)"
         }}>
-          
+
           {/* Day of week headers */}
-          <div style={{ 
+          <div style={{
             display: "grid", gridTemplateColumns: "repeat(7, 1fr)",
-            borderBottom: "1px solid #e5e7eb", background: "#f3f4f6"
+            borderBottom: "1px solid var(--border-subtle)", background: "#f3f4f6"
           }}>
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(day => (
               <div key={day} style={{
                 padding: "12px 16px", fontSize: 12, fontWeight: 700,
-                color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.05em",
+                color: "var(--on-surface-variant)", textTransform: "uppercase", letterSpacing: "0.05em",
                 textAlign: "right"
               }}>
                 {day}
@@ -180,10 +180,10 @@ export default function CalendarPage() {
                     {cell.jobs.map((job) => {
                       const timeString = new Date(job.scheduled_for).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                       const isCompleted = job.status === 'completed';
-                      
+
                       return (
-                        <div 
-                          key={job.id} 
+                        <div
+                          key={job.id}
                           onClick={() => {
                             if (job.video_id) {
                               router.push(`/editor/${job.video_id}`);
@@ -217,7 +217,7 @@ export default function CalendarPage() {
                             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                               {job.video_id && !isCompleted && <Edit2 size={12} color="#4b5563" />}
                               {!isCompleted && (
-                                <button 
+                                <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleDeleteJob(job.id);
@@ -235,7 +235,7 @@ export default function CalendarPage() {
                               {isCompleted && <CheckCircle2 size={12} color="#4ade80" />}
                             </div>
                           </div>
-                          
+
                           {job.title && (
                             <div style={{ fontSize: 11, fontWeight: 600, color: "#1f2937", lineHeight: 1.2, marginTop: 4, marginBottom: 2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
                               {job.title}

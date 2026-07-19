@@ -13,11 +13,11 @@ export default function DashboardLayout({ children }) {
   }
 
   return (
-    <div style={{ display: "flex", height: "100vh", backgroundColor: "#f3f4f6", color: "#0F2347", fontFamily: "'Inter', sans-serif", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "100vh", backgroundColor: "var(--background)", color: "var(--on-surface)", fontFamily: "'Inter', sans-serif", overflow: "hidden" }}>
       <Sidebar />
 
       {/* ── MAIN CONTENT ── */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "#f3f4f6" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: "var(--background)" }}>
         <DashboardHeader />
         <main style={{ flex: 1, overflowY: "auto" }}>
           {children}

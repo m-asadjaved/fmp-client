@@ -443,7 +443,7 @@ export default function AIClipsPage({ params }) {
 							<p className="text-sm font-bold text-[#0F2347] tracking-tight">
 								Processing Started
 							</p>
-							<p style={{ fontSize: 12, color: "#4b5563", margin: 0, marginTop: 4 }}>
+							<p style={{ fontSize: 12, color: "var(--on-surface-variant)", margin: 0, marginTop: 4 }}>
 								Your video has been queued in the AI engine.
 							</p>
 						</div>
@@ -497,19 +497,19 @@ export default function AIClipsPage({ params }) {
 				{phase === "preview" && (
 					<div className="max-w-3xl mx-auto space-y-6">
 						<div>
-							<h3 style={{ fontSize: 20, fontWeight: 800, color: "#0F2347", marginBottom: 4 }}>
+							<h3 style={{ fontSize: 20, fontWeight: 800, color: "var(--on-surface)", marginBottom: 4 }}>
 								Review Workspace Asset
 							</h3>
-							<p style={{ fontSize: 14, color: "#4b5563", fontFamily: "monospace", margin: 0 }}>
+							<p style={{ fontSize: 14, color: "var(--on-surface-variant)", fontFamily: "monospace", margin: 0 }}>
 								Asset Key Ref:{" "}
-								<span style={{ color: "#00C0D4", fontWeight: 600 }}>
+								<span style={{ color: "var(--primary)", fontWeight: 600 }}>
 									{videoId}
 								</span>
 							</p>
 						</div>
 
 						{/* Video preview workspace platform card */}
-						<div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>
+						<div style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }}>
 							<div className="relative w-full bg-[rgba(74,222,128,0.1)]lack aspect-video flex items-center justify-center">
 								<video
 									ref={videoRef}
@@ -526,11 +526,11 @@ export default function AIClipsPage({ params }) {
 								</video>
 							</div>
 
-							<div style={{ padding: 24, borderTop: "1px solid #e5e7eb", background: "#ffffff" }}>
-								<div style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#00C0D4", fontSize: 12, fontWeight: 600, background: "rgba(0, 192, 212, 0.1)", padding: "4px 10px", borderRadius: 6, marginBottom: 16 }}>
+							<div style={{ padding: 24, borderTop: "1px solid var(--border-subtle)", background: "var(--surface)" }}>
+								<div style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--primary)", fontSize: 12, fontWeight: 600, background: "color-mix(in srgb, var(--primary) 10%, transparent)", padding: "4px 10px", borderRadius: 6, marginBottom: 16 }}>
 									<Sparkles
 										size={14}
-										style={{ color: "#00C0D4" }} className="animate-pulse"
+										style={{ color: "var(--primary)" }} className="animate-pulse"
 									/>
 									<span>
 										Configure Workspace Automated Engine
@@ -759,7 +759,7 @@ export default function AIClipsPage({ params }) {
 				{phase === "processing" && (
 					<div className="grid grid-cols-1 gap-8 items-stretch animate-fadeIn">
 						{/* ── Main Production Engine Panel ── */}
-						<div style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 480, boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }} className="lg:col-span-2">
+						<div style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", borderRadius: 16, padding: 24, display: "flex", flexDirection: "column", justifyContent: "space-between", minHeight: 480, boxShadow: "0 8px 32px rgba(0,0,0,0.4)" }} className="lg:col-span-2">
 							<div>
 								<div className="flex items-center justify-between border-[rgba(74,222,128,0.2)] border-[#e5e7eb] pb-4 mb-6">
 									<div>

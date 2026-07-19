@@ -4,12 +4,9 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Calendar, Video, Settings, Database } from "lucide-react";
-import { UserButton, useUser } from "@clerk/nextjs";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { user } = useUser();
-
 
   const NAV_ITEMS = [
     { label: "Overview", icon: LayoutDashboard, href: "/dashboard" },
@@ -20,65 +17,50 @@ export function Sidebar() {
   ];
 
   return (
-    <aside style={{
-      width: 260,
-      background: "#ffffff",
-      borderRight: "1px solid #e5e7eb",
-      display: "flex",
-      flexDirection: "column",
-      flexShrink: 0,
-    }}>
+    <aside className="w-[260px] bg-[var(--surface)] border-r border-[var(--border-subtle)] flex flex-col shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 relative">
       {/* Brand */}
-      <div style={{ display: "flex", alignItems: "center", padding: "24px" }}>
-        <Link href="/" style={{ display: "block", width: "100%" }}>
+      <div className="flex items-center px-8 py-8">
+        <Link href="/" className="block w-full transition-transform hover:scale-105 duration-300">
           <img 
             src="/logo-transparent.png" 
             alt="twenty2short" 
-            style={{ width: "100%", height: "auto", objectFit: "contain" }}
+            className="w-full h-auto object-contain drop-shadow-sm"
           />
         </Link>
       </div>
 
       {/* Navigation */}
-      <nav style={{ flex: 1, padding: "0 16px", display: "flex", flexDirection: "column", gap: 8, marginTop: 12 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 12px", marginBottom: 4 }}>
+      <nav className="flex-1 px-4 flex flex-col gap-1.5 mt-2">
+        <div className="text-[11px] font-bold text-[var(--on-surface-variant)] uppercase tracking-[0.1em] px-4 mb-3">
           Menu
         </div>
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href;
           return (
-            <Link key={item.href} href={item.href} style={{ textDecoration: "none" }}>
-              <div style={{
-                display: "flex", alignItems: "center", gap: 14,
-                padding: "12px 16px", borderRadius: 10,
-                background: isActive ? "rgba(0, 192, 212, 0.1)" : "transparent",
-                color: isActive ? "#00C0D4" : "#4b5563",
-                border: `1px solid ${isActive ? "rgba(0, 192, 212, 0.2)" : "transparent"}`,
-                transition: "all 0.2s ease",
-                cursor: "pointer",
-              }}
-              onMouseOver={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = "#e5e7eb";
-                  e.currentTarget.style.color = "#0F2347";
-                }
-              }}
-              onMouseOut={(e) => {
-                if (!isActive) {
-                  e.currentTarget.style.background = "transparent";
-                  e.currentTarget.style.color = "#4b5563";
-                }
-              }}
-              >
-                <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} color={isActive ? "#00C0D4" : "currentColor"} />
-                <span style={{ fontSize: 14, fontWeight: isActive ? 700 : 500 }}>{item.label}</span>
+            <Link key={item.href} href={item.href} className="group outline-none">
+              <div className={`flex items-center gap-3.5 px-4 py-3 rounded-xl transition-all duration-300 border ${
+                isActive 
+                  ? "bg-[var(--primary)]/20 text-[var(--primary)] border-[var(--primary)]/30 shadow-sm" 
+                  : "bg-transparent text-[var(--on-surface-variant)] border-transparent hover:bg-[var(--surface-bg)] hover:text-[var(--on-surface)] hover:shadow-sm"
+              }`}>
+                <item.icon 
+                  size={18} 
+                  strokeWidth={isActive ? 2.5 : 2} 
+                  className={`transition-colors duration-300 ${isActive ? "text-[var(--primary)]" : "text-[var(--on-surface-variant)] group-hover:text-[var(--primary)]"}`}
+                />
+                <span className={`text-[14px] transition-all duration-300 ${isActive ? "font-bold" : "font-semibold"}`}>
+                  {item.label}
+                </span>
+                
+                {/* Optional Active Indicator Pill */}
+                {isActive && (
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[var(--primary)] shadow-[0_0_8px_rgba(0,192,212,0.8)]" />
+                )}
               </div>
             </Link>
           );
         })}
       </nav>
-
-
     </aside>
   );
 }

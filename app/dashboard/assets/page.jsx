@@ -62,7 +62,7 @@ export default function AssetsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(asset),
       });
-      
+
       const data = await res.json();
       if (data.success) {
         setAssets((prev) => prev.filter((a) => a.id !== asset.id));
@@ -100,7 +100,7 @@ export default function AssetsPage() {
 
   if (!isLoaded || (!isSignedIn && loading)) {
     return (
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#4b5563" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--on-surface-variant)" }}>
         <Loader2 size={32} style={{ animation: "spin 1s linear infinite" }} />
       </div>
     );
@@ -109,12 +109,12 @@ export default function AssetsPage() {
   const TABS = ["All", "Raw Video", "Generated Clip", "B-Roll", "Music", "Hook"];
 
   return (
-    <div style={{ padding: "32px 40px", overflowY: "auto", height: "100%", background: "#f9fafb", color: "#0F2347" }}>
+    <div style={{ padding: "32px 40px", overflowY: "auto", height: "100%", background: "var(--surface-bg)", color: "var(--on-surface)" }}>
 
 
       {/* Controls */}
       <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap", justifyContent: "space-between" }}>
-        <div style={{ display: "flex", gap: 8, background: "#ffffff", padding: 4, borderRadius: 10, border: "1px solid #e5e7eb" }}>
+        <div style={{ display: "flex", gap: 8, background: "var(--surface)", padding: 4, borderRadius: 10, border: "1px solid var(--border-subtle)" }}>
           {TABS.map((tab) => (
             <button
               key={tab}
@@ -137,7 +137,7 @@ export default function AssetsPage() {
         </div>
 
         <div style={{ position: "relative", width: "100%", maxWidth: 300 }}>
-          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#6b7280" }} />
+          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--on-surface-variant)" }} />
           <input
             type="text"
             placeholder="Search assets..."
@@ -145,9 +145,9 @@ export default function AssetsPage() {
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{
               width: "100%",
-              background: "#ffffff",
-              border: "1px solid #e5e7eb",
-              color: "#0F2347",
+              background: "var(--surface)",
+              border: "1px solid var(--border-subtle)",
+              color: "var(--on-surface)",
               padding: "10px 16px 10px 36px",
               borderRadius: 10,
               fontSize: 14,
@@ -161,7 +161,7 @@ export default function AssetsPage() {
       {loading ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} style={{ background: "#ffffff", border: "1px solid #e5e7eb", borderRadius: 12, padding: 16, height: 140 }}>
+            <div key={i} style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", borderRadius: 12, padding: 16, height: 140 }}>
               <div style={{ width: 40, height: 40, borderRadius: 8, background: "#e5e7eb", marginBottom: 12, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
               <div style={{ height: 16, width: "80%", background: "#e5e7eb", borderRadius: 4, marginBottom: 8, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
               <div style={{ height: 12, width: "40%", background: "#e5e7eb", borderRadius: 4, animation: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite" }} />
@@ -169,10 +169,10 @@ export default function AssetsPage() {
           ))}
         </div>
       ) : filteredAssets.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "64px 20px", background: "#ffffff", borderRadius: 16, border: "1px dashed #e5e7eb" }}>
-          <AlertCircle size={36} style={{ color: "#6b7280", margin: "0 auto 12px" }} />
-          <h4 style={{ margin: "0 0 8px", fontSize: 16, color: "#0F2347" }}>No assets found</h4>
-          <p style={{ margin: 0, fontSize: 13, color: "#4b5563" }}>
+        <div style={{ textAlign: "center", padding: "64px 20px", background: "var(--surface)", borderRadius: 16, border: "1px dashed var(--border-subtle)" }}>
+          <AlertCircle size={36} style={{ color: "var(--on-surface-variant)", margin: "0 auto 12px" }} />
+          <h4 style={{ margin: "0 0 8px", fontSize: 16, color: "var(--on-surface)" }}>No assets found</h4>
+          <p style={{ margin: 0, fontSize: 13, color: "var(--on-surface-variant)" }}>
             {searchQuery ? "Try adjusting your search filters." : "You haven't uploaded any media yet."}
           </p>
         </div>
@@ -182,8 +182,8 @@ export default function AssetsPage() {
             <div
               key={asset.id}
               style={{
-                background: "#ffffff",
-                border: "1px solid #e5e7eb",
+                background: "var(--surface)",
+                border: "1px solid var(--border-subtle)",
                 borderRadius: 12,
                 padding: 16,
                 display: "flex",
@@ -198,23 +198,23 @@ export default function AssetsPage() {
                 <div
                   style={{
                     width: 40, height: 40, borderRadius: 8,
-                    background: "rgba(0, 192, 212, 0.1)", color: "#00C0D4",
+                    background: "color-mix(in srgb, var(--primary) 10%, transparent)", color: "var(--primary)",
                     display: "flex", alignItems: "center", justifyContent: "center"
                   }}
                 >
                   {getIconForType(asset.type)}
                 </div>
-                
-                <span style={{ fontSize: 11, fontWeight: 700, background: "#e5e7eb", color: "#4b5563", padding: "4px 8px", borderRadius: 6, textTransform: "uppercase" }}>
+
+                <span style={{ fontSize: 11, fontWeight: 700, background: "#e5e7eb", color: "var(--on-surface-variant)", padding: "4px 8px", borderRadius: 6, textTransform: "uppercase" }}>
                   {asset.type}
                 </span>
               </div>
-              
+
               <div style={{ flex: 1, marginBottom: 16 }}>
-                <h4 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "#0F2347", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={asset.name}>
+                <h4 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "var(--on-surface)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={asset.name}>
                   {asset.name}
                 </h4>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#6b7280" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--on-surface-variant)" }}>
                   <span>{formatSize(asset.size)}</span>
                   <span>•</span>
                   <span>{formatDate(asset.date)}</span>
@@ -227,7 +227,7 @@ export default function AssetsPage() {
                   disabled={deletingId === asset.id}
                   style={{
                     background: "transparent",
-                    border: "1px solid #d1d5db",
+                    border: "1px solid var(--border-subtle)",
                     color: "#ef4444",
                     padding: "6px 12px",
                     borderRadius: 6,

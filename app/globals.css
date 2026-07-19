@@ -1,21 +1,21 @@
 @import "tailwindcss";
 :root {
-  /* Core Style Tokens from DESIGN.md */
-  --background: #ffffff;
-  --surface-bg: #f9fafb;
-  --surface: #ffffff;
-  --primary: #00C0D4;
-  --primary-hover: #00A6B8;
-  --secondary: #0F2347;
-  --secondary-hover: #0C1C3A;
-  --neon-purple: #A855F7;
-  --vibrant-teal: #14B8A6;
-  --on-surface: #0F2347;
-  --on-surface-variant: #4B5563;
+  /* Crisp Modern Light Theme (SaaS/Stripe inspired) */
+  --background: #F9FAFB;
+  --surface-bg: #F3F4F6;
+  --surface: #FFFFFF;
+  --primary: #3782F7;
+  --primary-hover: #2563EB;
+  --secondary: #111827;
+  --secondary-hover: #374151;
+  --neon-purple: #8B5CF6;
+  --vibrant-teal: #0D9488;
+  --on-surface: #111827;
+  --on-surface-variant: #6B7280;
   --border-subtle: #E5E7EB;
   
-  /* Multi-layered Ambient Shadow Tint (Blur: 20px, Y: 10px, Opacity: 4% with soft brand navy tint) */
-  --shadow-ambient: 0 10px 20px rgba(15, 35, 71, 0.04);
+  /* Modern clean elevation */
+  --shadow-ambient: 0 1px 3px rgba(0,0,0,0.05), 0 10px 15px -3px rgba(0,0,0,0.02);
 }
 
 .button{
@@ -57,6 +57,45 @@
   .animate-fadeIn {
     animation: fadeInModal 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
+
+  /* Glassy Panel Utility */
+  .glass-panel {
+    background-color: var(--surface);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border-subtle);
+  }
+
+  /* Premium UI Text Gradients */
+  .text-gradient-primary {
+    background: linear-gradient(to right, var(--primary), var(--neon-purple));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-subtle {
+    background: linear-gradient(to right, var(--on-surface), var(--on-surface-variant));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Premium Background Patterns */
+  .bg-dot-pattern {
+    background-image: radial-gradient(var(--border-subtle) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  /* Smooth Stagger Entries */
+  .stagger-1 { animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.05s forwards; opacity: 0; }
+  .stagger-2 { animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards; opacity: 0; }
+  .stagger-3 { animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards; opacity: 0; }
+}
+
+@keyframes slideUpFade {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeInModal {
