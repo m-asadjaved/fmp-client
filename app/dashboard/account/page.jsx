@@ -101,7 +101,7 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="bg-transparent py-10 px-4 sm:px-6 lg:px-8 w-full">
+    <div className="bg-dot-pattern py-10 px-4 sm:px-6 lg:px-8 w-full min-h-[100vh]">
       <div className="max-w-[55rem] mx-auto space-y-10">
         
         {/* Page Header */}
@@ -111,7 +111,7 @@ export default function AccountPage() {
         </div>
 
         {/* Clerk User Profile Management */}
-        <div className="w-full flex justify-center">
+        <div className="w-full flex justify-center stagger-1">
           <UserProfile 
             routing="hash" 
             appearance={{
@@ -140,7 +140,7 @@ export default function AccountPage() {
         </div>
 
         {/* Editor Preferences */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden relative">
+        <div className="stagger-2 bg-[var(--surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm overflow-hidden relative transition-shadow duration-300 hover:shadow-md">
           <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex items-center gap-4">
              <div className="w-12 h-12 bg-cyan-50 rounded-lg flex items-center justify-center">
                 <Settings2 className="text-[#00C0D4]" size={24} />
@@ -236,9 +236,9 @@ export default function AccountPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="stagger-3 grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Subscription Management */}
-          <div className="group bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full relative overflow-hidden">
+          <div className="group bg-[var(--surface)] rounded-xl border border-[var(--border-subtle)] shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full relative overflow-hidden">
             <div className="px-6 pt-6 pb-4 border-b border-gray-100 relative z-10 flex-1">
               <div className="w-12 h-12 bg-cyan-50 rounded-lg flex items-center justify-center mb-5 group-hover:scale-105 transition-transform duration-300">
                 <CreditCard className="text-[#00C0D4]" size={24} />

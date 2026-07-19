@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useAuth, SignInButton, UserButton } from '@clerk/nextjs';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useAlert } from '@/contexts/AlertContext';
 import { useUpload } from '@/contexts/UploadContext';
 import {
@@ -18,7 +19,8 @@ import {
   Play,
   CheckCircle2,
   X,
-  ExternalLink
+  ExternalLink,
+  FolderOpen
 } from 'lucide-react';
 
 // ─── Platform colour/icon map ─────────────────────────────────────────────────
@@ -737,9 +739,9 @@ export default function Dashboard() {
                 {loadingHistory ? "..." : `${history.length} Total Projects`}
               </span>
             </div>
-            <button style={{ background: "transparent", border: "none", color: "var(--primary)", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+            <Link href="/dashboard/assets?tab=Raw%20Video" style={{ textDecoration: "none", background: "transparent", border: "none", color: "var(--primary)", fontSize: 14, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, cursor: "pointer", outline: "none" }}>
               View All <ArrowRight size={16} />
-            </button>
+            </Link>
           </div>
 
           {loadingHistory ? (
@@ -826,8 +828,17 @@ export default function Dashboard() {
                           onClick={() => handleMakeClips(item)}
                           className={`w-full py-2.5 rounded-lg text-[13px] font-bold flex items-center justify-center gap-2 transition-all duration-300 ${isReady ? 'bg-gradient-to-r from-[var(--primary)] to-indigo-500 hover:from-[var(--primary-hover)] hover:to-indigo-600 text-white shadow-md hover:shadow-lg active:scale-[0.98]' : 'bg-[var(--border-subtle)] text-[var(--on-surface-variant)] cursor-not-allowed'}`}
                         >
-                          <Sparkles size={14} />
-                          Make AI Clips
+                          {item.credits_used > 0 ? (
+                            <>
+                              <FolderOpen size={14} />
+                              View Generated Clips
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles size={14} />
+                              Generate Clips using AI
+                            </>
+                          )}
                         </button>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 10, color: "var(--on-surface-variant)", fontFamily: "monospace", paddingTop: 4 }}>
                           <span>Node status:</span>

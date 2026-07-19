@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useAuth } from "@clerk/nextjs";
-import { FolderOpen, Search, Trash2, Video, Music, Image as ImageIcon, Loader2, AlertCircle, Play } from "lucide-react";
+import { FolderOpen, Search, Trash2, Video, Music, Image as ImageIcon, Loader2, AlertCircle, Play, X } from "lucide-react";
 
 const formatSize = (bytes) => {
   if (!bytes) return "0 Bytes";
@@ -28,6 +28,8 @@ export default function AssetsPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [activeTab, setActiveTab] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
 
   const fetchAssets = async () => {
     try {
@@ -49,6 +51,14 @@ export default function AssetsPage() {
       fetchAssets();
     }
   }, [isLoaded, isSignedIn]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get("tab");
+      if (tab) setActiveTab(tab);
+    }
+  }, []);
 
   const handleDelete = async (asset) => {
     if (!window.confirm(`Are you sure you want to delete "${asset.name}"? This will free up storage but cannot be undone.`)) {
@@ -95,7 +105,21 @@ export default function AssetsPage() {
   const filteredAssets = assets.filter((asset) => {
     const matchesTab = activeTab === "All" || asset.type === activeTab;
     const matchesSearch = asset.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesTab && matchesSearch;
+    let matchesDate = true;
+    if (startDate || endDate) {
+      try {
+        const assetDate = asset.date ? new Date(asset.date).toISOString().split('T')[0] : null;
+        if (assetDate) {
+          if (startDate && assetDate < startDate) matchesDate = false;
+          if (endDate && assetDate > endDate) matchesDate = false;
+        } else {
+          matchesDate = false;
+        }
+      } catch (e) {
+        matchesDate = false;
+      }
+    }
+    return matchesTab && matchesSearch && matchesDate;
   });
 
   if (!isLoaded || (!isSignedIn && loading)) {
@@ -109,11 +133,11 @@ export default function AssetsPage() {
   const TABS = ["All", "Raw Video", "Generated Clip", "B-Roll", "Music", "Hook"];
 
   return (
-    <div style={{ padding: "32px 40px", overflowY: "auto", height: "100%", background: "var(--surface-bg)", color: "var(--on-surface)" }}>
+    <div className="bg-dot-pattern stagger-1" style={{ padding: "32px 40px", overflowY: "auto", height: "100%", backgroundColor: "var(--surface-bg)", color: "var(--on-surface)" }}>
 
 
       {/* Controls */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap", justifyContent: "space-between" }}>
+      <div className="stagger-1" style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap", justifyContent: "space-between" }}>
         <div style={{ display: "flex", gap: 8, background: "var(--surface)", padding: 4, borderRadius: 10, border: "1px solid var(--border-subtle)" }}>
           {TABS.map((tab) => (
             <button
@@ -136,24 +160,85 @@ export default function AssetsPage() {
           ))}
         </div>
 
-        <div style={{ position: "relative", width: "100%", maxWidth: 300 }}>
-          <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--on-surface-variant)" }} />
-          <input
-            type="text"
-            placeholder="Search assets..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{
-              width: "100%",
-              background: "var(--surface)",
-              border: "1px solid var(--border-subtle)",
-              color: "var(--on-surface)",
-              padding: "10px 16px 10px 36px",
-              borderRadius: 10,
-              fontSize: 14,
-              outline: "none"
-            }}
-          />
+        <div style={{ display: "flex", gap: 12, width: "100%", maxWidth: 600 }}>
+          <div style={{ position: "relative", flex: 1 }}>
+            <Search size={16} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--on-surface-variant)" }} />
+            <input
+              type="text"
+              placeholder="Search assets..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                background: "var(--surface)",
+                border: "1px solid var(--border-subtle)",
+                color: "var(--on-surface)",
+                padding: "10px 16px 10px 36px",
+                borderRadius: 10,
+                fontSize: 14,
+                outline: "none"
+              }}
+            />
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ position: "relative", width: 135 }}>
+               <input 
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  style={{
+                    width: "100%",
+                    background: "var(--surface)",
+                    border: "1px solid var(--border-subtle)",
+                    color: "var(--on-surface-variant)",
+                    padding: "10px 28px 10px 12px",
+                    borderRadius: 10,
+                    fontSize: 13,
+                    outline: "none",
+                    cursor: "pointer",
+                    fontFamily: "inherit"
+                  }}
+               />
+               {startDate && (
+                 <button 
+                   onClick={() => setStartDate("")}
+                   style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "var(--surface)", border: "none", color: "var(--on-surface-variant)", cursor: "pointer", padding: 2, display: "flex", alignItems: "center", justifyContent: "center" }}
+                   title="Clear start date"
+                 >
+                   <X size={14} />
+                 </button>
+               )}
+            </div>
+            <span style={{ color: "var(--on-surface-variant)", fontSize: 13, fontWeight: 500 }}>to</span>
+            <div style={{ position: "relative", width: 135 }}>
+               <input 
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  style={{
+                    width: "100%",
+                    background: "var(--surface)",
+                    border: "1px solid var(--border-subtle)",
+                    color: "var(--on-surface-variant)",
+                    padding: "10px 28px 10px 12px",
+                    borderRadius: 10,
+                    fontSize: 13,
+                    outline: "none",
+                    cursor: "pointer",
+                    fontFamily: "inherit"
+                  }}
+               />
+               {endDate && (
+                 <button 
+                   onClick={() => setEndDate("")}
+                   style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "var(--surface)", border: "none", color: "var(--on-surface-variant)", cursor: "pointer", padding: 2, display: "flex", alignItems: "center", justifyContent: "center" }}
+                   title="Clear end date"
+                 >
+                   <X size={14} />
+                 </button>
+               )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -178,37 +263,36 @@ export default function AssetsPage() {
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
-          {filteredAssets.map((asset) => (
+          {filteredAssets.map((asset, index) => (
             <div
               key={asset.id}
+              className={`stagger-${(index % 3) + 1} group hover:shadow-md hover:-translate-y-1 transition-all duration-300`}
               style={{
                 background: "var(--surface)",
                 border: "1px solid var(--border-subtle)",
-                borderRadius: 12,
-                padding: 16,
+                borderRadius: 16,
+                overflow: "hidden",
                 display: "flex",
                 flexDirection: "column",
                 position: "relative",
-                transition: "transform 0.2s, border-color 0.2s",
               }}
-              onMouseOver={(e) => { e.currentTarget.style.borderColor = "#d1d5db"; e.currentTarget.style.transform = "translateY(-2px)"; }}
-              onMouseOut={(e) => { e.currentTarget.style.borderColor = "#e5e7eb"; e.currentTarget.style.transform = "none"; }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
-                <div
-                  style={{
-                    width: 40, height: 40, borderRadius: 8,
-                    background: "color-mix(in srgb, var(--primary) 10%, transparent)", color: "var(--primary)",
-                    display: "flex", alignItems: "center", justifyContent: "center"
-                  }}
-                >
-                  {getIconForType(asset.type)}
-                </div>
-
-                <span style={{ fontSize: 11, fontWeight: 700, background: "#e5e7eb", color: "var(--on-surface-variant)", padding: "4px 8px", borderRadius: 6, textTransform: "uppercase" }}>
+              {/* THUMBNAIL AREA */}
+              <div className="relative w-full aspect-video bg-[var(--surface-bg)] flex items-center justify-center overflow-hidden border-b border-[var(--border-subtle)]">
+                {asset.thumbnail_url ? (
+                  <img src={asset.thumbnail_url} alt={asset.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-[var(--on-surface-variant)] group-hover:scale-105 transition-transform duration-500 gap-2 opacity-50">
+                    {getIconForType(asset.type)}
+                  </div>
+                )}
+                <span className="absolute top-3 right-3 text-[10px] font-bold bg-white/90 backdrop-blur-sm text-gray-900 px-2.5 py-1 rounded-md shadow-sm uppercase tracking-wider border border-white/20">
                   {asset.type}
                 </span>
               </div>
+
+              {/* DETAILS AREA */}
+              <div className="p-4 flex flex-col flex-1">
 
               <div style={{ flex: 1, marginBottom: 16 }}>
                 <h4 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "var(--on-surface)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={asset.name}>
@@ -251,6 +335,7 @@ export default function AssetsPage() {
                   Delete
                 </button>
               </div>
+            </div>
             </div>
           ))}
         </div>
