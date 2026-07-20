@@ -14,13 +14,13 @@ const TOOLS_LIST = [
 
 export function LandingTools() {
   return (
-    <section className="py-20 bg-gray-50 border-t border-gray-200 px-4">
+    <section className="py-20 bg-brand-surfaceBg px-4">
       <div className="max-w-6xl mx-auto">
         <div className="mb-12 md:mb-16">
-          <h2 className="text-3xl md:text-4xl font-bold text-[#0F2347] tracking-tight mb-4 text-center md:text-left">
+          <h2 className="text-[26px] md:text-hero-heading md:text-[44px] font-[300] text-brand-secondary tracking-[-0.26px] leading-[1.03] mb-4 text-center md:text-left">
             twenty2short Tools
           </h2>
-          <p className="text-lg text-gray-600 max-w-3xl text-center md:text-left">
+          <p className="text-[16px] text-brand-on-surface-variant max-w-3xl text-center md:text-left font-[300] leading-[22.4px]">
             AI-powered tools to clip, caption, edit, and publish short-form video content. Built for creators who need speed and volume.
           </p>
         </div>
@@ -30,14 +30,14 @@ export function LandingTools() {
             <a 
               key={idx} 
               href="#" 
-              className="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-medium text-gray-700 hover:border-[#00C0D4] hover:text-[#00C0D4] transition-colors shadow-sm"
+              className="px-4 py-2 bg-brand-surface border border-brand-border-subtle rounded-md text-label-small text-brand-secondary hover:border-brand-primary hover:text-brand-primary transition-colors shadow-sm-bottom"
             >
               {tool}
             </a>
           ))}
           <a 
             href="#" 
-            className="px-4 py-2 bg-white border border-gray-200 rounded-full text-sm font-bold text-gray-400 hover:text-gray-600 transition-colors shadow-sm"
+            className="px-4 py-2 bg-brand-surface border border-brand-border-subtle rounded-md text-label-small text-brand-on-surface-variant hover:text-brand-secondary transition-colors shadow-sm-bottom"
           >
             All Tools →
           </a>

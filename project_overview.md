@@ -159,13 +159,12 @@
 
 ## Design System
 
-Defined in `DESIGN.md` as "Lumina AI" design tokens:
-- **Brand**: Corporate/Modern + subtle Glassmorphism
-- **Primary color**: Deep blue (`#0058bc`)
-- **Accents**: Neon purple (`#A855F7`) for AI features, Teal (`#14B8A6`) for status
-- **Font**: Inter exclusively
-- **Spacing**: 4px baseline grid, 1280px max-width container
-- Tailwind custom tokens in `tailwind.config.js` (brand-primary, brand-neon-purple, brand-vibrant-teal, brand-border-subtle, brand-surfaceBg, etc.)
+Defined in `stripe-DESIGN.md` as "Stripe HDS Light" design tokens:
+- **Brand**: Clean, high-contrast light theme with tight border radii and crisp shadows.
+- **Primary color**: Soft teal/cyan (`brand-primary`)
+- **Backgrounds**: White (`brand-surface`) and ultra-light gray (`brand-surfaceBg`)
+- **Typography**: `sohne-var`, falling back to `SF Pro Display`, `Inter`. Font weights favor lighter styles (`300` for headings).
+- Tailwind custom tokens in `tailwind.config.js` map these to internal variables (e.g., `brand-primary`, `brand-secondary`, `brand-surface`, `brand-on-surface-variant`).
 
 ---
 
@@ -347,13 +346,12 @@ Defined in `DESIGN.md` as "Lumina AI" design tokens:
 
 ## Design System
 
-Defined in `DESIGN.md` as "Lumina AI" design tokens:
-- **Brand**: Corporate/Modern + subtle Glassmorphism
-- **Primary color**: Deep blue (`#0058bc`)
-- **Accents**: Neon purple (`#A855F7`) for AI features, Teal (`#14B8A6`) for status
-- **Font**: Inter exclusively
-- **Spacing**: 4px baseline grid, 1280px max-width container
-- Tailwind custom tokens in `tailwind.config.js` (brand-primary, brand-neon-purple, brand-vibrant-teal, brand-border-subtle, brand-surfaceBg, etc.)
+Defined in `stripe-DESIGN.md` as "Stripe HDS Light" design tokens:
+- **Brand**: Clean, high-contrast light theme with tight border radii and crisp shadows.
+- **Primary color**: Soft teal/cyan (`brand-primary`)
+- **Backgrounds**: White (`brand-surface`) and ultra-light gray (`brand-surfaceBg`)
+- **Typography**: `sohne-var`, falling back to `SF Pro Display`, `Inter`. Font weights favor lighter styles (`300` for headings).
+- Tailwind custom tokens in `tailwind.config.js` map these to internal variables (e.g., `brand-primary`, `brand-secondary`, `brand-surface`, `brand-on-surface-variant`).
 
 ---
 
@@ -393,3 +391,4 @@ Defined in `DESIGN.md` as "Lumina AI" design tokens:
 - **[2026-07-18]**: Improved UI presentation on the AI clips review page by capping the displayed "Clip Subtitles" preview text to a maximum of 1000 characters. Added an interactive "view full subtitles" / "view less" toggle button (styled in brand indigo with an underline) so users can seamlessly expand or collapse long transcripts without cluttering the screen.
 - **[2026-07-18]**: Refactored the dashboard Sidebar to improve Clerk settings navigation. The Clerk settings and sign-out menu are now intuitively triggered by clicking the gear (`Settings`) icon instead of the profile picture. The profile picture is now a static indicator of the logged-in user.
 - **[2026-07-18]**: Fully transitioned the billing architecture from Clerk PricingTable to **Paddle.com**. Integrated `@paddle/paddle-js` into the frontend landing page to trigger secure overlay checkouts with Clerk `userId` tracking. Implemented a robust backend webhook handler (`/api/webhooks/paddle`) utilizing `@paddle/paddle-node` to verify signatures and securely sync subscription statuses and credit allocations to Supabase.
+- **[2026-07-20]**: Replaced the entire project design system with the "Stripe HDS Light" theme. Shifted from a dark-themed UI to a clean, high-contrast light theme with a dynamic gradient mesh hero, tight corner radii (`rounded-md`, `rounded-xl`), and crisp drop shadows (`shadow-sm-bottom`, `shadow-md-card`). Updated `tailwind.config.js`, `globals.css` (with `@theme` directives), `layout.js` (for `sohne-var` and `SF Pro Display` typography), and refactored all landing page components (Hero, Features, Showcase, Pricing, FAQ) to adopt the new semantic variables (`brand-surface`, `brand-secondary`, etc.).

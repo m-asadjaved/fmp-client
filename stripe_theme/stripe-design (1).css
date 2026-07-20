@@ -1,0 +1,75 @@
+:root {
+  /* Colors */
+  --color-brand-indigo: #533afd;
+  --color-deep-navy: #061b31;
+  --color-slate-body: #50617a;
+  --color-subdued-heading: #64748d;
+  --color-surface-white: #ffffff;
+  --color-quiet-surface: #f8fafd;
+  --color-border-neutral: #e5edf5;
+  --color-accent-orange: #ff6118;
+  --color-brand-violet-light: #7f7dfc;
+  --color-text-on-solid: #ffffff;
+
+  /* Typography */
+  --font-hero-heading-family: sohne-var;
+  --font-hero-heading-size: 44px;
+  --font-hero-heading-weight: 300;
+  --font-hero-heading-line-height: 1.03;
+  --font-section-heading-xl-family: sohne-var;
+  --font-section-heading-xl-size: 26px;
+  --font-section-heading-xl-weight: 300;
+  --font-section-heading-xl-line-height: 29.12px;
+  --font-section-heading-xl-letter-spacing: -0.26px;
+  --font-section-heading-md-family: sohne-var;
+  --font-section-heading-md-size: 22px;
+  --font-section-heading-md-weight: 300;
+  --font-section-heading-md-line-height: 24.2px;
+  --font-section-heading-md-letter-spacing: -0.22px;
+  --font-body-regular-family: sohne-var;
+  --font-body-regular-size: 16px;
+  --font-body-regular-weight: 400;
+  --font-body-regular-line-height: 22.4px;
+  --font-body-light-family: sohne-var;
+  --font-body-light-size: 16px;
+  --font-body-light-weight: 300;
+  --font-body-light-line-height: 22.4px;
+  --font-label-small-family: sohne-var;
+  --font-label-small-size: 14px;
+  --font-label-small-weight: 400;
+  --font-label-small-line-height: 14px;
+  --font-caption-family: sohne-var;
+  --font-caption-size: 11px;
+  --font-caption-weight: 300;
+  --font-caption-line-height: 15.95px;
+  --font-micro-label-family: sohne-var;
+  --font-micro-label-size: 10px;
+  --font-micro-label-weight: 400;
+  --font-micro-label-line-height: 14.5px;
+  --font-micro-label-letter-spacing: 0.1px;
+
+  /* Spacing */
+  --spacing-space-1: 2px;
+  --spacing-space-2: 4px;
+  --spacing-space-3: 6px;
+  --spacing-space-4: 8px;
+  --spacing-space-5: 10px;
+  --spacing-space-6: 12px;
+  --spacing-space-7: 16px;
+  --spacing-space-8: 20px;
+  --spacing-space-9: 24px;
+  --spacing-space-10: 32px;
+  --spacing-space-11: 40px;
+  --spacing-space-12: 44px;
+  --spacing-space-13: 64px;
+  --spacing-space-14: 96px;
+
+  /* Border Radius */
+  --radius-radius-none: 0px;
+  --radius-radius-xs: 1px;
+  --radius-radius-sm: 4px;
+  --radius-radius-md: 6px;
+  --radius-radius-lg: 8px;
+  --radius-radius-xl: 16px;
+
+}

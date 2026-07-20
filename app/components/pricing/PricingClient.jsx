@@ -88,38 +88,38 @@ export function PricingClient({ paddle, country }) {
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="text-center max-w-3xl mx-auto mb-16">
-        <h2 className="text-sm font-semibold text-[#0058bc] uppercase tracking-wider mb-3">Pricing</h2>
-        <h3 className="text-4xl md:text-5xl font-bold text-slate-900 mb-6 tracking-tight">
+        <h2 className="text-micro-label text-brand-primary uppercase tracking-[0.1px] mb-3">Pricing</h2>
+        <h3 className="text-[26px] md:text-hero-heading md:text-[44px] font-[300] text-brand-secondary mb-6 tracking-[-0.26px] leading-[1.03]">
           Simple, transparent pricing
         </h3>
-        <p className="text-lg text-slate-600 mb-8">
+        <p className="text-[16px] text-brand-on-surface-variant font-[300] leading-[22.4px] mb-8">
           Choose the perfect plan for your video editing needs. No hidden fees.
         </p>
         
         {/* Toggle */}
-        <div className="relative inline-flex bg-slate-100 rounded-full p-1 border border-slate-200/60 shadow-sm">
+        <div className="relative inline-flex bg-brand-surfaceBg rounded-md p-1 border border-brand-border-subtle shadow-sm-bottom">
           <button
             onClick={() => setFrequency('month')}
-            className={`cursor-pointer relative w-1/2 rounded-full py-2.5 px-8 text-sm font-semibold transition-all duration-300 ${
+            className={`cursor-pointer relative w-1/2 rounded-md py-2.5 px-8 text-label-small transition-all duration-300 ${
               frequency === 'month'
-                ? 'bg-white text-slate-900 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.12)]'
-                : 'text-slate-500 hover:text-slate-700'
+                ? 'bg-brand-surface text-brand-secondary shadow-sm-bottom'
+                : 'text-brand-on-surface-variant hover:text-brand-secondary'
             }`}
           >
             Monthly
           </button>
           <button
             onClick={() => setFrequency('year')}
-            className={`cursor-pointer relative w-1/2 rounded-full py-2.5 px-8 text-sm font-semibold transition-all duration-300 ${
+            className={`cursor-pointer relative w-1/2 rounded-md py-2.5 px-8 text-label-small transition-all duration-300 ${
               frequency === 'year'
-                ? 'bg-white text-slate-900 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.12)]'
-                : 'text-slate-500 hover:text-slate-700'
+                ? 'bg-brand-surface text-brand-secondary shadow-sm-bottom'
+                : 'text-brand-on-surface-variant hover:text-brand-secondary'
             }`}
           >
             Yearly
           </button>
         </div>
-        <div className="mt-4 text-sm font-semibold text-[#1fba48]">
+        <div className="mt-4 text-[11px] font-[400] text-brand-primary">
           Save 60% with yearly billing
         </div>
       </div>
@@ -170,18 +170,18 @@ export function PricingClient({ paddle, country }) {
           return (
             <div
               key={tier.id}
-              className={`relative flex flex-col rounded-3xl p-8 border ${
+              className={`relative flex flex-col rounded-xl p-8 border ${
                 tier.featured 
-                  ? 'bg-[#ECF3FF] border-[#2563EB]/30 shadow-2xl shadow-blue-900/10 ring-1 ring-[#2563EB]/20' 
-                  : 'bg-white border-slate-200 shadow-xl shadow-slate-200/60'
-              } transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl`}
+                  ? 'bg-brand-surface border-brand-primary/30 shadow-lg-card ring-1 ring-brand-primary/20' 
+                  : 'bg-brand-surface border-brand-border-subtle shadow-md-card'
+              } transition-all duration-300 hover:-translate-y-1 hover:shadow-lg-card`}
             >
               {tier.badge && (
                 <div className="absolute -top-4 left-0 right-0 flex justify-center">
-                  <span className={`text-white text-xs font-bold px-4 py-1.5 rounded-full shadow-sm tracking-wide uppercase ${
-                    tier.id === 'expert' ? 'bg-gradient-to-r from-[#0058bc] to-[#A855F7]' : 
+                  <span className={`text-white text-micro-label px-4 py-1.5 rounded-full shadow-sm-bottom tracking-[0.1px] uppercase ${
+                    tier.id === 'expert' ? 'bg-gradient-to-r from-brand-primary to-[#A855F7]' : 
                     tier.id === 'business' ? 'bg-[#16A34A]' : 
-                    'bg-slate-800'
+                    'bg-brand-secondary'
                   }`}>
                     {tier.badge}
                   </span>
@@ -189,35 +189,35 @@ export function PricingClient({ paddle, country }) {
               )}
 
               <div className="mb-8">
-                <h4 className="text-2xl font-bold text-slate-900 mb-2">{tier.name}</h4>
-                <p className="text-slate-500 text-sm">{tier.description}</p>
+                <h4 className="text-section-heading-md font-[300] text-brand-secondary mb-2 tracking-[-0.22px]">{tier.name}</h4>
+                <p className="text-brand-on-surface-variant text-[14px] font-[300] leading-[22.4px]">{tier.description}</p>
               </div>
 
               <div className="mb-8">
                 <div className="flex flex-col gap-1">
                   {frequency === 'year' && (
-                    <span className="block text-sm text-[#1fba48] font-semibold mb-2">SAVE 60%</span>
+                    <span className="block text-[11px] text-brand-primary font-[400] mb-2 uppercase">SAVE 60%</span>
                   )}
                   <div className="flex items-baseline gap-2">
                     {frequency === 'year' && !loading && originalMonthlyPrice && (
-                      <span className="line-through text-4xl text-gray-400 font-extrabold">
+                      <span className="line-through text-4xl text-brand-border-subtle font-light">
                         {originalMonthlyPrice}
                       </span>
                     )}
-                    <span className="text-5xl font-extrabold tracking-tight text-[#ff6b00]">
+                    <span className="text-hero-heading md:text-[44px] font-light tracking-[-0.26px] text-brand-secondary">
                       {loading || !displayPrice ? '...' : displayPrice}
                     </span>
                     {frequency === 'month' && !loading && displayPrice && (
-                      <span className="text-slate-500 font-medium">/mo</span>
+                      <span className="text-brand-on-surface-variant font-[300]">/mo</span>
                     )}
                   </div>
                   {frequency === 'year' && !loading && displayPrice && (
                     <>
-                      <div className="text-slate-500 font-medium text-sm mt-1">
+                      <div className="text-brand-on-surface-variant font-[300] text-[14px] mt-1">
                         {subtext}
                       </div>
                       {savingsText && (
-                        <div className="text-sm text-[#16A34A] font-semibold mt-1">
+                        <div className="text-[14px] text-[#16A34A] font-[400] mt-1">
                           {savingsText}
                         </div>
                       )}
@@ -231,17 +231,17 @@ export function PricingClient({ paddle, country }) {
                   const bonusMatch = feature.match(/(\d+ Bonus)/);
                   return (
                     <li key={i} className="flex items-start gap-3">
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-[#14B8A6]/10 flex items-center justify-center mt-0.5">
-                        <Check className="w-3.5 h-3.5 text-[#14B8A6]" />
+                      <div className="stripe-btn-primary">
+                        <Check className="w-3.5 h-3.5 text-brand-primary" />
                       </div>
                       {bonusMatch ? (
-                        <span className="text-slate-600 text-sm">
+                        <span className="text-brand-secondary text-[14px] font-[300]">
                           {feature.split(bonusMatch[0])[0]}
-                          <span className="text-[#D97706] font-bold">{bonusMatch[0]}</span>
+                          <span className="text-brand-primary font-[400]">{bonusMatch[0]}</span>
                           {feature.split(bonusMatch[0])[1]}
                         </span>
                       ) : (
-                        <span className="text-slate-600 text-sm">{feature}</span>
+                        <span className="text-brand-secondary text-[14px] font-[300]">{feature}</span>
                       )}
                     </li>
                   );
@@ -251,12 +251,12 @@ export function PricingClient({ paddle, country }) {
               <button
                 onClick={() => handleSubscribe(tier)}
                 disabled={isButtonDisabled}
-                className={`w-full rounded-xl py-3.5 px-6 font-semibold text-sm transition-all duration-200 ${
+                className={`w-full rounded-md py-3.5 px-6 font-[400] text-[14px] transition-all duration-200 border ${
                   isCurrentPlan 
-                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    ? 'bg-brand-surfaceBg text-brand-secondary border-brand-border-subtle'
                     : tier.featured
-                      ? 'bg-[#0058bc] text-white hover:bg-[#004a9e] shadow-md hover:shadow-lg active:scale-[0.98]'
-                      : 'bg-slate-50 text-slate-900 hover:bg-slate-100 border border-slate-200/60 hover:border-slate-300 shadow-sm active:scale-[0.98]'
+                      ? 'bg-brand-primary text-brand-text-on-solid border-brand-primary hover:bg-brand-primaryHover shadow-sm-bottom active:scale-[0.98]'
+                      : 'bg-brand-surface text-brand-secondary hover:bg-brand-surfaceBg border-brand-border-subtle hover:border-brand-on-surface-variant shadow-sm-bottom active:scale-[0.98]'
                 } disabled:opacity-50 disabled:pointer-events-none`}
               >
                 {buttonText}

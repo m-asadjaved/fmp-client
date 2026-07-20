@@ -1,0 +1,228 @@
+{
+  "color": {
+    "Brand Indigo": {
+      "$type": "color",
+      "$value": "#533afd",
+      "$description": "Primary CTA button fill, links, accent borders, charm backgrounds"
+    },
+    "Deep Navy": {
+      "$type": "color",
+      "$value": "#061b31",
+      "$description": "Primary heading text, solid text, hero title"
+    },
+    "Slate Body": {
+      "$type": "color",
+      "$value": "#50617a",
+      "$description": "Body text, soft navigation labels, secondary text"
+    },
+    "Subdued Heading": {
+      "$type": "color",
+      "$value": "#64748d",
+      "$description": "Subdued headings, icon subdued, secondary label text"
+    },
+    "Surface White": {
+      "$type": "color",
+      "$value": "#ffffff",
+      "$description": "Page background, card surfaces, input backgrounds"
+    },
+    "Quiet Surface": {
+      "$type": "color",
+      "$value": "#f8fafd",
+      "$description": "Quiet background sections, subtle surface fills"
+    },
+    "Border Neutral": {
+      "$type": "color",
+      "$value": "#e5edf5",
+      "$description": "Dividers, surface borders, quiet strokes"
+    },
+    "Accent Orange": {
+      "$type": "color",
+      "$value": "#ff6118",
+      "$description": "Orange accent in gradient hero, accent icon color"
+    },
+    "Brand Violet Light": {
+      "$type": "color",
+      "$value": "#7f7dfc",
+      "$description": "Lighter brand violet, selector active backgrounds, gradient accents"
+    },
+    "Text on Solid": {
+      "$type": "color",
+      "$value": "#ffffff",
+      "$description": "Text on solid/filled primary buttons"
+    }
+  },
+  "typography": {
+    "Hero Heading": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sohne-var",
+        "fontSize": "44px",
+        "fontWeight": 300,
+        "lineHeight": "1.03",
+        "letterSpacing": "normal"
+      },
+      "$description": "Hero H1 title — large, light-weight, deep navy"
+    },
+    "Section Heading XL": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sohne-var",
+        "fontSize": "26px",
+        "fontWeight": 300,
+        "lineHeight": "29.12px",
+        "letterSpacing": "-0.26px"
+      },
+      "$description": "Section-level headings, large subheadings"
+    },
+    "Section Heading MD": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sohne-var",
+        "fontSize": "22px",
+        "fontWeight": 300,
+        "lineHeight": "24.2px",
+        "letterSpacing": "-0.22px"
+      },
+      "$description": "Mid-level section headings"
+    },
+    "Body Regular": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sohne-var",
+        "fontSize": "16px",
+        "fontWeight": 400,
+        "lineHeight": "22.4px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Primary body text, navigation labels, general content"
+    },
+    "Body Light": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sohne-var",
+        "fontSize": "16px",
+        "fontWeight": 300,
+        "lineHeight": "22.4px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Light-weight body text, descriptive paragraphs"
+    },
+    "Label Small": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sohne-var",
+        "fontSize": "14px",
+        "fontWeight": 400,
+        "lineHeight": "14px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Button labels, small UI labels, nav items"
+    },
+    "Caption": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sohne-var",
+        "fontSize": "11px",
+        "fontWeight": 300,
+        "lineHeight": "15.95px",
+        "letterSpacing": "normal"
+      },
+      "$description": "Captions, footnotes, micro-labels"
+    },
+    "Micro Label": {
+      "$type": "typography",
+      "$value": {
+        "fontFamily": "sohne-var",
+        "fontSize": "10px",
+        "fontWeight": 400,
+        "lineHeight": "14.5px",
+        "letterSpacing": "0.1px"
+      },
+      "$description": "Micro UI labels, badge text, data annotations"
+    }
+  },
+  "spacing": {
+    "space-1": {
+      "$type": "dimension",
+      "$value": "2px"
+    },
+    "space-2": {
+      "$type": "dimension",
+      "$value": "4px"
+    },
+    "space-3": {
+      "$type": "dimension",
+      "$value": "6px"
+    },
+    "space-4": {
+      "$type": "dimension",
+      "$value": "8px"
+    },
+    "space-5": {
+      "$type": "dimension",
+      "$value": "10px"
+    },
+    "space-6": {
+      "$type": "dimension",
+      "$value": "12px"
+    },
+    "space-7": {
+      "$type": "dimension",
+      "$value": "16px"
+    },
+    "space-8": {
+      "$type": "dimension",
+      "$value": "20px"
+    },
+    "space-9": {
+      "$type": "dimension",
+      "$value": "24px"
+    },
+    "space-10": {
+      "$type": "dimension",
+      "$value": "32px"
+    },
+    "space-11": {
+      "$type": "dimension",
+      "$value": "40px"
+    },
+    "space-12": {
+      "$type": "dimension",
+      "$value": "44px"
+    },
+    "space-13": {
+      "$type": "dimension",
+      "$value": "64px"
+    },
+    "space-14": {
+      "$type": "dimension",
+      "$value": "96px"
+    }
+  },
+  "borderRadius": {
+    "radius-none": {
+      "$type": "dimension",
+      "$value": "0px"
+    },
+    "radius-xs": {
+      "$type": "dimension",
+      "$value": "1px"
+    },
+    "radius-sm": {
+      "$type": "dimension",
+      "$value": "4px"
+    },
+    "radius-md": {
+      "$type": "dimension",
+      "$value": "6px"
+    },
+    "radius-lg": {
+      "$type": "dimension",
+      "$value": "8px"
+    },
+    "radius-xl": {
+      "$type": "dimension",
+      "$value": "16px"
+    }
+  }
+}

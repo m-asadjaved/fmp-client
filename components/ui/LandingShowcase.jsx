@@ -25,18 +25,18 @@ function SampleThumb({ type }) {
   );
   if (type === 1) return (
     <div className={`h-48 flex items-center justify-center relative ${bg}`}>
-      <div className="bg-white rounded-xl p-3 w-3/4 border border-gray-200 shadow-sm">
+      <div className="bg-white rounded-xl p-3 w-3/4 border border-transparent shadow-sm">
         <div className="h-2 bg-gray-100 rounded-full mb-1.5 w-4/5" />
         <div className="h-2 bg-gray-100 rounded-full mb-2.5 w-1/2" />
         <div className="h-7 bg-rose-600 rounded-lg flex items-center justify-center">
-          <span className="text-[10px] font-extrabold text-white">SHOP NOW</span>
+          <span className="text-[10px] font-[400] text-white">SHOP NOW</span>
         </div>
       </div>
     </div>
   );
   if (type === 2) return (
     <div className={`h-48 flex items-center justify-center relative ${bg}`}>
-      <div className="bg-white rounded-xl p-3 w-3/4 border border-gray-200 shadow-sm">
+      <div className="bg-white rounded-xl p-3 w-3/4 border border-transparent shadow-sm">
         <div className="flex gap-2 mb-2">
           <div className="w-7 h-7 bg-[#00C0D4] rounded-md shrink-0" />
           <div className="flex-1">
@@ -51,7 +51,7 @@ function SampleThumb({ type }) {
   );
   if (type === 3) return (
     <div className={`h-48 flex items-center justify-center relative ${bg}`}>
-      <div className="bg-white rounded-xl p-3 w-4/5 border border-gray-200 shadow-sm text-center">
+      <div className="bg-white rounded-xl p-3 w-4/5 border border-transparent shadow-sm text-center">
         <div className="w-10 h-10 bg-gray-100 rounded-full mx-auto mb-2 flex items-center justify-center text-lg">✨</div>
         <div className="h-1.5 bg-gray-100 rounded-full mb-1" />
         <div className="h-1.5 bg-gray-100 rounded-full w-2/3 mx-auto" />
@@ -60,20 +60,20 @@ function SampleThumb({ type }) {
   );
   if (type === 4) return (
     <div className={`h-48 flex items-center justify-center relative ${bg}`}>
-      <div className="bg-white rounded-xl p-2.5 w-3/4 border border-gray-200 shadow-sm">
+      <div className="bg-white rounded-xl p-2.5 w-3/4 border border-transparent shadow-sm">
         <div className="flex gap-1 mb-2">
           <div className="h-10 flex-[2] bg-emerald-600 rounded-md" />
           <div className="h-10 flex-1 bg-gray-100 rounded-md" />
         </div>
-        <div className="h-6 border-2 border-cyan-100 bg-cyan-50 text-[#00C0D4] rounded-md flex items-center px-2">
-          <span className="text-[9px] font-extrabold">WATCH NOW</span>
+        <div className="h-6 border-2 border-transparent bg-cyan-50 text-[#00C0D4] rounded-md flex items-center px-2">
+          <span className="text-[9px] font-[400]">WATCH NOW</span>
         </div>
       </div>
     </div>
   );
   return (
     <div className={`h-48 flex items-center justify-center relative ${bg}`}>
-      <div className="bg-white rounded-xl p-2.5 w-3/4 border border-gray-200 shadow-sm">
+      <div className="bg-white rounded-xl p-2.5 w-3/4 border border-transparent shadow-sm">
         <div className="h-1.5 bg-gray-100 rounded-full mb-1.5 w-[90%]" />
         <div className="h-1.5 bg-gray-100 rounded-full mb-2.5 w-[65%]" />
         <div className="flex gap-1">
@@ -88,31 +88,31 @@ function SampleThumb({ type }) {
 
 export function LandingShowcase() {
   return (
-    <section className="py-20 bg-white px-4 border-t border-gray-100">
+    <section className="py-20 bg-brand-surface px-4">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-16">
-          <div className="text-sm font-bold text-[#00C0D4] uppercase tracking-widest mb-3">Made with twenty2short</div>
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#0F2347] tracking-tight mb-4">
+          <div className="text-micro-label text-brand-primary uppercase tracking-[0.1px] mb-3">Made with twenty2short</div>
+          <h2 className="text-[26px] md:text-hero-heading md:text-[44px] font-[300] text-brand-secondary tracking-[-0.26px] leading-[1.03] mb-4">
             See what creators are making
           </h2>
-          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+          <p className="text-[16px] text-brand-on-surface-variant max-w-2xl mx-auto font-[300] leading-[22.4px]">
             From viral social promos to polished full-length podcasts. Explore responsive user productions.
           </p>
         </div>
         
         <div className="grid grid-cols-12 gap-6">
           {SAMPLES.map((sample, idx) => (
-            <div key={idx} className={`${sample.span} bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col group cursor-pointer hover:shadow-lg transition-all hover:-translate-y-1`}>
+            <div key={idx} className={`${sample.span} bg-brand-surface rounded-md border border-brand-border-subtle shadow-md-card overflow-hidden flex flex-col group cursor-pointer hover:shadow-lg-card transition-all hover:-translate-y-1`}>
               <SampleThumb type={sample.thumbType} />
               <div className="p-5 flex flex-col flex-1">
-                <div className="text-xs font-bold text-[#00C0D4] uppercase tracking-wider mb-2">{sample.cat}</div>
-                <h3 className="font-bold text-[#0F2347] mb-4 line-clamp-2">{sample.title}</h3>
+                <div className="text-micro-label text-brand-primary uppercase tracking-[0.1px] mb-2">{sample.cat}</div>
+                <h3 className="text-body-regular text-brand-secondary mb-4 line-clamp-2">{sample.title}</h3>
                 
-                <div className="mt-auto flex items-center gap-2 pt-2 border-t border-gray-100">
-                    <div className={`w-6 h-6 rounded-full ${sample.color} flex items-center justify-center text-white text-[10px] font-bold`}>
+                <div className="mt-auto flex items-center gap-2 pt-2 border-t border-brand-border-subtle">
+                    <div className={`w-6 h-6 rounded-md ${sample.color} flex items-center justify-center text-white text-micro-label`}>
                       {sample.user[1].toUpperCase()}
                     </div>
-                    <span className="text-xs text-gray-500 font-medium">
+                    <span className="text-[11px] text-brand-on-surface-variant font-[300]">
                       {sample.user} · {sample.views} views
                     </span>
                 </div>

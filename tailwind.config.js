@@ -4,22 +4,20 @@ module.exports = {
     extend: {
       colors: {
         brand: {
-          // Switch light backgrounds to rich, deep space shades
-          background: '#0b0f19',       // Deepest dark slate
-          surfaceBg: '#131b2e',        // Container background
-          surface: '#1e293b',          // Card backgrounds
+          background: '#ffffff',       // Surface White
+          surfaceBg: '#f8fafd',        // Quiet Surface
+          surface: '#ffffff',          // Card backgrounds
           
-          // Keep or amplify your core functional colors
-          primary: '#3b82f6',          // Electric blue
-          primaryHover: '#60a5fa',
-          secondary: '#605691',
+          primary: '#533afd',          // Brand Indigo
+          primaryHover: '#7f7dfc',     // Brand Violet Light
+          secondary: '#061b31',        // Deep Navy
           'neon-purple': '#A855F7',
           'vibrant-teal': '#14B8A6',
           
-          // Inverse text behaviors
-          'on-surface': '#f8fafc',      // Bright white/slate text
-          'on-surface-variant': '#94a3b8', // Muted silver text
-          'border-subtle': '#334155',  // Dark slate borders
+          'on-surface': '#061b31',      // Deep Navy
+          'on-surface-variant': '#50617a', // Slate Body
+          'border-subtle': 'transparent',  // Border Neutral
+          'text-on-solid': '#ffffff',  // Text on Solid
         }
       },
     },
