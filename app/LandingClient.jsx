@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { SignInButton, UserButton, useAuth, useClerk, useUser } from '@clerk/nextjs';
+import CustomCursor from '@/components/ui/CustomCursor';
 import { Link, Sparkles, Share, Play, UploadCloud, Focus, Zap, Video, Scissors, Smile, Smartphone, Type } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useUpload } from '@/contexts/UploadContext';
@@ -11,6 +12,7 @@ import { initializePaddle } from "@paddle/paddle-js";
 import { LandingFeatures } from '../components/ui/LandingFeatures';
 import { LandingShowcase } from '../components/ui/LandingShowcase';
 import { LandingFaq } from '../components/ui/LandingFaq';
+import { InfiniteLogoSlider } from '../components/ui/InfiniteLogoSlider';
 import { LandingTools } from '../components/ui/LandingTools';
 import { LandingBlog } from '../components/ui/LandingBlog';
 import { LandingFooter } from '../components/ui/LandingFooter';
@@ -105,12 +107,13 @@ export default function SsembleCloneLanding({ country }) {
 
   return (
     <div className="min-h-screen w-full bg-brand-surface text-brand-on-surface font-sans selection:bg-brand-primary/20 relative overflow-x-hidden">
+      <CustomCursor />
       {/* Stripe signature multi-color gradient mesh (Moved to root so it bleeds under header) */}
-      <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[140%] max-w-[1400px] h-[800px] opacity-100 pointer-events-none z-0 blur-[100px] saturate-200 mix-blend-multiply">
-        <div className="absolute w-[60%] h-[60%] left-0 top-0 bg-[#312e81] rounded-full animate-mesh-1 opacity-90" />
-        <div className="absolute w-[60%] h-[60%] right-0 top-[20%] bg-[#7f1d1d] rounded-full animate-mesh-2 opacity-90" />
-        <div className="absolute w-[60%] h-[60%] left-[20%] bottom-0 bg-[#4c1d95] rounded-full animate-mesh-3 opacity-90" />
-        <div className="absolute w-[60%] h-[60%] right-[20%] bottom-[10%] bg-[#064e3b] rounded-full animate-mesh-4 opacity-90" />
+      <div className="absolute top-[-10%] left-1/2 -translate-x-1/2 w-[140%] max-w-[1400px] h-[800px] opacity-100 pointer-events-none z-0 blur-[100px] saturate-200 mix-blend-normal">
+        <div className="absolute w-[60%] h-[60%] left-0 top-0 rounded-full animate-mesh-1 opacity-90 bg-[#533afd]" />
+        <div className="absolute w-[60%] h-[60%] right-0 top-[20%] rounded-full animate-mesh-2 opacity-90 bg-[#A855F7]" />
+        <div className="absolute w-[60%] h-[60%] left-[20%] bottom-0 rounded-full animate-mesh-3 opacity-90 bg-[#7f7dfc]" />
+        <div className="absolute w-[60%] h-[60%] right-[20%] bottom-[10%] rounded-full animate-mesh-4 opacity-90 bg-[#14B8A6]" />
       </div>
 
       {/* NAVBAR */}
@@ -321,7 +324,7 @@ export default function SsembleCloneLanding({ country }) {
                   <p className="text-[11px] text-brand-on-surface-variant mb-2 font-[300]">
                     Drag & drop or <span className="text-brand-primary font-[400]">browse files</span>
                   </p>
-                  <span className="stripe-btn-primary">
+                  <span className="inline-flex items-center justify-center px-3 py-1 bg-brand-primary/10 text-brand-primary text-[10px] uppercase tracking-wider font-bold rounded-full mt-2 border border-brand-primary/20">
                     Bonus: Limit Increased to 3GB • 1 Hour
                   </span>
                 </div>
@@ -340,7 +343,7 @@ export default function SsembleCloneLanding({ country }) {
                 src="https://customer-a8pcy45g7jeje4za.cloudflarestream.com/d1158daf5c258ab75f3eb0c9dd3cd6ec/iframe?muted=true&autoplay=true&poster=https%3A%2F%2Fcustomer-a8pcy45g7jeje4za.cloudflarestream.com%2Fd1158daf5c258ab75f3eb0c9dd3cd6ec%2Fthumbnails%2Fthumbnail.jpg%3Ftime%3D1%26height%3D600&controls=false&loop=true"
                 title="twenty2short AI clipping demo"
                 loading="lazy"
-                className="absolute inset-0 w-full h-full border-0 scale-[1.02]"
+                className="absolute inset-0 w-full h-full border-0 scale-[1.02] pointer-events-none"
                 allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture"
                 allowFullScreen
               />
@@ -349,16 +352,7 @@ export default function SsembleCloneLanding({ country }) {
         </div>
 
         {/* TRUSTED BY LOGOS */}
-        <div className="py-12 bg-brand-surfaceBg">
-          <p className="text-center text-micro-label text-brand-subdued-heading mb-8 uppercase tracking-[0.1px]">
-            Trusted by teams at leading companies and institutions
-          </p>
-          <div className="flex flex-wrap justify-center gap-8 md:gap-16 px-4 opacity-50 grayscale">
-            {['Google', 'Meta', 'Amazon', 'Netflix', 'Shopify'].map((brand) => (
-              <div key={brand} className="text-xl md:text-2xl font-[400] text-brand-secondary">{brand}</div>
-            ))}
-          </div>
-        </div>
+        <InfiniteLogoSlider />
 
         {/* HOW IT WORKS */}
         <div className="py-20 md:py-28 px-4 bg-brand-surface">

@@ -442,34 +442,45 @@ input[type=range]:active::-moz-range-thumb {
 }
 
 @keyframes mesh-1 {
-  0% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(30%, 30%) scale(1.1); }
-  66% { transform: translate(-20%, 40%) scale(0.9); }
-  100% { transform: translate(0, 0) scale(1); }
+  0% { transform: translate(0, 0) scale(1); background-color: #533afd; }
+  33% { transform: translate(30%, 30%) scale(1.1); background-color: #7f7dfc; }
+  66% { transform: translate(-20%, 40%) scale(0.9); background-color: #A855F7; }
+  100% { transform: translate(0, 0) scale(1); background-color: #533afd; }
 }
 @keyframes mesh-2 {
-  0% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(-30%, -20%) scale(1.2); }
-  66% { transform: translate(20%, -40%) scale(0.8); }
-  100% { transform: translate(0, 0) scale(1); }
+  0% { transform: translate(0, 0) scale(1); background-color: #A855F7; }
+  33% { transform: translate(-30%, -20%) scale(1.2); background-color: #14B8A6; }
+  66% { transform: translate(20%, -40%) scale(0.8); background-color: #7f7dfc; }
+  100% { transform: translate(0, 0) scale(1); background-color: #A855F7; }
 }
 @keyframes mesh-3 {
-  0% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(20%, -30%) scale(0.9); }
-  66% { transform: translate(-30%, 20%) scale(1.1); }
-  100% { transform: translate(0, 0) scale(1); }
+  0% { transform: translate(0, 0) scale(1); background-color: #7f7dfc; }
+  33% { transform: translate(20%, -30%) scale(0.9); background-color: #7f7dfc; }
+  66% { transform: translate(-30%, 20%) scale(1.1); background-color: #14B8A6; }
+  100% { transform: translate(0, 0) scale(1); background-color: #7f7dfc; }
 }
 @keyframes mesh-4 {
-  0% { transform: translate(0, 0) scale(1); }
-  33% { transform: translate(-20%, 30%) scale(1.1); }
-  66% { transform: translate(30%, -20%) scale(0.9); }
-  100% { transform: translate(0, 0) scale(1); }
+  0% { transform: translate(0, 0) scale(1); background-color: #14B8A6; }
+  33% { transform: translate(-20%, 30%) scale(1.1); background-color: #533afd; }
+  66% { transform: translate(30%, -20%) scale(0.9); background-color: #7f7dfc; }
+  100% { transform: translate(0, 0) scale(1); background-color: #14B8A6; }
 }
 
-.animate-mesh-1 { animation: mesh-1 12s ease-in-out infinite alternate; }
-.animate-mesh-2 { animation: mesh-2 14s ease-in-out infinite alternate; }
-.animate-mesh-3 { animation: mesh-3 16s ease-in-out infinite alternate; }
-.animate-mesh-4 { animation: mesh-4 18s ease-in-out infinite alternate; }
+.animate-mesh-1 { animation: mesh-1 6s ease-in-out infinite alternate; }
+.animate-mesh-2 { animation: mesh-2 7s ease-in-out infinite alternate; }
+.animate-mesh-3 { animation: mesh-3 8s ease-in-out infinite alternate; }
+.animate-mesh-4 { animation: mesh-4 9s ease-in-out infinite alternate; }
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.marquee-slider {
+  animation: marquee 35s linear infinite;
+}
+.marquee-slider:hover {
+  animation-play-state: paused;
+}
 .glass-panel {
   background-color: var(--surface);
   backdrop-filter: blur(24px);
@@ -510,7 +521,7 @@ input[type=range]:active::-moz-range-thumb {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 .stripe-btn-primary:hover:not(:disabled) {
-  background-color: var(--primaryHover);
+  background-color: #7f7dfc;
   transform: translateY(-1px);
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 2px 4px rgba(0, 0, 0, 0.06);
 }
