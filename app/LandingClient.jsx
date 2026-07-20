@@ -10,13 +10,17 @@ import { useAlert } from '@/contexts/AlertContext';
 import { initializePaddle } from "@paddle/paddle-js";
 
 import { LandingFeatures } from '../components/ui/LandingFeatures';
-import { LandingShowcase } from '../components/ui/LandingShowcase';
+import { ScheduleAndPost } from '../components/ui/ScheduleAndPost';
+
 import { LandingFaq } from '../components/ui/LandingFaq';
+import { LandingChannelAutomation } from '../components/ui/LandingChannelAutomation';
+import { LandingCreditExplanation } from '../components/ui/LandingCreditExplanation';
 import { InfiniteLogoSlider } from '../components/ui/InfiniteLogoSlider';
 import { LandingTools } from '../components/ui/LandingTools';
 import { LandingBlog } from '../components/ui/LandingBlog';
 import { LandingFooter } from '../components/ui/LandingFooter';
 import { PricingClient } from './components/pricing/PricingClient';
+import FloatingVideosPhysics from '../components/ui/FloatingVideosPhysics';
 
 const AuthButtonWrapper = ({ children, forceRedirectUrl = "/dashboard" }) => {
   const { isLoaded, isSignedIn } = useAuth();
@@ -364,37 +368,54 @@ export default function SsembleCloneLanding({ country }) {
           </p>
 
           <div className="max-w-5xl mx-auto relative">
-            {/* Connecting line for desktop */}
-            <div className="hidden lg:block absolute top-12 left-[15%] right-[15%] h-[1px] bg-brand-border-subtle -z-10" />
+            {/* Desktop Connecting Line & Arrows */}
+            <div className="hidden lg:block absolute top-12 left-[18%] right-[18%] h-[3px] bg-gradient-to-r from-[#14B8A6]/30 via-[#A855F7]/30 to-[#ff6118]/30 z-0 rounded-full" />
+            <div className="hidden lg:flex absolute top-12 left-[33%] -translate-x-1/2 -translate-y-1/2 z-0 text-[#A855F7] bg-brand-surface rounded-full p-1 shadow-sm">
+               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+            </div>
+            <div className="hidden lg:flex absolute top-12 left-[66%] -translate-x-1/2 -translate-y-1/2 z-0 text-[#ff6118] bg-brand-surface rounded-full p-1 shadow-sm">
+               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12 lg:gap-8 relative z-10">
 
               {/* Step 1 */}
-              <div className="flex flex-col items-center text-center">
-                <div className="w-24 h-24 rounded-md  flex items-center justify-center shadow-md-card mb-6 transition-transform hover:scale-105 bg-brand-surface">
-                  <Link className="w-10 h-10 text-brand-secondary" />
+              <div className="flex flex-col items-center text-center relative">
+                <div className="w-24 h-24 rounded-2xl flex items-center justify-center shadow-lg-card mb-6 transition-transform hover:-translate-y-1 hover:shadow-xl-popover bg-white/80 backdrop-blur-xl relative z-10 border border-white/50">
+                  <div className="absolute -top-4 -left-4 w-10 h-10 rounded-full bg-gradient-to-tr from-[#14B8A6] to-brand-primary text-white flex items-center justify-center font-bold text-lg shadow-md border-[3px] border-white">1</div>
+                  <Link className="w-10 h-10 text-brand-primary" />
                 </div>
                 <h3 className="text-section-heading-md font-[300] text-brand-secondary mb-3 tracking-[-0.22px]">Paste a YouTube URL</h3>
                 <p className="text-brand-on-surface-variant font-[300] leading-[22.4px] max-w-xs text-[16px]">
                   Drop any YouTube video link. Long-form, podcast, gaming stream — anything works.
                 </p>
+                {/* Mobile downward arrow */}
+                <div className="block lg:hidden absolute -bottom-8 left-1/2 -translate-x-1/2 text-[#A855F7]/50 z-0 animate-bounce">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M19 9l-7 7-7-7"/></svg>
+                </div>
               </div>
 
               {/* Step 2 */}
-              <div className="flex flex-col items-center text-center">
-                <div className="w-24 h-24 rounded-md  flex items-center justify-center shadow-md-card mb-6 transition-transform hover:scale-105 bg-brand-surface">
-                  <Sparkles className="w-10 h-10 text-brand-primary" />
+              <div className="flex flex-col items-center text-center relative">
+                <div className="w-24 h-24 rounded-2xl flex items-center justify-center shadow-lg-card mb-6 transition-transform hover:-translate-y-1 hover:shadow-xl-popover bg-white/80 backdrop-blur-xl relative z-10 border border-white/50">
+                  <div className="absolute -top-4 -left-4 w-10 h-10 rounded-full bg-gradient-to-tr from-[#A855F7] to-[#d946ef] text-white flex items-center justify-center font-bold text-lg shadow-md border-[3px] border-white">2</div>
+                  <Sparkles className="w-10 h-10 text-[#A855F7]" />
                 </div>
                 <h3 className="text-section-heading-md font-[300] text-brand-secondary mb-3 tracking-[-0.22px]">AI Creates Clips</h3>
                 <p className="text-brand-on-surface-variant font-[300] leading-[22.4px] max-w-xs text-[16px]">
                   Our AI finds the most viral moments, adds captions, face tracking, and hooks — automatically.
                 </p>
+                {/* Mobile downward arrow */}
+                <div className="block lg:hidden absolute -bottom-8 left-1/2 -translate-x-1/2 text-[#ff6118]/50 z-0 animate-bounce">
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M19 9l-7 7-7-7"/></svg>
+                </div>
               </div>
 
               {/* Step 3 */}
-              <div className="flex flex-col items-center text-center">
-                <div className="w-24 h-24 rounded-md  flex items-center justify-center shadow-md-card mb-6 transition-transform hover:scale-105 bg-brand-surface">
-                  <Share className="w-10 h-10 text-brand-secondary" />
+              <div className="flex flex-col items-center text-center relative">
+                <div className="w-24 h-24 rounded-2xl flex items-center justify-center shadow-lg-card mb-6 transition-transform hover:-translate-y-1 hover:shadow-xl-popover bg-white/80 backdrop-blur-xl relative z-10 border border-white/50">
+                  <div className="absolute -top-4 -left-4 w-10 h-10 rounded-full bg-gradient-to-tr from-[#ff6118] to-[#ff8f59] text-white flex items-center justify-center font-bold text-lg shadow-md border-[3px] border-white">3</div>
+                  <Share className="w-10 h-10 text-[#ff6118]" />
                 </div>
                 <h3 className="text-section-heading-md font-[300] text-brand-secondary mb-3 tracking-[-0.22px]">Post Everywhere</h3>
                 <p className="text-brand-on-surface-variant font-[300] leading-[22.4px] max-w-xs text-[16px]">
@@ -404,21 +425,30 @@ export default function SsembleCloneLanding({ country }) {
 
             </div>
 
-            <div className="text-center mt-16">
+            <div className="text-center mt-16 relative z-20">
               <AuthButtonWrapper forceRedirectUrl="/dashboard">
                 <button className="stripe-btn-primary px-6 py-3">
                   Get Started
                 </button>
               </AuthButtonWrapper>
             </div>
+
+            {/* Floating Videos Section - ZERO GRAVITY INTERACTIVE */}
+            <FloatingVideosPhysics />
           </div>
         </div>
 
         <LandingFeatures />
-        <LandingShowcase />
+        <ScheduleAndPost />
+
+        {/* YOUTUBE CHANNEL AUTOMATION */}
+        <LandingChannelAutomation />
 
         {/* PRICING SECTION */}
         <PricingClient paddle={paddle} country={country} />
+
+        {/* CREDIT EXPLANATION */}
+        <LandingCreditExplanation />
 
         <LandingFaq />
         <LandingTools />

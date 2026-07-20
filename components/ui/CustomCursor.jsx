@@ -65,26 +65,26 @@ export default function CustomCursor() {
       className="fixed inset-0 pointer-events-none z-0"
       style={{
         // 1. The ultra-dense crisp technical dot grid.
-        backgroundImage: `url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23533afd' fill-opacity='0.35' fill-rule='evenodd'%3E%3Ccircle cx='2' cy='2' r='1'/%3E%3C/g%3E%3C/svg%3E")`,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23333333' fill-opacity='0.35' fill-rule='evenodd'%3E%3Ccircle cx='2' cy='2' r='1'/%3E%3C/g%3E%3C/svg%3E")`,
         // 2. The zero-latency mask. It instantly reveals the grid exactly where your mouse is.
         maskImage: `radial-gradient(400px circle at var(--mouseX, 50%) var(--mouseY, 50%), black 0%, transparent 100%)`,
         WebkitMaskImage: `radial-gradient(400px circle at var(--mouseX, 50%) var(--mouseY, 50%), black 0%, transparent 100%)`,
         willChange: 'mask-image, -webkit-mask-image'
       }}
     >
-      {/* 3. The fast-following primary glow (Indigo) */}
+      {/* 3. The fast-following primary glow (Dark Grey) */}
       <div 
         className="absolute inset-0 opacity-40 pointer-events-none"
         style={{
-          background: `radial-gradient(500px circle at var(--springX, 50%) var(--springY, 50%), rgba(83, 58, 253, 0.15), transparent 100%)`,
+          background: `radial-gradient(500px circle at var(--springX, 50%) var(--springY, 50%), rgba(51, 51, 51, 0.15), transparent 100%)`,
           willChange: 'background'
         }}
       />
-      {/* 4. The very slow-following secondary glow (Neon Purple) */}
+      {/* 4. The very slow-following secondary glow (Dark Grey) */}
       <div 
         className="absolute inset-0 opacity-40 pointer-events-none"
         style={{
-          background: `radial-gradient(600px circle at var(--slowX, 50%) var(--slowY, 50%), rgba(168, 85, 247, 0.15), transparent 100%)`,
+          background: `radial-gradient(600px circle at var(--slowX, 50%) var(--slowY, 50%), rgba(51, 51, 51, 0.10), transparent 100%)`,
           willChange: 'background'
         }}
       />

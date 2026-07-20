@@ -5,6 +5,7 @@ import { RenderProvider } from "@/contexts/RenderContext";
 import { AlertProvider } from "@/contexts/AlertContext";
 import { UploadProvider } from "@/contexts/UploadContext";
 import NextTopLoader from 'nextjs-toploader';
+import { Agentation } from 'agentation';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -49,6 +50,7 @@ export default function RootLayout({ children }) {
             </AlertProvider>
           </UploadProvider>
         </ClerkProvider>
+        <Agentation />
       </body>
     </html>
   );
