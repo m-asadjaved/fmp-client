@@ -17,7 +17,6 @@ import { LandingChannelAutomation } from '../components/ui/LandingChannelAutomat
 import { LandingCreditExplanation } from '../components/ui/LandingCreditExplanation';
 import { InfiniteLogoSlider } from '../components/ui/InfiniteLogoSlider';
 import { LandingTools } from '../components/ui/LandingTools';
-import { LandingBlog } from '../components/ui/LandingBlog';
 import { LandingFooter } from '../components/ui/LandingFooter';
 import { PricingClient } from './components/pricing/PricingClient';
 import FloatingVideosPhysics from '../components/ui/FloatingVideosPhysics';
@@ -94,6 +93,7 @@ export default function SsembleCloneLanding({ country }) {
 
   const [isDragActive, setIsDragActive] = React.useState(false);
   const fileInputRef = React.useRef(null);
+  const bottomFileInputRef = React.useRef(null);
 
   const handleFileSelection = (selectedFile) => {
     if (!selectedFile.type.startsWith('video/')) {
@@ -452,22 +452,64 @@ export default function SsembleCloneLanding({ country }) {
 
         <LandingFaq />
         <LandingTools />
-        <LandingBlog />
 
         {/* BOTTOM CTA BAND */}
-        <section className="bg-brand-surfaceBg py-24 px-4 text-center">
-          <div className="max-w-4xl mx-auto">
+        <section className="bg-brand-surfaceBg py-24 px-4 text-center flex flex-col items-center">
+          <div className="max-w-4xl mx-auto w-full flex flex-col items-center">
             <h2 className="text-hero-heading md:text-[44px] font-[300] text-brand-secondary tracking-[1.03] mb-6 text-balance">
               Start creating for free.
             </h2>
             <p className="text-brand-on-surface-variant text-[16px] max-w-2xl mx-auto mb-10 leading-[22.4px] font-[300]">
               Join 200,000+ creators already using twenty2short to grow their audience faster.
             </p>
-            <AuthButtonWrapper forceRedirectUrl="/dashboard">
-              <button className="stripe-btn-primary px-8 py-3 text-[16px]">
-                Start editing free
-              </button>
-            </AuthButtonWrapper>
+            
+            {/* Input Action (Replicated from Hero) */}
+            <div className="w-full max-w-2xl px-4 sm:px-0 flex flex-col gap-4 relative z-10">
+              <div className="flex flex-col sm:flex-row items-center bg-white/70 backdrop-blur-lg sm:rounded-xl sm: transition-colors shadow-lg-card hover:shadow-xl-popover hover:border-brand-primary/40 duration-300 overflow-hidden gap-3 sm:gap-0 bg-transparent p-0 sm:p-2 cursor-not-allowed relative">
+                <input
+                  type="url"
+                  disabled
+                  placeholder="YouTube URL integration under development"
+                  className="w-full sm:flex-1 px-6 py-4 text-[16px] focus:outline-none rounded-md sm:rounded-none  sm:border-none shadow-sm-bottom sm:shadow-none bg-brand-surfaceBg text-brand-on-surface-variant cursor-not-allowed font-[400]"
+                />
+                <button disabled className="stripe-btn-primary w-full sm:w-auto opacity-50 cursor-not-allowed pointer-events-none" onClick={(e) => e.preventDefault()}>
+                  Get Clips Now
+                </button>
+              </div>
+
+              {/* Drag and Drop Area */}
+              <div className="w-full">
+                <input
+                  ref={bottomFileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept="video/*"
+                  onChange={(e) => e.target.files?.[0] && handleFileSelection(e.target.files[0])}
+                />
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setIsDragActive(true); }}
+                  onDragLeave={() => setIsDragActive(false)}
+                  onDrop={(e) => { e.preventDefault(); setIsDragActive(false); if (e.dataTransfer.files?.[0]) handleFileSelection(e.dataTransfer.files[0]); }}
+                  onClick={() => bottomFileInputRef.current?.click()}
+                  className={`w-full min-h-[160px] flex flex-col items-center justify-center text-center rounded-md cursor-pointer p-6 transition-all border border-dashed ${isDragActive ? "bg-brand-primary/5 border-brand-primary" : "bg-brand-surface border-brand-border-subtle hover:border-brand-on-surface-variant shadow-md-card"
+                    }`}
+                >
+                  <div className="bg-brand-surfaceBg p-3 rounded-md text-brand-on-surface-variant mb-3  shadow-sm-bottom">
+                    <UploadCloud className="w-6 h-6" />
+                  </div>
+                  <p className="text-label-small text-brand-secondary mb-1">Upload Video Asset</p>
+                  <p className="text-[11px] text-brand-on-surface-variant mb-2 font-[300]">
+                    Drag & drop or <span className="text-brand-primary font-[400]">browse files</span>
+                  </p>
+                  <span className="inline-flex items-center justify-center px-3 py-1 bg-brand-primary/10 text-brand-primary text-[10px] uppercase tracking-wider font-bold rounded-full mt-2 border border-brand-primary/20">
+                    Bonus: Limit Increased to 3GB • 1 Hour
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-brand-on-surface-variant mt-2 font-[300]">Plans from $6/mo · Cancel anytime</p>
+            </div>
+            
           </div>
         </section>
       </main>
