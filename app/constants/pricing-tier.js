@@ -8,7 +8,7 @@ export const PricingTier = [
         "AI Clipping",
         "Access to APIs",
         "Schedule and Post",
-        "30 Video Credits (per month)",
+        "600 Video Processing Minutes (per month)",
         "1 social account connection",
         "720p HD Exports",
         "No Watermarks",
@@ -24,7 +24,7 @@ export const PricingTier = [
         "AI Clipping",
         "Access to APIs",
         "Schedule and Post",
-        "360 Video Credits (per year)",
+        "7,200 Video Processing Minutes (per year)",
         "1 social account connection",
         "720p HD Exports",
         "No Watermarks",
@@ -51,7 +51,7 @@ export const PricingTier = [
     features: {
       month: [
         "Everything in Pro Plan",
-        "60 + 10 Bonus Video Credits (per month)",
+        "1,500 Video Processing Minutes (per month)",
         "3 social account connections",
         "1080p Full HD Exports",
         "Advanced AI Captions",
@@ -66,7 +66,7 @@ export const PricingTier = [
       ],
       year: [
         "Everything in Pro Plan",
-        "720 + 120 Bonus Video Credits (per year)",
+        "18,000 Video Processing Minutes (per year)",
         "3 social account connections",
         "1080p Full HD Exports",
         "Advanced AI Captions",
@@ -94,7 +94,7 @@ export const PricingTier = [
     features: {
       month: [
         "Everything in Expert Plan",
-        "120 + 30 Bonus Video Credits (per month)",
+        "3,000 Video Processing Minutes (per month)",
         "Unlimited social account connections",
         "4K Ultra HD Exports",
         "Team Collaboration",
@@ -109,7 +109,7 @@ export const PricingTier = [
       ],
       year: [
         "Everything in Expert Plan",
-        "1440 + 360 Bonus Video Credits (per year)",
+        "36,000 Video Processing Minutes (per year)",
         "Unlimited social account connections",
         "4K Ultra HD Exports",
         "Team Collaboration",

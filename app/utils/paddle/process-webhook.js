@@ -13,7 +13,20 @@ function getCreditsFromPriceId(priceId) {
   if (priceId.includes("expert")) return PLAN_LIMITS.expert.creditsPerMonth;
   if (priceId.includes("business")) return PLAN_LIMITS.business.creditsPerMonth;
 
+  // Pay-As-You-Go Credits Mapping (Defaults to 50 for small, 200 for large, or infer from id)
+  if (priceId === process.env.NEXT_PUBLIC_PADDLE_PRICE_PAYG_SMALL) return 50;
+  if (priceId === process.env.NEXT_PUBLIC_PADDLE_PRICE_PAYG_LARGE) return 200;
+  if (priceId.includes("payg_small") || priceId.includes("payg-small")) return 50;
+  if (priceId.includes("payg_large") || priceId.includes("payg-large")) return 200;
+
   return PLAN_LIMITS.free.creditsPerMonth;
+}
+
+function isPayAsYouGo(priceId) {
+  if (!priceId) return false;
+  return priceId === process.env.NEXT_PUBLIC_PADDLE_PRICE_PAYG_SMALL || 
+         priceId === process.env.NEXT_PUBLIC_PADDLE_PRICE_PAYG_LARGE ||
+         priceId.includes("payg");
 }
 
 export async function processEvent(event) {
@@ -144,25 +157,55 @@ async function handleTransactionCompleted(event) {
     // do not always inherit customData from the checkout session.
     const priceId = txn.items?.[0]?.price?.id;
     if (priceId) {
-      const { data: existingCredits } = await supabase.from("user_credits").select("plan").eq("user_id", userId).single();
+      const { data: existingCredits } = await supabase.from("user_credits").select("plan, balance").eq("user_id", userId).single();
       
-      let updatePayload = {
-        plan: priceId,
-        paddle_customer_id: txn.customerId || null
-      };
+      const isPAYG = isPayAsYouGo(priceId);
 
-      if (existingCredits && existingCredits.plan !== priceId) {
-        const newCredits = getCreditsFromPriceId(priceId);
-        updatePayload.plan_credits = newCredits;
-        updatePayload.balance = newCredits;
-      }
+      if (isPAYG) {
+        // For Pay-As-You-Go, we ADD to the existing balance and DO NOT change the plan.
+        const addedCredits = getCreditsFromPriceId(priceId);
+        const currentBalance = existingCredits ? (existingCredits.balance || 0) : 0;
+        
+        const { error } = await supabase.from("user_credits").upsert({
+          user_id: userId,
+          balance: currentBalance + addedCredits,
+          paddle_customer_id: txn.customerId || (existingCredits ? existingCredits.paddle_customer_id : null),
+          // We intentionally do not touch 'plan' or 'plan_credits'
+          updated_at: new Date().toISOString()
+        }, { onConflict: "user_id" });
 
-      const { error } = await supabase.from("user_credits").update(updatePayload).eq("user_id", userId);
-      
-      if (error) {
-        console.error("Failed to update user_credits plan:", error);
+        if (error) {
+          console.error("Failed to add PAYG credits:", error);
+        } else {
+          console.log(`Added ${addedCredits} PAYG credits to user ${userId}`);
+          
+          // Log the transaction
+          await supabase.from("credit_transactions").insert({
+            user_id: userId,
+            amount: addedCredits,
+            description: `Purchased ${addedCredits} one-time credits (Transaction: ${txn.id})`
+          });
+        }
       } else {
-        console.log(`Updated user_credits to plan ${priceId} for user ${userId}`);
+        // Normal Subscription Flow
+        let updatePayload = {
+          plan: priceId,
+          paddle_customer_id: txn.customerId || null
+        };
+
+        if (existingCredits && existingCredits.plan !== priceId) {
+          const newCredits = getCreditsFromPriceId(priceId);
+          updatePayload.plan_credits = newCredits;
+          updatePayload.balance = newCredits;
+        }
+
+        const { error } = await supabase.from("user_credits").update(updatePayload).eq("user_id", userId);
+        
+        if (error) {
+          console.error("Failed to update user_credits plan:", error);
+        } else {
+          console.log(`Updated user_credits to plan ${priceId} for user ${userId}`);
+        }
       }
     }
   }

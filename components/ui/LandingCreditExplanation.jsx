@@ -17,16 +17,16 @@ export function LandingCreditExplanation() {
               Simple credit pricing.
             </h2>
             <p className="text-[12px] md:text-[13px] text-brand-on-surface-variant font-[300]">
-              No fractions. Example: A 35-min video costs 2 credits.
+              1 minute of video processing costs exactly 1 credit.
             </p>
           </div>
 
           {/* Right: Equation */}
           <div className="flex flex-row items-center justify-center gap-2 relative z-10 shrink-0 flex-wrap sm:flex-nowrap">
-            {/* 1 Credit */}
+            {/* 20 Credits */}
             <div className="flex flex-row items-center gap-2 bg-brand-surfaceBg px-3 py-2 rounded-lg shadow-sm">
               <Coins className="w-4 h-4 text-[#f59e0b]" />
-              <span className="text-[13px] font-bold text-brand-secondary leading-none">1 Credit</span>
+              <span className="text-[13px] font-bold text-brand-secondary leading-none">20 Credits</span>
             </div>
 
             <ArrowRight className="w-4 h-4 text-brand-border-subtle hidden sm:block" strokeWidth={3} />
@@ -44,7 +44,7 @@ export function LandingCreditExplanation() {
             {/* All Clips */}
             <div className="flex flex-row items-center gap-2 bg-brand-surfaceBg px-3 py-2 rounded-lg shadow-sm relative">
               <Scissors className="w-4 h-4 text-[#ff6118]" />
-              <span className="text-[13px] font-black text-transparent bg-clip-text bg-gradient-to-r from-[#A855F7] to-[#ff6118] leading-none">All Clips</span>
+              <span className="text-[13px] font-black text-transparent bg-clip-text bg-gradient-to-r from-[#A855F7] to-[#ff6118] leading-none">~5 Shorts</span>
             </div>
           </div>
           

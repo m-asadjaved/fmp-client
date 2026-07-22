@@ -1,6 +1,6 @@
 export const PLAN_LIMITS = {
   free: {
-    creditsPerMonth: 1,
+    creditsPerMonth: 10,
     maxStorageGB: 2,
     maxActiveProjects: 5,
     maxRawUploadLengthSeconds: 60 * 10, // 10 mins
@@ -8,7 +8,7 @@ export const PLAN_LIMITS = {
     features: ["basic_templates"]
   },
   pro: {
-    creditsPerMonth: 30,
+    creditsPerMonth: 600,
     maxStorageGB: 10,
     maxActiveProjects: 20,
     maxRawUploadLengthSeconds: 60 * 60, // 1 hour
@@ -16,7 +16,7 @@ export const PLAN_LIMITS = {
     features: ["basic_templates", "remove_watermark"]
   },
   expert: {
-    creditsPerMonth: 70,
+    creditsPerMonth: 1500,
     maxStorageGB: 50,
     maxActiveProjects: 100,
     maxRawUploadLengthSeconds: 60 * 60 * 3, // 3 hours
@@ -24,7 +24,7 @@ export const PLAN_LIMITS = {
     features: ["basic_templates", "remove_watermark", "4k_export"]
   },
   business: {
-    creditsPerMonth: 150,
+    creditsPerMonth: 3000,
     maxStorageGB: 200,
     maxActiveProjects: -1, // -1 indicates unlimited
     maxRawUploadLengthSeconds: -1, // Unlimited

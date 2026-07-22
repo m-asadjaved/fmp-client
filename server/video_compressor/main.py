@@ -42,6 +42,7 @@ def main():
     bucket = payload.get("s3_bucket")
     input_key = payload.get("s3_input_key")
     output_key = payload.get("s3_output_key")
+    audio_key = payload.get("s3_audio_key")
     webhook_url = payload.get("webhook_url")
     
     # Send an initial 'processing' webhook if needed
@@ -49,11 +50,24 @@ def main():
 
     local_input_path = f"/tmp/input_{req_id}.mp4"
     local_compressed_path = f"/tmp/compressed_{req_id}.mp4"
+    local_audio_path = f"/tmp/audio_{req_id}.mp3"
 
     try:
         # 2. Download the raw video from S3
         print(f"📥 Downloading s3://{bucket}/{input_key} to {local_input_path}...")
         s3_client.download_file(bucket, input_key, local_input_path)
+        
+        # 2.5 Extract audio if requested
+        if audio_key:
+            print("🎵 Extracting audio...")
+            audio_command = ["ffmpeg", "-y", "-nostdin", "-i", local_input_path, "-vn", "-c:a", "libmp3lame", "-q:a", "2", local_audio_path]
+            print(f"🎬 Executing: {' '.join(audio_command)}")
+            process_audio = subprocess.run(audio_command, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+            if process_audio.returncode != 0:
+                print(f"⚠️ Audio extraction failed: {process_audio.stderr.decode('utf-8')}")
+            else:
+                print(f"📤 Uploading audio to S3: {audio_key}")
+                s3_client.upload_file(local_audio_path, bucket, audio_key)
         
         # 3. Compress and Convert to MP4 using FFmpeg
         print("⚙️ Starting FFmpeg compression...")
@@ -128,6 +142,8 @@ def main():
             os.remove(local_input_path)
         if os.path.exists(local_compressed_path):
             os.remove(local_compressed_path)
+        if 'local_audio_path' in locals() and os.path.exists(local_audio_path):
+            os.remove(local_audio_path)
 
 if __name__ == "__main__":
     main()

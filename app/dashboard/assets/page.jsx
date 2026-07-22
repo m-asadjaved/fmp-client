@@ -37,7 +37,26 @@ export default function AssetsPage() {
       const res = await fetch("/api/user/assets");
       const data = await res.json();
       if (data.assets) {
-        setAssets(data.assets);
+        const rawVideoKeys = data.assets.filter(a => a.type === "Raw Video" && a.isDbRecord).map(a => a.s3Key);
+        
+        if (rawVideoKeys.length > 0) {
+          const statusRes = await fetch("/api/upload/compression-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ fileKeys: rawVideoKeys })
+          });
+          const statusData = await statusRes.json();
+          
+          const readyAssets = data.assets.filter(a => {
+            if (a.type === "Raw Video" && a.isDbRecord) {
+              return statusData.statuses[a.s3Key] === "ready";
+            }
+            return true;
+          });
+          setAssets(readyAssets);
+        } else {
+          setAssets(data.assets);
+        }
       }
     } catch (err) {
       console.error("Failed to fetch assets:", err);

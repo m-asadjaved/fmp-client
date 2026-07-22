@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { Bell, Cloud, Hourglass, Video, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Bell, Database, Zap, Film, Loader2 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { PLAN_LIMITS } from "../../config/plan-limits";
 
@@ -54,7 +55,7 @@ export function DashboardHeader() {
 
   return (
     <header className="flex justify-between items-center px-10 py-5 bg-[var(--surface)]/80 backdrop-blur-md border-b border-[var(--border-subtle)] sticky top-0 z-30 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
-      <div className="flex items-center gap-4 group cursor-pointer transition-all duration-300">
+      <Link href="/dashboard/account" className="flex items-center gap-4 group cursor-pointer transition-all duration-300 outline-none">
         <div className="w-11 h-11 rounded-full bg-[var(--border-subtle)] overflow-hidden flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-300 ring-2 ring-transparent group-hover:ring-[var(--primary)]/30">
           {user?.imageUrl ? (
             <img src={user.imageUrl} alt="Profile" className="w-full h-full object-cover" />
@@ -68,7 +69,7 @@ export function DashboardHeader() {
           </span>
           <div className="flex items-center h-4">
             {currentPlan ? (
-              <span className="text-[11px] text-[var(--primary)] font-bold uppercase tracking-[0.08em]">
+              <span className="text-[11px] bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-transparent bg-clip-text font-bold uppercase tracking-[0.08em]">
                 {currentPlan} Plan
               </span>
             ) : (
@@ -76,7 +77,7 @@ export function DashboardHeader() {
             )}
           </div>
         </div>
-      </div>
+      </Link>
 
       <div className="flex items-center gap-4">
         {/* Metrics Display */}
@@ -85,41 +86,31 @@ export function DashboardHeader() {
             <Loader2 size={16} className="animate-spin text-[var(--on-surface-variant)]" />
           ) : (
             <>
-              <div className="flex items-center gap-2.5 bg-[var(--surface)] border border-[var(--border-subtle)] px-3 py-1.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 cursor-default">
-                <div className="flex items-center justify-center w-8 h-8 bg-[var(--primary)]/10 rounded-lg">
-                  <Cloud size={16} className="text-[var(--primary)]" />
+              <div className="flex items-center gap-2 bg-gradient-to-r from-[var(--surface)] to-[var(--surface-bg)] border border-[var(--border-subtle)] pl-1.5 pr-4 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-default">
+                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/20">
+                  <Database size={13} className="text-[var(--primary)]" />
                 </div>
-                <div className="flex flex-col pr-1">
-                  <span className="text-[10px] text-[var(--on-surface-variant)] font-bold uppercase tracking-wider leading-none mb-1">Storage</span>
-                  <span className="text-[13px] font-bold text-[var(--on-surface)] leading-none">
-                    {metrics.storageGB}GB <span className="text-[var(--on-surface-variant)] font-medium text-xs">/ {PLAN_LIMITS[currentPlanId]?.maxStorageGB || 10}GB</span>
+                <div className="flex items-baseline gap-1 ml-1">
+                  <span className="text-[13px] font-extrabold text-[var(--on-surface)] leading-none">
+                    {metrics.storageGB}<span className="text-[11px] text-[var(--on-surface-variant)] font-semibold ml-0.5">GB</span>
                   </span>
+                  <span className="text-[10px] text-[var(--on-surface-variant)] font-medium">/ {PLAN_LIMITS[currentPlanId]?.maxStorageGB || 10}GB</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 bg-[var(--surface)] border border-[var(--border-subtle)] px-3 py-1.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 cursor-default">
-                <div className="flex items-center justify-center w-8 h-8 bg-pink-500/10 rounded-lg">
-                  <Hourglass size={16} className="text-pink-500" />
+              <div className="flex items-center gap-2 bg-gradient-to-r from-[var(--surface)] to-[var(--surface-bg)] border border-[var(--border-subtle)] pl-1.5 pr-4 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-default">
+                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/10 ring-1 ring-amber-500/20">
+                  <Zap size={13} className="text-amber-500" />
                 </div>
-                <div className="flex flex-col pr-2">
-                  <span className="text-[10px] text-[var(--on-surface-variant)] font-bold uppercase tracking-wider leading-none mb-1">Credits</span>
-                  <span className="text-[13px] font-bold text-[var(--on-surface)] leading-none">
+                <div className="flex items-baseline gap-1.5 ml-1">
+                  <span className="text-[13px] font-extrabold text-[var(--on-surface)] leading-none">
                     {metrics.credits.toFixed(1)}
                   </span>
+                  <span className="text-[11px] text-[var(--on-surface-variant)] font-semibold">Credits</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5 bg-[var(--surface)] border border-[var(--border-subtle)] px-3 py-1.5 rounded-xl shadow-sm hover:shadow-md transition-all duration-300 cursor-default">
-                <div className="flex items-center justify-center w-8 h-8 bg-teal-500/10 rounded-lg">
-                  <Video size={16} className="text-teal-500" />
-                </div>
-                <div className="flex flex-col pr-2">
-                  <span className="text-[10px] text-[var(--on-surface-variant)] font-bold uppercase tracking-wider leading-none mb-1">Active</span>
-                  <span className="text-[13px] font-bold text-[var(--on-surface)] leading-none">
-                    {metrics.activeProjects} <span className="text-[var(--on-surface-variant)] font-medium text-xs">Projects</span>
-                  </span>
-                </div>
-              </div>
+
             </>
           )}
         </div>
@@ -128,7 +119,7 @@ export function DashboardHeader() {
         <div className="relative ml-2 pl-6 border-l border-[var(--border-subtle)] flex items-center">
           <button 
             onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)} 
-            className="relative p-2.5 rounded-xl text-[var(--on-surface-variant)] hover:bg-[var(--border-subtle)] hover:text-[var(--on-surface)] transition-all duration-300 focus:outline-none"
+            className="relative p-2.5 rounded-xl cursor-pointer text-[var(--on-surface-variant)] hover:bg-[var(--border-subtle)] hover:text-[var(--on-surface)] transition-all duration-300 focus:outline-none"
           >
             <Bell size={20} className={showNotificationsDropdown ? "text-[var(--primary)]" : ""} />
             {notifications.some(n => !n.acknowledged) && (

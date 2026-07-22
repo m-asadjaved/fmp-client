@@ -219,7 +219,7 @@ input[type=range]:focus {
 input[type=range]::-webkit-slider-runnable-track {
   width: 100%;
   height: 6px;
-  background: var(--border-subtle);
+  background: #e5e7eb;
   border-radius: 9999px;
   transition: background 0.2s ease;
 }
@@ -255,7 +255,7 @@ input[type=range]:active::-webkit-slider-thumb {
 input[type=range]::-moz-range-track {
   width: 100%;
   height: 6px;
-  background: var(--border-subtle);
+  background: #e5e7eb;
   border-radius: 9999px;
   transition: background 0.2s ease;
 }
@@ -348,7 +348,7 @@ input[type=range]:focus {
 input[type=range]::-webkit-slider-runnable-track {
   width: 100%;
   height: 6px;
-  background: var(--border-subtle);
+  background: #e5e7eb;
   border-radius: 9999px;
   transition: background 0.2s ease;
 }
@@ -384,7 +384,7 @@ input[type=range]:active::-webkit-slider-thumb {
 input[type=range]::-moz-range-track {
   width: 100%;
   height: 6px;
-  background: var(--border-subtle);
+  background: #e5e7eb;
   border-radius: 9999px;
   transition: background 0.2s ease;
 }
@@ -560,4 +560,9 @@ input[type=range]:active::-moz-range-thumb {
 .stripe-btn-outline:active {
   transform: translateY(0);
   box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+
+/* Override NextTopLoader to use the brand gradient */
+#nprogress .bar {
+  background: linear-gradient(to right, var(--color-brand-indigo), #A855F7, var(--color-accent-orange)) !important;
 }

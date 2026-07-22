@@ -18,6 +18,7 @@ import {
 	AlertCircle,
 } from "lucide-react";
 import GeneratedClipPreview from "./GeneratedClipPreview";
+import VideoTimelineScrubber from "./VideoTimelineScrubber";
 
 export default function AIClipsPage({ params }) {
 	const { videoId } = use(params);
@@ -67,6 +68,7 @@ export default function AIClipsPage({ params }) {
 				setCreditsCost(videoData.creditsCost || 1);
 				setUserBalance(creditsData.balance ?? null);
 				setVideoDuration(videoData.duration || 60);
+				setTrimRange([0, videoData.duration || 60]);
 
 				if (videoData.status === 'completed') {
 					if (videoData.ai_analysis) {
@@ -95,6 +97,9 @@ export default function AIClipsPage({ params }) {
 	// ─── Features Configuration State ───────────────────────────────────────────
 	const [hoveredOption, setHoveredOption] = useState(null);
 	const [videoDuration, setVideoDuration] = useState(60);
+	const [trimRange, setTrimRange] = useState([0, 60]);
+	const trimDuration = trimRange[1] - trimRange[0];
+	const dynamicCreditsCost = trimDuration <= 300 ? 5 : Math.ceil(trimDuration / 60);
 	const [preferences, setPreferences] = useState({
 		category: "podcast",
 		faceDetection: true,
@@ -227,7 +232,7 @@ export default function AIClipsPage({ params }) {
 				headers: {
 					"Content-Type": "application/json",
 				},
-				body: JSON.stringify({ preferences, regenerate: isRegenerating }),
+				body: JSON.stringify({ preferences, trimRange, regenerate: isRegenerating }),
 			});
 
 			if (response.status === 402) {
@@ -258,8 +263,8 @@ export default function AIClipsPage({ params }) {
 				targetPhase = "processing";
 
 				// Optimistically deduct balance
-				if (userBalance !== null && creditsCost !== null) {
-					setUserBalance(userBalance - creditsCost);
+				if (userBalance !== null && true) {
+					setUserBalance(userBalance - dynamicCreditsCost);
 				}
 			}
 		} catch (err) {
@@ -525,6 +530,15 @@ export default function AIClipsPage({ params }) {
 									Your browser does not support the video tag.
 								</video>
 							</div>
+							{/* Video Timeline Scrubber */}
+							<div className="px-6 pb-2 pt-4 bg-[#f9fafb] border-t border-[#e5e7eb]">
+								<VideoTimelineScrubber 
+									videoRef={videoRef} 
+									duration={videoDuration} 
+									trimRange={trimRange} 
+									onChange={setTrimRange} 
+								/>
+							</div>
 
 							<div style={{ padding: 24, borderTop: "1px solid var(--border-subtle)", background: "var(--surface)" }}>
 								<div style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--primary)", fontSize: 12, fontWeight: 600, background: "color-mix(in srgb, var(--primary) 10%, transparent)", padding: "4px 10px", borderRadius: 6, marginBottom: 16 }}>
@@ -706,12 +720,12 @@ export default function AIClipsPage({ params }) {
 									<div className="flex items-center gap-2">
 										<span className="text-[#4b5563] text-xs font-medium">Credits Required:</span>
 										<span className="text-[#0F2347] text-sm font-bold bg-[#e5e7eb] px-2 py-0.5 rounded border border-[#d1d5db]">
-											{creditsCost !== null ? creditsCost + (preferences.prioritize ? 2 : 0) : "-"}
+											{true ? dynamicCreditsCost + (preferences.prioritize ? 2 : 0) : "-"}
 										</span>
 									</div>
 									<div className="flex items-center gap-2">
 										<span className="text-[#4b5563] text-xs font-medium">Your Balance:</span>
-										<span className={`text-sm font-bold px-2 py-0.5 rounded border ${userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0))
+										<span className={`text-sm font-bold px-2 py-0.5 rounded border ${userBalance !== null && true && userBalance < (dynamicCreditsCost + (preferences.prioritize ? 2 : 0))
 											? "text-red-400 bg-red-400/10 border-red-400/20"
 											: "text-[#4ade80] bg-[#4ade80]/10 border-[#4ade80]/20"
 											}`}>
@@ -722,10 +736,10 @@ export default function AIClipsPage({ params }) {
 
 								<button
 									onClick={startProcessing}
-									disabled={lambdaLoading || isInitialLoading || (userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0)))}
-									className={`w-full py-3 px-4 rounded font-bold text-sm tracking-wide transition-colors flex items-center justify-center gap-2 ${lambdaLoading || isInitialLoading || (userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0)))
+									disabled={lambdaLoading || isInitialLoading || (userBalance !== null && true && userBalance < (dynamicCreditsCost + (preferences.prioritize ? 2 : 0)))}
+									className={`w-full py-3 px-4 rounded font-bold text-sm tracking-wide transition-colors flex items-center justify-center gap-2 ${lambdaLoading || isInitialLoading || (userBalance !== null && true && userBalance < (dynamicCreditsCost + (preferences.prioritize ? 2 : 0)))
 										? "bg-[#f3f4f6] text-[#4b5563] cursor-not-allowed border border-[#e5e7eb]"
-										: "bg-[#0F2347] hover:bg-[#1e3a8a] text-white shadow-lg"
+										: "bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white shadow-lg"
 										}`}
 								>
 									{lambdaLoading || isInitialLoading ? (
@@ -736,7 +750,7 @@ export default function AIClipsPage({ params }) {
 											/>
 											{isInitialLoading ? "Verifying Video..." : "Submitting Pipeline Workspace Task..."}
 										</>
-									) : (userBalance !== null && creditsCost !== null && userBalance < (creditsCost + (preferences.prioritize ? 2 : 0))) ? (
+									) : (userBalance !== null && true && userBalance < (dynamicCreditsCost + (preferences.prioritize ? 2 : 0))) ? (
 										<>
 											<AlertCircle size={16} className="text-red-400" />
 											Insufficient Credits
@@ -874,8 +888,8 @@ export default function AIClipsPage({ params }) {
 					<div className="flex flex-col gap-6 w-full max-w-6xl mx-auto">
 						<div className="flex justify-between items-center bg-[#ffffff] border border-[#e5e7eb] p-4 rounded-xl">
 							<div>
-								<h3 className="text-[#0F2347] font-bold text-sm">Want different clips?</h3>
-								<p className="text-[#4b5563] text-xs mt-1">You can re-run the AI analysis to discover new segments.</p>
+								<h3 className="text-[#0F2347] font-bold text-sm">Want to regenerate clips?</h3>
+								<p className="text-[#4b5563] text-xs mt-1">You can re-run the AI analysis to discover new segments. <span className="text-amber-600 font-semibold">Warning: This will consume credits again.</span></p>
 							</div>
 							<button
 								onClick={() => {
@@ -883,48 +897,18 @@ export default function AIClipsPage({ params }) {
 									setAiAnalysis(null);
 									setIsRegenerating(true);
 								}}
-								className="bg-[#0F2347] hover:bg-[#0a1830] border border-[#0F2347] text-white px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors shadow-sm"
+								className="bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white px-5 py-2.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-all shadow-[0_4px_14px_0_rgba(168,85,247,0.39)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.23)] hover:-translate-y-[1px] active:scale-[0.98]"
 							>
 								<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
 									<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
 									<path d="M3 3v5h5" />
 								</svg>
-								Regenerate Clips
+								Run New Analysis
 							</button>
 						</div>
 						<GeneratedClipPreview videoId={videoId} aiAnalysis={aiAnalysis} />
 					</div>
 				)}
-
-				{/* FOOTER EXTERNAL REFERENCES */}
-				<footer className="mt-16 pt-6 border-t border-[#e5e7eb] flex flex-col sm:flex-row justify-between items-center gap-4 text-xs text-[#4b5563]">
-					<div className="flex items-center gap-2">
-						<span className="font-bold text-[#00C0D4]">
-							ClipAI
-						</span>
-						<span>© 2026 ClipAI Inc. All rights reserved.</span>
-					</div>
-					<div className="flex gap-6">
-						<a
-							href="#"
-							className="hover:text-[#0F2347] transition-colors"
-						>
-							Privacy Policy
-						</a>
-						<a
-							href="#"
-							className="hover:text-[#0F2347] transition-colors"
-						>
-							Terms of Service
-						</a>
-						<a
-							href="#"
-							className="hover:text-[#0F2347] transition-colors"
-						>
-							Security Node
-						</a>
-					</div>
-				</footer>
 			</main>
 		</div>
 	);

@@ -66,9 +66,10 @@ export function RenderProvider({ children }) {
           
         } else if (pg.fatalErrorEncountered) {
           clearInterval(poll);
+          const actualError = pg.errors?.[0]?.message || "Render failed (Unknown error)";
           setTasks(prev => ({
             ...prev,
-            [renderId]: { ...prev[renderId], status: "error", error: "Render failed" }
+            [renderId]: { ...prev[renderId], status: "error", error: actualError }
           }));
         } else {
           setTasks(prev => ({
@@ -134,15 +135,21 @@ function RenderToasts({ tasks, removeTask }) {
   }
 
   return (
-    <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
-        <button onClick={() => setIsMinimized(true)} style={{ background: "#18181b", border: "1px solid #27272a", color: "#a1a1aa", borderRadius: "99px", padding: "6px 14px", cursor: "pointer", fontSize: 13, fontWeight: 600, display: "flex", alignItems: "center", gap: 6, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-          Hide Tasks
-        </button>
-      </div>
+    <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 9999, display: "flex", flexDirection: "column" }}>
 
-      {taskList.map(task => {
+
+      <div className="bg-brand-surface bg-black/80 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl w-[320px] flex flex-col overflow-hidden animate-[fadeIn_0.2s_ease-out] relative">
+        <div className="absolute inset-0 bg-dot-pattern bg-[length:16px_16px] opacity-30 pointer-events-none" />
+        
+        <div className="relative z-10 flex flex-col">
+          {/* Panel Header */}
+          <div className="flex justify-between items-center px-4 py-2.5 border-b border-white/10 bg-black/40">
+            <span className="text-xs font-semibold text-zinc-400">Rendering Tasks</span>
+            <button onClick={() => setIsMinimized(true)} className="text-zinc-400 hover:text-white transition-colors cursor-pointer" title="Hide Tasks">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+          </div>
+        {taskList.map((task, index) => {
         const isDone = task.status === "done";
         const isError = task.status === "error";
         const radius = 14;
@@ -150,23 +157,27 @@ function RenderToasts({ tasks, removeTask }) {
         const strokeDashoffset = circumference - (task.progress / 100) * circumference;
         
         return (
-          <div key={task.renderId} style={{
-            background: "#18181b", border: "1px solid #27272a", borderRadius: 12, padding: "10px 16px",
-            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
-            boxShadow: "0 4px 12px rgba(0,0,0,0.5)", width: 280, animation: "fadeIn 0.2s ease-out"
-          }}>
-            <div style={{ display: "flex", flexDirection: "column", overflow: "hidden" }}>
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#fafafa", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
-                {task.metadata?.filename || "Rendering Video..."}
-              </span>
-              {isError && <span style={{ fontSize: 11, color: "#ef4444" }}>{task.error}</span>}
-              {!isError && !isDone && <span style={{ fontSize: 11, color: "#71717a" }}>{task.metadata?.isPostJob ? "Rendering for auto-post..." : "Rendering..."}</span>}
-              {isDone && <span style={{ fontSize: 11, color: "#10b981" }}>{task.metadata?.isPostJob ? "Rendered! Uploading to YouTube..." : "Complete"}</span>}
+          <div key={task.renderId} className={`px-3 py-3 flex items-center justify-between gap-3 transition-colors ${index < taskList.length - 1 ? 'border-b border-white/10' : ''} ${isError ? 'bg-red-500/10' : 'bg-transparent'}`}>
+            
+            <div className="flex items-center gap-3 overflow-hidden">
+              {task.metadata?.thumbnailUrl && (
+                <div className="w-10 h-10 shrink-0 rounded-lg overflow-hidden bg-black/50 border border-white/10 relative shadow-inner">
+                  <video src={task.metadata.thumbnailUrl} className="w-full h-full object-cover" preload="metadata" muted playsInline />
+                </div>
+              )}
+              <div className="flex flex-col overflow-hidden">
+                <span className="text-[13px] font-semibold text-white whitespace-nowrap text-ellipsis overflow-hidden">
+                  {task.metadata?.title || task.metadata?.filename || "Rendering Video..."}
+                </span>
+                {isError && <span className="text-[11px] text-red-400">{task.error}</span>}
+                {!isError && !isDone && <span className="text-[11px] text-zinc-300">{task.metadata?.isPostJob ? "Rendering for auto-post..." : "Rendering..."}</span>}
+                {isDone && <span className="text-[11px] text-emerald-400">{task.metadata?.isPostJob ? "Rendered! Uploading to YouTube..." : "Complete"}</span>}
+              </div>
             </div>
             
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <div className="flex items-center gap-2 shrink-0">
               {isError ? (
-                 <button onClick={() => removeTask(task.renderId)} style={{ background: "transparent", border: "none", color: "#ef4444", cursor: "pointer", padding: 4 }}>
+                 <button onClick={() => removeTask(task.renderId)} className="bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-md p-1.5 transition-colors cursor-pointer" title="Remove Failed Task">
                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                  </button>
               ) : isDone ? (
@@ -174,14 +185,14 @@ function RenderToasts({ tasks, removeTask }) {
                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                  </a>
               ) : (
-                 <div className="progress-circle-container" style={{ position: "relative", width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", borderRadius: "50%" }} onClick={() => removeTask(task.renderId)} title="Cancel Render">
-                   <svg width="32" height="32" viewBox="0 0 36 36" style={{ position: "absolute", top: 0, left: 0, transform: "rotate(-90deg)" }}>
-                     <circle cx="18" cy="18" r={radius} fill="none" stroke="#27272a" strokeWidth="3" />
-                     <circle cx="18" cy="18" r={radius} fill="none" stroke="#10b981" strokeWidth="3" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} style={{ transition: "stroke-dashoffset 0.2s ease-out" }} />
+                  <div className="progress-circle-container relative w-8 h-8 flex items-center justify-center cursor-pointer rounded-full" onClick={() => removeTask(task.renderId)} title="Cancel Render">
+                   <svg width="32" height="32" viewBox="0 0 36 36" className="absolute top-0 left-0 -rotate-90">
+                     <circle cx="18" cy="18" r={radius} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
+                     <circle cx="18" cy="18" r={radius} fill="none" stroke="#10b981" strokeWidth="3" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} className="transition-[stroke-dashoffset] duration-200 ease-out" />
                    </svg>
-                   <span className="progress-text" style={{ fontSize: 9, fontWeight: 700, color: "#10b981", zIndex: 1, letterSpacing: "-0.5px", marginLeft: "1px" }}>{task.progress}%</span>
-                   <div className="progress-cancel" style={{ display: "none", position: "absolute", zIndex: 2, background: "rgba(24, 24, 27, 0.9)", width: "100%", height: "100%", borderRadius: "50%", alignItems: "center", justifyContent: "center", color: "#ef4444" }}>
-                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                   <span className="progress-text text-[9px] font-bold text-emerald-400 z-10 -tracking-[0.5px] ml-[1px] transition-colors">{task.progress}%</span>
+                   <div className="progress-cancel hidden absolute -top-1 -right-1 z-20 bg-red-500 w-4 h-4 rounded-full flex items-center justify-center text-white shadow-md border-[1.5px] border-[#18181b]">
+                     <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                    </div>
                  </div>
               )}
@@ -189,11 +200,14 @@ function RenderToasts({ tasks, removeTask }) {
           </div>
         );
       })}
+        </div>
+      </div>
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes spin { 100% { transform: rotate(360deg); } }
-        .progress-circle-container:hover .progress-text { display: none !important; }
         .progress-circle-container:hover .progress-cancel { display: flex !important; }
+        .progress-circle-container:hover circle { stroke: #ef4444 !important; }
+        .progress-circle-container:hover .progress-text { color: #ef4444 !important; }
       `}</style>
     </div>
   );

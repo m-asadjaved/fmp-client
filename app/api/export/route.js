@@ -4,14 +4,14 @@ import { NextResponse } from "next/server";
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { 
-      videoUrl, 
-      captions, 
-      words, 
-      overlays, 
-      fontSize, 
-      verticalPosition, 
-      durationInFrames, 
+    const {
+      videoUrl,
+      captions,
+      words,
+      overlays,
+      fontSize,
+      verticalPosition,
+      durationInFrames,
       fps,
       brolls,
       bgMusicSrc,
@@ -26,8 +26,8 @@ export async function POST(req) {
     } = body;
 
     const region = process.env.REMOTION_AWS_REGION || "us-east-1";
-    const functionName = process.env.REMOTION_FUNCTION_NAME || "remotion-render-4-0-484-mem2048mb-disk2048mb-900sec"; 
-    
+    const functionName = process.env.REMOTION_FUNCTION_NAME || "remotion-render-4-0-484-mem2048mb-disk2048mb-900sec";
+
     // IMPORTANT: You must deploy your Remotion code to an S3 bucket using `npx remotion lambda sites create`
     // and put the resulting serve URL in your .env file
     const serveUrl = process.env.REMOTION_SERVE_URL;
@@ -67,7 +67,7 @@ export async function POST(req) {
       codec: "h264",
       crf: 17,
       jpegQuality: 100,
-      framesPerLambda: 300,
+      framesPerLambda: 60,
       privacy: "public", // Makes the output S3 object publicly readable
     });
 

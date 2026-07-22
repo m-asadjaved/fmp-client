@@ -72,10 +72,10 @@ export async function POST(req) {
     if (resolvedVideoUrl && resolvedVideoUrl.startsWith("/api/video/output/")) {
       const urlObj = new URL(resolvedVideoUrl, "http://localhost"); // dummy base to parse query params
       const index = urlObj.searchParams.get("index") || "0";
-      
+
       const bucketNameForUrl = process.env.AWS_BUCKET_NAME;
       const regionForUrl = process.env.AWS_REGION || "us-east-1";
-      
+
       let baseUrl = "";
       if (bucketNameForUrl) {
         baseUrl = `https://${bucketNameForUrl}.s3.${regionForUrl}.amazonaws.com`;
@@ -127,7 +127,7 @@ export async function POST(req) {
         splitY,
       },
       codec: "h264",
-      framesPerLambda: 300,
+      framesPerLambda: 60,
       privacy: "public",
       crf: 17,
       jpegQuality: 100,

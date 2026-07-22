@@ -75,8 +75,8 @@ export async function GET(request, context) {
 		}
 
 		const durationSeconds = parseFloat(videoData.duration);
-		// Cost: 1 credit per 20 minutes (1200 seconds) (rounded up), minimum 1 credit
-		const creditsCost = Math.max(1, Math.ceil(durationSeconds / 1200));
+		// Cost: 1 credit per minute (60 seconds) (rounded up), minimum 1 credit
+		const creditsCost = Math.max(1, Math.ceil(durationSeconds / 60));
 
 		return NextResponse.json({
 			status: reqData?.status || "none",
@@ -168,8 +168,11 @@ export async function POST(request, context) {
 			return NextResponse.json({ error: videoError?.message || "Video not found" }, { status: 404 });
 		}
 
-		const durationSeconds = parseFloat(videoRow.duration);
-		let creditsCost = Math.max(1, Math.ceil(durationSeconds / 1200));
+		const durationSeconds = typeof videoRow.duration === "string" 
+			? parseFloat(videoRow.duration) 
+			: videoRow.duration;
+		
+		let creditsCost = Math.max(1, Math.ceil(durationSeconds / 60));
 		if (preferences?.prioritize) {
 			creditsCost += 2;
 		}

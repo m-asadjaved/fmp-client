@@ -36,6 +36,7 @@ def lambda_handler(event, context):
             user_id = "s3-auto-trigger"
             webhook_url = "" # Can't know Next.js webhook URL from pure S3 trigger
             output_key = f"compressed_{input_key}"
+            audio_key = f"raw_audio/{req_id}.mp3"
             
             # Apply our ultra-fast 480p default for Gemini analysis
             ffmpeg_commands = [
@@ -59,6 +60,7 @@ def lambda_handler(event, context):
             bucket = body.get("s3_bucket")
             input_key = body.get("s3_input_key")
             output_key = body.get("s3_output_key")
+            audio_key = body.get("s3_audio_key", f"raw_audio/{req_id}.mp3")
             ffmpeg_commands = body.get("ffmpeg_commands", [])
 
         # 2. Validate extracted variables
@@ -77,6 +79,7 @@ def lambda_handler(event, context):
             "s3_bucket": bucket,
             "s3_input_key": input_key,
             "s3_output_key": output_key,
+            "s3_audio_key": audio_key,
             "ffmpeg_commands": ffmpeg_commands
         }
         

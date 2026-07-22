@@ -22,6 +22,7 @@ import {
   ExternalLink,
   FolderOpen
 } from 'lucide-react';
+import { YouTubePreview } from './components/YouTubePreview';
 
 // ─── Platform colour/icon map ─────────────────────────────────────────────────
 const PLATFORM_META = {
@@ -223,6 +224,9 @@ export default function Dashboard() {
 
   // Navigation UI State
   const [videoLink, setVideoLink] = useState('');
+  const [youtubeEmbedId, setYoutubeEmbedId] = useState(null);
+  const [youtubeStartTime, setYoutubeStartTime] = useState(0);
+  const [youtubeEndTime, setYoutubeEndTime] = useState(0);
 
   // S3 Core Pipeline Upload & Media Tracking States
   const [isDragActive, setIsDragActive] = useState(false);
@@ -394,6 +398,8 @@ export default function Dashboard() {
 
     abortControllerRef.current = new AbortController();
     const { signal } = abortControllerRef.current;
+    
+    let createdDbRecord = null;
 
     try {
       setUploading(true);
@@ -425,7 +431,14 @@ export default function Dashboard() {
       });
 
       const data = await response.json();
-      if (signal.aborted) return;
+      if (data.dbRecord) {
+        createdDbRecord = data.dbRecord;
+      }
+
+      if (signal.aborted) {
+        if (createdDbRecord) fetch(`/api/video/${createdDbRecord.video_id}`, { method: 'DELETE' });
+        return;
+      }
       if (!response.ok) throw new Error(data.error || 'Upload error');
 
       const { uploadUrl, thumbnailUploadUrl, dbRecord } = data;
@@ -475,6 +488,7 @@ export default function Dashboard() {
           fetchUploadHistory();
         } else {
           showAlert('Upload Error', 'Target storage bucket error.', 'error');
+          if (createdDbRecord) fetch(`/api/video/${createdDbRecord.video_id}`, { method: 'DELETE' });
         }
         setUploading(false);
         setUploadSpeed('');
@@ -483,6 +497,7 @@ export default function Dashboard() {
 
       xhr.onerror = () => {
         showAlert('Connection Lost', 'Network connection lost during S3 transmission.', 'error');
+        if (createdDbRecord) fetch(`/api/video/${createdDbRecord.video_id}`, { method: 'DELETE' });
         setUploading(false);
         setUploadSpeed('');
         xhrRef.current = null;
@@ -490,12 +505,16 @@ export default function Dashboard() {
 
       xhr.onabort = () => {
         // Handled by handleCancelUpload directly
+        if (createdDbRecord) fetch(`/api/video/${createdDbRecord.video_id}`, { method: 'DELETE' });
         xhrRef.current = null;
       };
 
       xhr.send(file);
 
     } catch (error) {
+      if (createdDbRecord) {
+        fetch(`/api/video/${createdDbRecord.video_id}`, { method: 'DELETE' });
+      }
       if (error.name === 'AbortError') {
         // Upload was cancelled, state is already reset by handleCancelUpload
         return;
@@ -583,49 +602,79 @@ export default function Dashboard() {
         {/* METRICS HAVE BEEN MOVED TO DASHBOARD HEADER */}
 
         {/* CREATION HUB & DRAG DROP WORKSPACE */}
-        <section className="stagger-1 shadow-sm hover:shadow-md transition-shadow duration-300" style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 32, background: "var(--surface)", border: "1px solid var(--border-subtle)", borderRadius: 16, padding: 32, marginBottom: 32, alignItems: "center" }}>
+        <section className="stagger-1 shadow-sm hover:shadow-md transition-shadow duration-300" style={{ display: "grid", gridTemplateColumns: youtubeEmbedId ? "1fr" : "2fr 1fr", gap: 32, background: "var(--surface)", border: "1px solid #d1d5db", borderRadius: 16, padding: 32, marginBottom: 32, alignItems: youtubeEmbedId ? "start" : "center" }}>
 
+          {youtubeEmbedId ? (
+            <YouTubePreview 
+              videoId={youtubeEmbedId} 
+              onRangeChange={({ startTime, endTime }) => {
+                setYoutubeStartTime(startTime);
+                setYoutubeEndTime(endTime);
+              }}
+              onCancel={() => setYoutubeEmbedId(null)}
+            />
+          ) : (
+            <>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             <div>
-              <h3 className="text-gradient-primary" style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em" }}>Create New Project</h3>
+              <h3 style={{ margin: "0 0 8px", fontSize: 24, fontWeight: 800, letterSpacing: "-0.03em", color: "#000000" }}>Create New Project</h3>
               <p style={{ margin: 0, fontSize: 14, color: "var(--on-surface-variant)", lineHeight: 1.5, maxWidth: 500 }}>
                 Transform long production footage into highly engaging vertical highlights using our integrated AI transcription models.
               </p>
             </div>
 
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "color-mix(in srgb, var(--primary) 10%, transparent)", color: "#c4b5fd", padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, width: "fit-content", border: "1px solid color-mix(in srgb, var(--primary) 20%, transparent)" }}>
-              <Sparkles size={14} style={{ color: "var(--primary)" }} />
-              <span>Powered by ClipAI Turbo</span>
-            </div>
-
-            <div style={{ marginTop: 8, opacity: 0.7 }}>
+            <div style={{ marginTop: 8 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                 <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "var(--on-surface-variant)", margin: 0 }}>Paste Youtube URL</label>
-                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--primary)", background: "color-mix(in srgb, var(--primary) 10%, transparent)", padding: "2px 8px", borderRadius: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>Coming Soon</span>
               </div>
               <div style={{ display: "flex", gap: 8, maxWidth: 500 }}>
                 <input
                   type="text"
                   value={videoLink}
-                  onChange={(e) => setVideoLink(e.target.value)}
-                  placeholder="YouTube URL integration is currently under construction"
-                  disabled
-                  style={{ flex: 1, background: "#f3f4f6", border: "1px solid var(--border-subtle)", borderRadius: 8, padding: "10px 14px", color: "var(--on-surface-variant)", fontSize: 14, outline: "none", cursor: "not-allowed" }}
+                  onChange={(e) => {
+                    setVideoLink(e.target.value);
+                    if (youtubeEmbedId) setYoutubeEmbedId(null);
+                  }}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  style={{ flex: 1, background: "var(--surface)", border: "1px solid #d1d5db", borderRadius: 8, padding: "10px 14px", color: "var(--on-surface)", fontSize: 14, outline: "none" }}
                 />
-                <button disabled style={{ background: "#9ca3af", color: "#fff", border: "none", borderRadius: 8, padding: "0 20px", fontSize: 14, fontWeight: 600, cursor: "not-allowed" }}>
-                  Get Clips Now
+                <button 
+                  className="bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white font-bold rounded-xl shadow-[0_4px_14px_0_rgba(168,85,247,0.39)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.23)] hover:-translate-y-[1px] transition-all duration-200 active:scale-[0.98]"
+                  onClick={() => {
+                    if (!videoLink) return showAlert('Error', 'Please enter a valid YouTube URL.', 'error');
+                    
+                    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+                    const match = videoLink.match(regExp);
+                    
+                    if (match && match[2].length === 11) {
+                      setYoutubeEmbedId(match[2]);
+                    } else {
+                      showAlert('Error', 'Invalid YouTube URL. Could not extract video ID.', 'error');
+                    }
+                  }}
+                  style={{ padding: "0 20px", height: "43px", fontSize: "14px", flexShrink: 0, cursor: "pointer" }}
+                >
+                  Compile Video
                 </button>
-              </div>
-              <div style={{ marginTop: "12px", background: "color-mix(in srgb, var(--primary) 5%, transparent)", border: "1px solid color-mix(in srgb, var(--primary) 20%, transparent)", borderRadius: 8, padding: "10px 14px", display: "flex", gap: 8 }}>
-                <span style={{ fontSize: 16 }}>🎁</span>
-                <p style={{ margin: 0, fontSize: 12, color: "var(--on-surface-variant)", lineHeight: 1.5 }}>
-                  <strong style={{ color: "var(--primary)" }}>Bonus:</strong> Until YouTube link integration arrives, we've temporarily increased direct file upload limits to <strong>1 Hour</strong> and <strong>3 GB</strong>!
-                </p>
               </div>
             </div>
           </div>
 
           <div style={{ height: "100%", minHeight: 180 }}>
+              <>
+                <style>{`
+              @keyframes marchingAnts {
+                0% { stroke-dashoffset: 0; }
+                100% { stroke-dashoffset: -20; }
+              }
+              .animate-marching-ants {
+                animation: marchingAnts 0.8s linear infinite;
+              }
+              .dropzone-container:hover .animate-marching-ants {
+                stroke: url(#dropzone-gradient) !important;
+              }
+            `}</style>
+            
             <input
               ref={fileInputRef}
               type="file"
@@ -636,6 +685,7 @@ export default function Dashboard() {
             />
 
             <div
+              className={`dropzone-container relative ${!isDragActive && !uploading ? "" : ""}`}
               onDragOver={(e) => { e.preventDefault(); setIsDragActive(true); }}
               onDragLeave={() => setIsDragActive(false)}
               onDrop={(e) => { e.preventDefault(); setIsDragActive(false); if (e.dataTransfer.files?.[0]) handleFileSelection(e.dataTransfer.files[0]); }}
@@ -643,57 +693,78 @@ export default function Dashboard() {
               style={{
                 height: "100%", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center",
                 background: isDragActive ? "color-mix(in srgb, var(--primary) 5%, transparent)" : "var(--surface-bg)",
-                border: `2px dashed ${isDragActive ? "var(--primary)" : "var(--border-subtle)"}`,
                 borderRadius: 16, cursor: "pointer",
                 padding: 24, transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                 transform: isDragActive ? "scale(1.02)" : "scale(1)"
               }}
               onMouseOver={e => { 
                 if (!isDragActive) {
-                  e.currentTarget.style.borderColor = "var(--primary)";
                   e.currentTarget.style.transform = "translateY(-4px)";
                   e.currentTarget.style.boxShadow = "var(--shadow-ambient)";
                 } 
               }}
               onMouseOut={e => { 
                 if (!isDragActive) {
-                  e.currentTarget.style.borderColor = "var(--border-subtle)";
                   e.currentTarget.style.transform = "translateY(0)";
                   e.currentTarget.style.boxShadow = "none";
                 }
               }}
             >
-              <div style={{ background: "var(--surface)", padding: 12, borderRadius: "50%", color: "var(--on-surface-variant)", marginBottom: 12, border: "1px solid var(--border-subtle)" }}>
+              {/* Animated Dashed Border overlay */}
+              <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', borderRadius: 16, zIndex: 0 }}>
+                <defs>
+                  <linearGradient id="dropzone-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#A855F7" />
+                    <stop offset="100%" stopColor="#ff6118" />
+                  </linearGradient>
+                </defs>
+                <rect x="2" y="2" width="calc(100% - 4px)" height="calc(100% - 4px)" rx="14" fill="none" stroke={isDragActive ? "url(#dropzone-gradient)" : "#52525b"} strokeWidth="2" strokeDasharray="10 10" className={!isDragActive && !uploading ? "animate-marching-ants" : ""} style={{ transition: "stroke 0.3s" }} />
+              </svg>
+
+              <div style={{ position: "relative", zIndex: 1, background: "var(--surface)", padding: 12, borderRadius: "50%", color: "var(--on-surface-variant)", marginBottom: 12, border: "1px solid var(--border-subtle)" }}>
                 <UploadCloud size={24} />
               </div>
 
-              <>
+              <div style={{ position: "relative", zIndex: 1 }}>
                 <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: "var(--on-surface)" }}>Upload Video Asset</p>
                 <p style={{ margin: "0 0 8px", fontSize: 12, color: "var(--on-surface-variant)" }}>
                   Drag & drop or <span style={{ color: "var(--primary)", fontWeight: 600 }}>browse files</span>
                 </p>
                 <span style={{ fontSize: 10, fontWeight: 700, color: "var(--primary)", background: "color-mix(in srgb, var(--primary) 10%, transparent)", padding: "2px 8px", borderRadius: 12, textTransform: "uppercase", letterSpacing: "0.05em", border: "1px solid color-mix(in srgb, var(--primary) 20%, transparent)" }}>
-                  Upgraded: 3GB • 1 Hour
+                  Upgraded: 1GB • 30 Min
                 </span>
-              </>
+              </div>
             </div>
-          </div>
+            </>
+            </div>
+            </>
+            )}
         </section>
 
         {/* PERSISTENT LIVE UPLOAD PIPELINE TRANSMISSION MONITOR CARD */}
         {file && (
-          <section style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", borderRadius: 16, padding: 24, marginBottom: 32 }}>
+          <section style={{ background: "var(--surface)", border: "1px solid #d1d5db", borderRadius: 16, padding: 24, marginBottom: 32 }}>
             <div style={{ display: "flex", alignItems: "center", justifyItems: "center", justifyContent: "space-between", marginBottom: uploading ? 16 : 0 }}>
-              <div style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
-                <span style={{ fontSize: 10, fontWeight: 800, background: "color-mix(in srgb, var(--primary) 10%, transparent)", color: "#c4b5fd", padding: "2px 8px", borderRadius: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Staged Composition</span>
-                <h4 style={{ margin: "8px 0 4px", fontSize: 14, fontWeight: 700, color: "var(--on-surface)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{file.name}</h4>
-                <p style={{ margin: 0, fontSize: 12, color: "var(--on-surface-variant)" }}>{formatSize(file.size)} • Duration: {formatDuration(videoDuration)}</p>
+              <div style={{ display: "flex", alignItems: "center", gap: 16, flex: 1, overflow: "hidden" }}>
+                <div style={{ width: 80, height: 56, borderRadius: 8, overflow: "hidden", background: "#000", flexShrink: 0 }}>
+                  <video 
+                    src={file ? URL.createObjectURL(file) : ""} 
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }} 
+                    preload="metadata" 
+                    muted 
+                  />
+                </div>
+                <div style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, background: "color-mix(in srgb, var(--primary) 10%, transparent)", color: "#c4b5fd", padding: "2px 8px", borderRadius: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Staged Composition</span>
+                  <h4 style={{ margin: "8px 0 4px", fontSize: 14, fontWeight: 700, color: "var(--on-surface)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{file.name}</h4>
+                  <p style={{ margin: 0, fontSize: 12, color: "var(--on-surface-variant)" }}>{formatSize(file.size)} • Duration: {formatDuration(videoDuration)}</p>
+                </div>
               </div>
 
               <div style={{ display: "flex", gap: 12 }}>
                 <button
                   onClick={handleCancelUpload}
-                  style={{ background: "var(--surface)", color: "var(--on-surface-variant)", border: "1px solid var(--border-subtle)", padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0, transition: "background 0.2s" }}
+                  style={{ background: "var(--surface)", color: "var(--on-surface-variant)", border: "1px solid #d1d5db", padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0, transition: "background 0.2s" }}
                   onMouseOver={e => e.currentTarget.style.background = "#f3f4f6"}
                   onMouseOut={e => e.currentTarget.style.background = "#ffffff"}
                 >
@@ -702,7 +773,9 @@ export default function Dashboard() {
                 {!uploading && (
                   <button
                     onClick={handleUpload}
-                    style={{ background: "#0F2347", color: "#f9fafb", border: "none", padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}
+                    style={{ background: "linear-gradient(to right, #A855F7, #ff6118)", color: "#fff", border: "none", padding: "10px 20px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0, transition: "opacity 0.2s" }}
+                    onMouseOver={e => e.currentTarget.style.opacity = 0.9}
+                    onMouseOut={e => e.currentTarget.style.opacity = 1}
                   >
                     Confirm & Start Upload
                   </button>
@@ -723,7 +796,7 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div style={{ width: "100%", background: "var(--surface-bg)", height: 6, borderRadius: 4, overflow: "hidden" }}>
-                  <div style={{ background: "#00C0D4", height: "100%", transition: "width 0.15s", width: `${progress}%` }}></div>
+                  <div style={{ background: "linear-gradient(to right, #A855F7, #ff6118)", height: "100%", transition: "width 0.15s", width: `${progress}%` }}></div>
                 </div>
               </div>
             )}
@@ -826,7 +899,7 @@ export default function Dashboard() {
                         <button
                           disabled={!isReady}
                           onClick={() => handleMakeClips(item)}
-                          className={`w-full py-2.5 rounded-lg text-[13px] font-bold flex items-center justify-center gap-2 transition-all duration-300 ${isReady ? 'bg-gradient-to-r from-[var(--primary)] to-indigo-500 hover:from-[var(--primary-hover)] hover:to-indigo-600 text-white shadow-md hover:shadow-lg active:scale-[0.98]' : 'bg-[var(--border-subtle)] text-[var(--on-surface-variant)] cursor-not-allowed'}`}
+                          className={`w-full flex items-center justify-center gap-2 ${isReady ? 'bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white font-bold py-2.5 rounded-xl shadow-[0_4px_14px_0_rgba(168,85,247,0.39)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.23)] hover:-translate-y-[1px] transition-all duration-200 active:scale-[0.98]' : 'py-2.5 rounded-lg text-[13px] font-bold bg-[var(--border-subtle)] text-[var(--on-surface-variant)] cursor-not-allowed'}`}
                         >
                           {item.credits_used > 0 ? (
                             <>
@@ -857,14 +930,35 @@ export default function Dashboard() {
         </section>
 
         {/* FOOTER */}
-        <footer style={{ marginTop: 64, paddingTop: 24, borderTop: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 12, color: "var(--on-surface-variant)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ fontWeight: 800, color: "var(--on-surface)" }}>ClipAI</span>
-            <span>© 2026 ClipAI Inc. All rights reserved.</span>
+        <footer style={{ margin: "64px -40px 0 -40px", padding: "40px 40px 20px 40px", borderTop: "1px solid var(--border-subtle)", display: "flex", flexWrap: "wrap", justifyContent: "space-between", gap: 40, fontSize: 13, color: "var(--on-surface-variant)" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, flex: "1 1 300px" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontWeight: 800, color: "var(--on-surface)", fontSize: 18 }}>ClipAI</span>
+              <span style={{ fontSize: 10, fontWeight: 700, background: "color-mix(in srgb, var(--primary) 10%, transparent)", color: "var(--primary)", padding: "2px 6px", borderRadius: 4, letterSpacing: "0.05em" }}>PRO</span>
+            </div>
+            <p style={{ margin: 0, lineHeight: 1.5, maxWidth: 300 }}>
+              The ultimate AI video clipping workspace. Transform long-form content into viral clips in seconds.
+            </p>
+            <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#4ade80" }}></div>
+              <span>All systems operational</span>
+            </div>
           </div>
-          <div style={{ display: "flex", gap: 24 }}>
-            <a href="#" style={{ color: "var(--on-surface-variant)", textDecoration: "none" }}>Privacy Policy</a>
-            <a href="#" style={{ color: "var(--on-surface-variant)", textDecoration: "none" }}>Terms of Service</a>
+          
+          <div style={{ display: "flex", gap: 64, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <h4 style={{ margin: 0, color: "var(--on-surface)", fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>Platform</h4>
+              <Link href="/dashboard" style={{ color: "var(--on-surface-variant)", textDecoration: "none", transition: "color 0.2s" }} onMouseOver={e => e.currentTarget.style.color="var(--primary)"} onMouseOut={e => e.currentTarget.style.color="var(--on-surface-variant)"}>Home</Link>
+              <Link href="/dashboard/assets" style={{ color: "var(--on-surface-variant)", textDecoration: "none", transition: "color 0.2s" }} onMouseOver={e => e.currentTarget.style.color="var(--primary)"} onMouseOut={e => e.currentTarget.style.color="var(--on-surface-variant)"}>Assets Library</Link>
+              <Link href="/dashboard/settings" style={{ color: "var(--on-surface-variant)", textDecoration: "none", transition: "color 0.2s" }} onMouseOver={e => e.currentTarget.style.color="var(--primary)"} onMouseOut={e => e.currentTarget.style.color="var(--on-surface-variant)"}>Account Settings</Link>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <h4 style={{ margin: 0, color: "var(--on-surface)", fontWeight: 700, fontSize: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>Resources</h4>
+              <a href="#" style={{ color: "var(--on-surface-variant)", textDecoration: "none", transition: "color 0.2s" }} onMouseOver={e => e.currentTarget.style.color="var(--primary)"} onMouseOut={e => e.currentTarget.style.color="var(--on-surface-variant)"}>Documentation</a>
+              <a href="#" style={{ color: "var(--on-surface-variant)", textDecoration: "none", transition: "color 0.2s" }} onMouseOver={e => e.currentTarget.style.color="var(--primary)"} onMouseOut={e => e.currentTarget.style.color="var(--on-surface-variant)"}>Video Tutorials</a>
+              <a href="#" style={{ color: "var(--on-surface-variant)", textDecoration: "none", transition: "color 0.2s" }} onMouseOver={e => e.currentTarget.style.color="var(--primary)"} onMouseOut={e => e.currentTarget.style.color="var(--on-surface-variant)"}>Support Ticket</a>
+            </div>
           </div>
         </footer>
 

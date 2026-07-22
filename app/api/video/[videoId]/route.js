@@ -49,3 +49,31 @@ export async function GET(request, context) {
     return NextResponse.json({ error: "Failed to fetch history" }, { status: 500 });
   }
 }
+
+// ----------------------------------------------------
+// DELETE: Remove Video Record (Authenticated Only)
+// ----------------------------------------------------
+export async function DELETE(request, context) {
+  try {
+    const params = await context.params;
+    const { videoId } = params;
+    const { userId } = await auth();
+    
+    if (!userId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { error } = await supabase
+      .from("videos")
+      .delete()
+      .eq("user_id", userId)
+      .eq("video_id", videoId);
+
+    if (error) throw error;
+    
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Supabase Delete Error:", error);
+    return NextResponse.json({ error: "Failed to delete video" }, { status: 500 });
+  }
+}

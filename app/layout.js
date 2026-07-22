@@ -30,7 +30,7 @@ export default function RootLayout({ children }) {
     >
       <body className="min-h-full flex flex-col">
         <NextTopLoader
-          color="#00C0D4"
+          color="#ff6118"
           initialPosition={0.08}
           crawlSpeed={200}
           height={3}
@@ -38,7 +38,7 @@ export default function RootLayout({ children }) {
           showSpinner={false}
           easing="ease"
           speed={200}
-          shadow="0 0 10px #00C0D4,0 0 5px #00C0D4"
+          shadow="0 0 10px #ff6118,0 0 5px #ff6118"
           zIndex={1600000}
         />
         <ClerkProvider dynamic>
@@ -50,7 +50,7 @@ export default function RootLayout({ children }) {
             </AlertProvider>
           </UploadProvider>
         </ClerkProvider>
-        <Agentation />
+        {process.env.NODE_ENV === 'development' && <Agentation />}
       </body>
     </html>
   );

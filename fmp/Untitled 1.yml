@@ -1,0 +1,28 @@
+info:
+  name: Untitled 1
+  type: http
+  seq: 2
+
+http:
+  method: GET
+  url: https://p.savenow.to/ajax/download.php?url=https://www.youtube.com/watch?v=C__PnW1Mixw&format=1080&apikey=688135bae6613cc6a429f00ca6b6e61ca5885357&add_info=1
+  params:
+    - name: url
+      value: https://www.youtube.com/watch?v=C__PnW1Mixw
+      type: query
+    - name: format
+      value: "1080"
+      type: query
+    - name: apikey
+      value: 688135bae6613cc6a429f00ca6b6e61ca5885357
+      type: query
+    - name: add_info
+      value: "1"
+      type: query
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

@@ -6,7 +6,7 @@ import { useUser, useClerk } from '@clerk/nextjs';
 import { usePaddlePrices } from '../../hooks/usePaddlePrices';
 import { updateSubscription } from '../../actions/subscription';
 import { PricingTier } from '../../constants/pricing-tier';
-import { Check } from 'lucide-react';
+import { Check, Video, Film, Sparkles, Zap, Unlock } from 'lucide-react';
 
 export function PricingClient({ paddle, country }) {
   const { user } = useUser();
@@ -15,6 +15,7 @@ export function PricingClient({ paddle, country }) {
   const [frequency, setFrequency] = useState('month');
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [activePlan, setActivePlan] = React.useState(null);
+  const [paygQuantity, setPaygQuantity] = React.useState(5);
   const { prices, loading } = usePaddlePrices(paddle, country);
 
   React.useEffect(() => {
@@ -260,7 +261,9 @@ export function PricingClient({ paddle, country }) {
               <button
                 onClick={() => handleSubscribe(tier)}
                 disabled={isButtonDisabled}
-                className={`w-full rounded-md py-3.5 px-6 font-bold text-[14px] transition-all duration-200 border-none bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white shadow-md hover:opacity-90 active:scale-[0.98] ${
+                className={`w-full rounded-md py-3.5 px-6 font-bold text-[14px] transition-all duration-200 border-none text-white shadow-md hover:opacity-90 active:scale-[0.98] ${
+                  isCurrentPlan ? 'bg-[#16A34A]' : 'bg-gradient-to-r from-[#A855F7] to-[#ff6118]'
+                } ${
                   isButtonDisabled && !isCurrentPlan ? 'opacity-50 pointer-events-none' : 'disabled:cursor-default'
                 }`}
               >
@@ -270,6 +273,168 @@ export function PricingClient({ paddle, country }) {
           );
         })}
       </div>
+
+      {/* Pay As You Go Section */}
+      <div className="max-w-4xl mx-auto mt-20 relative group">
+        <div className="absolute -inset-1 bg-gradient-to-r from-[#A855F7] to-[#ff6118] rounded-3xl blur opacity-25 group-hover:opacity-40 transition duration-500"></div>
+        <div className="relative bg-gradient-to-r from-[#A855F7] to-[#ff6118] p-[1.5px] rounded-3xl shadow-xl">
+          <div className="bg-brand-surface bg-dot-pattern rounded-[23px] p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 overflow-hidden h-full">
+          {/* Background Glow inside card */}
+          <div className="absolute top-1/2 left-0 -translate-y-1/2 w-64 h-64 bg-brand-primary/10 blur-[60px] rounded-full pointer-events-none" />
+
+          <div className="flex-1 relative z-10 text-center md:text-left">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-brand-primary/10 text-brand-primary text-xs font-bold uppercase tracking-wide mb-4 border border-brand-primary/20">
+              New: Pay As You Go
+            </div>
+            <h4 className="text-3xl md:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-br from-white to-gray-300 mb-3 tracking-tight drop-shadow-md">Need more credits?</h4>
+            <p className="text-white/90 text-lg font-medium">
+              Purchase extra processing minutes that never expire. Use them across all current and future tools.
+            </p>
+            <div className="mt-6 p-4 rounded-xl bg-white/5 border border-white/10 space-y-3 text-sm text-white/90 font-medium max-w-sm md:max-w-none">
+              <div className="flex items-center gap-3">
+                <div className="bg-[#ff6118]/20 p-1.5 rounded-md"><Video className="w-4 h-4 text-[#ff6118]" /></div>
+                <span>Process up to <strong className="text-white">{paygQuantity ? paygQuantity * 50 : 0} minutes</strong> of video</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="bg-[#A855F7]/20 p-1.5 rounded-md"><Film className="w-4 h-4 text-[#A855F7]" /></div>
+                <span>Generate roughly <strong className="text-white">{paygQuantity ? Math.round(paygQuantity * 12) : 0} AI Shorts</strong></span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="bg-emerald-500/20 p-1.5 rounded-md"><Check className="w-4 h-4 text-emerald-400" /></div>
+                <span>Credits roll over indefinitely</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="bg-blue-500/20 p-1.5 rounded-md"><Sparkles className="w-4 h-4 text-blue-400" /></div>
+                <span>Access all upcoming premium tools</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="bg-amber-500/20 p-1.5 rounded-md"><Zap className="w-4 h-4 text-amber-400" /></div>
+                <span>High-priority cloud rendering</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="bg-pink-500/20 p-1.5 rounded-md"><Unlock className="w-4 h-4 text-pink-400" /></div>
+                <span>No monthly commitment required</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-shrink-0 w-full md:w-[320px] relative z-10">
+            <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 flex flex-col items-center">
+              <span className="text-sm text-brand-on-surface-variant font-medium mb-4">Choose Amount</span>
+              
+              <div className="w-full flex items-center gap-4 mb-6">
+                <button 
+                  onClick={() => setPaygQuantity(Math.max(5, (paygQuantity || 5) - 1))}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold"
+                >
+                  -
+                </button>
+                <div className="flex-1">
+                  <input 
+                    type="range" 
+                    min="5" 
+                    max="100" 
+                    value={paygQuantity || 5} 
+                    onChange={(e) => setPaygQuantity(parseInt(e.target.value) || 5)}
+                    className="w-full cursor-pointer accent-[#ff6118]"
+                  />
+                </div>
+                <button 
+                  onClick={() => setPaygQuantity(Math.min(100, (paygQuantity || 5) + 1))}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold"
+                >
+                  +
+                </button>
+              </div>
+
+              <div className="flex items-center justify-between w-full mb-6 pb-6 border-b border-gray-100">
+                <div className="flex flex-col">
+                  <input 
+                    type="number"
+                    min="250"
+                    max="5000"
+                    step="50"
+                    value={(paygQuantity || 0) * 50 || ''}
+                    onChange={(e) => {
+                      let val = parseInt(e.target.value);
+                      setPaygQuantity(isNaN(val) ? '' : Math.min(100, Math.max(1, Math.ceil(val / 50))));
+                    }}
+                    onBlur={() => {
+                      if (!paygQuantity || paygQuantity < 5) setPaygQuantity(5);
+                    }}
+                    className="w-[100px] bg-transparent text-xl font-bold text-brand-secondary border border-gray-200 rounded-lg px-2 py-0.5 hover:border-gray-300 focus:border-brand-primary focus:outline-none transition-colors"
+                  />
+                  <span className="text-[10px] text-brand-on-surface-variant uppercase tracking-wider font-bold">Credits</span>
+                </div>
+                <div className="flex flex-col items-end">
+                  <div className="flex items-center text-2xl font-black text-[#ff6118] gap-1">
+                    $
+                    <input 
+                      type="number"
+                      min="5"
+                      max="100"
+                      step="1"
+                      value={paygQuantity || ''}
+                      onChange={(e) => {
+                        let val = parseInt(e.target.value);
+                        setPaygQuantity(isNaN(val) ? '' : Math.min(100, val));
+                      }}
+                      onBlur={() => {
+                        if (!paygQuantity || paygQuantity < 5) setPaygQuantity(5);
+                      }}
+                      className="w-[80px] bg-transparent border border-gray-200 rounded-lg px-2 py-0.5 hover:border-gray-300 focus:border-brand-primary focus:outline-none transition-colors"
+                    />
+                  </div>
+                  <span className="text-[10px] text-brand-on-surface-variant uppercase tracking-wider font-bold">Total</span>
+                </div>
+              </div>
+
+              <button 
+                onClick={() => {
+                  if (!user) {
+                    clerk.openSignIn();
+                    return;
+                  }
+                  paddle?.Checkout.open({
+                    items: [{ priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_PAYG_SMALL, quantity: Math.max(5, paygQuantity || 5) }],
+                    customData: { userId: user.id }
+                  });
+                }}
+                className="w-full cursor-pointer bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white font-bold py-3.5 px-8 rounded-xl shadow-[0_4px_14px_0_rgba(168,85,247,0.39)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.23)] hover:-translate-y-[1px] transition-all duration-200 active:scale-[0.98]"
+              >
+                Buy Now
+              </button>
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+
+      {/* Future Plans Section */}
+      <div className="max-w-6xl mx-auto mt-24 text-center">
+        <h4 className="text-2xl font-bold text-brand-secondary mb-4 tracking-tight">Upcoming Tools & Standalone Plans</h4>
+        <p className="text-brand-on-surface-variant max-w-2xl mx-auto mb-12">
+          Your PAYG credits will work across all of these upcoming features. We will also offer dedicated, lower-cost subscriptions for users who only need a specific tool.
+        </p>
+
+        <div className="grid md:grid-cols-3 gap-6 opacity-80">
+          {[
+            { name: "AI Caption Editor", expected: "Q4 2026", price: "$5/mo" },
+            { name: "Thumbnail Generator", expected: "Q1 2027", price: "$4/mo" },
+            { name: "Viral Hook Writer", expected: "Coming Soon", price: "Free with Credits" }
+          ].map((tool, idx) => (
+            <div key={idx} className="bg-brand-surfaceBg/50 border border-brand-border-subtle rounded-xl p-6 border-dashed relative">
+              <div className="absolute top-0 right-0 -translate-y-1/2 translate-x-4 rotate-12">
+                <span className="bg-gray-800 text-white text-[10px] uppercase font-bold px-2 py-0.5 rounded shadow">Preview</span>
+              </div>
+              <h5 className="font-bold text-brand-secondary text-lg mb-1">{tool.name}</h5>
+              <div className="text-brand-primary font-medium text-sm mb-4">{tool.expected}</div>
+              <div className="text-brand-on-surface-variant font-bold text-xl">{tool.price}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
     </div>
   );
 }
