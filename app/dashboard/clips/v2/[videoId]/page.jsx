@@ -110,6 +110,9 @@ export default function AIClipsPage({ params }) {
 		prioritize: false,
 	});
 
+	// ─── Processing Mode: "video" (full video) or "audio" (audio-only) ──────────
+	const [processingMode, setProcessingMode] = useState("video");
+
 	const intentionallyClosed = useRef(false);
 	const logIntervalRef = useRef(null);
 	const stepIntervalRef = useRef(null);
@@ -232,7 +235,7 @@ export default function AIClipsPage({ params }) {
 				headers: {
 					"Content-Type": "application/json",
 				},
-				body: JSON.stringify({ preferences, trimRange, regenerate: isRegenerating }),
+				body: JSON.stringify({ preferences, trimRange, regenerate: isRegenerating, processingMode }),
 			});
 
 			if (response.status === 402) {
@@ -554,6 +557,56 @@ export default function AIClipsPage({ params }) {
 
 
 
+								{/* ── Processing Mode Toggle ─── */}
+								<div className="mb-6">
+									<p className="text-xs font-bold text-[#4b5563] uppercase tracking-wider mb-2">AI Analysis Mode</p>
+									<div className="flex items-stretch gap-3">
+										{/* Video Mode */}
+										<button
+											type="button"
+											onClick={() => setProcessingMode("video")}
+											className={`flex-1 flex flex-col items-start gap-1 border rounded-lg p-3 text-left transition-all duration-200 cursor-pointer ${
+												processingMode === "video"
+													? "bg-[rgba(124,58,237,0.06)] border-[rgba(124,58,237,0.5)] shadow-sm"
+													: "bg-white border-[#e5e7eb] hover:bg-[#f9fafb]"
+											}`}
+										>
+											<div className="flex items-center gap-2 w-full">
+												<span className="text-base">🎬</span>
+												<span className={`text-xs font-bold ${ processingMode === "video" ? "text-[#0F2347]" : "text-[#4b5563]"}`}>Full Video</span>
+												{processingMode === "video" && (
+													<span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white">Active</span>
+												)}
+											</div>
+											<p className="text-[10px] text-[#6b7280] leading-tight">
+												Sends the full video to Gemini. Best for visual content like gameplay or presentations.
+											</p>
+										</button>
+
+										{/* Audio-Only Mode */}
+										<button
+											type="button"
+											onClick={() => setProcessingMode("audio")}
+											className={`flex-1 flex flex-col items-start gap-1 border rounded-lg p-3 text-left transition-all duration-200 cursor-pointer ${
+												processingMode === "audio"
+													? "bg-[rgba(124,58,237,0.06)] border-[rgba(124,58,237,0.5)] shadow-sm"
+													: "bg-white border-[#e5e7eb] hover:bg-[#f9fafb]"
+											}`}
+										>
+											<div className="flex items-center gap-2 w-full">
+												<span className="text-base">🎙️</span>
+												<span className={`text-xs font-bold ${ processingMode === "audio" ? "text-[#0F2347]" : "text-[#4b5563]"}`}>Audio Only</span>
+												{processingMode === "audio" && (
+													<span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white">Active</span>
+												)}
+											</div>
+											<p className="text-[10px] text-[#6b7280] leading-tight">
+												Sends only the audio track. Faster &amp; cheaper for podcasts and interviews.
+											</p>
+										</button>
+									</div>
+								</div>
+
 								{/* Interactive Checkbox Layout Grid */}
 								<div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 items-start">
 									{[
@@ -716,20 +769,11 @@ export default function AIClipsPage({ params }) {
 								</div>
 
 								{/* Cost Display & Start Processing Button */}
-								<div className="flex items-center justify-between mt-2 mb-3 px-1">
+								<div className="flex items-center mt-2 mb-3 px-1">
 									<div className="flex items-center gap-2">
 										<span className="text-[#4b5563] text-xs font-medium">Credits Required:</span>
 										<span className="text-[#0F2347] text-sm font-bold bg-[#e5e7eb] px-2 py-0.5 rounded border border-[#d1d5db]">
 											{true ? dynamicCreditsCost + (preferences.prioritize ? 2 : 0) : "-"}
-										</span>
-									</div>
-									<div className="flex items-center gap-2">
-										<span className="text-[#4b5563] text-xs font-medium">Your Balance:</span>
-										<span className={`text-sm font-bold px-2 py-0.5 rounded border ${userBalance !== null && true && userBalance < (dynamicCreditsCost + (preferences.prioritize ? 2 : 0))
-											? "text-red-400 bg-red-400/10 border-red-400/20"
-											: "text-[#4ade80] bg-[#4ade80]/10 border-[#4ade80]/20"
-											}`}>
-											{userBalance !== null ? userBalance : "-"}
 										</span>
 									</div>
 								</div>

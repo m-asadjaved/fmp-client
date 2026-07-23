@@ -54,13 +54,13 @@ export function DashboardHeader() {
   }, []);
 
   return (
-    <header className="flex justify-between items-center px-10 py-5 bg-[var(--surface)]/80 backdrop-blur-md border-b border-[var(--border-subtle)] sticky top-0 z-30 shadow-[0_4px_24px_rgba(0,0,0,0.02)]">
+    <header className="flex justify-between items-center px-10 py-4 bg-[#f8fafd]/95 backdrop-blur-md border-b border-[#e2e8f0] sticky top-0 z-30 shadow-sm">
       <Link href="/dashboard/account" className="flex items-center gap-4 group cursor-pointer transition-all duration-300 outline-none">
-        <div className="w-11 h-11 rounded-full bg-[var(--border-subtle)] overflow-hidden flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-300 ring-2 ring-transparent group-hover:ring-[var(--primary)]/30">
+        <div className="w-11 h-11 rounded-full bg-[#e2e8f0] overflow-hidden flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-300 ring-2 ring-transparent group-hover:ring-[var(--primary)]/30">
           {user?.imageUrl ? (
             <img src={user.imageUrl} alt="Profile" className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full bg-[var(--border-subtle)]" />
+            <div className="w-full h-full bg-[#e2e8f0]" />
           )}
         </div>
         <div className="flex flex-col">
@@ -69,7 +69,7 @@ export function DashboardHeader() {
           </span>
           <div className="flex items-center h-4">
             {currentPlan ? (
-              <span className="text-[11px] bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-transparent bg-clip-text font-bold uppercase tracking-[0.08em]">
+              <span className="text-[11px] bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-transparent bg-clip-text font-black uppercase tracking-[0.08em]">
                 {currentPlan} Plan
               </span>
             ) : (
@@ -86,40 +86,38 @@ export function DashboardHeader() {
             <Loader2 size={16} className="animate-spin text-[var(--on-surface-variant)]" />
           ) : (
             <>
-              <div className="flex items-center gap-2 bg-gradient-to-r from-[var(--surface)] to-[var(--surface-bg)] border border-[var(--border-subtle)] pl-1.5 pr-4 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-default">
-                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-[var(--primary)]/10 ring-1 ring-[var(--primary)]/20">
-                  <Database size={13} className="text-[var(--primary)]" />
+              <div className="flex items-center gap-2 bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white border border-white/20 pl-1.5 pr-4 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-default">
+                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-white/20 backdrop-blur-sm">
+                  <Database size={13} className="text-white" />
                 </div>
                 <div className="flex items-baseline gap-1 ml-1">
-                  <span className="text-[13px] font-extrabold text-[var(--on-surface)] leading-none">
-                    {metrics.storageGB}<span className="text-[11px] text-[var(--on-surface-variant)] font-semibold ml-0.5">GB</span>
+                  <span className="text-[13px] font-extrabold text-white leading-none">
+                    {metrics.storageGB}<span className="text-[11px] text-white/90 font-semibold ml-0.5">GB</span>
                   </span>
-                  <span className="text-[10px] text-[var(--on-surface-variant)] font-medium">/ {PLAN_LIMITS[currentPlanId]?.maxStorageGB || 10}GB</span>
+                  <span className="text-[10px] text-white/80 font-medium">/ {PLAN_LIMITS[currentPlanId]?.maxStorageGB || 10}GB</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 bg-gradient-to-r from-[var(--surface)] to-[var(--surface-bg)] border border-[var(--border-subtle)] pl-1.5 pr-4 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-default">
-                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-amber-500/10 ring-1 ring-amber-500/20">
-                  <Zap size={13} className="text-amber-500" />
+              <div className="flex items-center gap-2 bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white border border-white/20 pl-1.5 pr-4 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-default">
+                <div className="flex items-center justify-center w-7 h-7 rounded-full bg-white/20 backdrop-blur-sm">
+                  <Zap size={13} className="text-white fill-white" />
                 </div>
                 <div className="flex items-baseline gap-1.5 ml-1">
-                  <span className="text-[13px] font-extrabold text-[var(--on-surface)] leading-none">
+                  <span className="text-[13px] font-extrabold text-white leading-none">
                     {metrics.credits.toFixed(1)}
                   </span>
-                  <span className="text-[11px] text-[var(--on-surface-variant)] font-semibold">Credits</span>
+                  <span className="text-[11px] text-white/90 font-semibold">Credits</span>
                 </div>
               </div>
-
-
             </>
           )}
         </div>
 
         {/* Notifications */}
-        <div className="relative ml-2 pl-6 border-l border-[var(--border-subtle)] flex items-center">
+        <div className="relative ml-2 pl-6 border-l border-[#e2e8f0] flex items-center">
           <button 
             onClick={() => setShowNotificationsDropdown(!showNotificationsDropdown)} 
-            className="relative p-2.5 rounded-xl cursor-pointer text-[var(--on-surface-variant)] hover:bg-[var(--border-subtle)] hover:text-[var(--on-surface)] transition-all duration-300 focus:outline-none"
+            className="relative p-2.5 rounded-xl cursor-pointer text-[var(--on-surface-variant)] hover:bg-[#e2e8f0]/50 hover:text-[var(--on-surface)] transition-all duration-300 focus:outline-none"
           >
             <Bell size={20} className={showNotificationsDropdown ? "text-[var(--primary)]" : ""} />
             {notifications.some(n => !n.acknowledged) && (

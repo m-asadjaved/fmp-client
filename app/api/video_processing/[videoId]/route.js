@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { GoogleGenAI } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
-import { S3Client, CopyObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, CopyObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 
 const AWS_LAMBDA_START_VIDEO_PROCESSING_TASK_URL =
 	process.env.AWS_LAMBDA_START_VIDEO_PROCESSING_TASK_URL;
@@ -113,7 +113,7 @@ export async function POST(request, context) {
 		}
 
 		const body = await request.json();
-		const { regenerate, preferences } = body;
+		const { regenerate, preferences, processingMode = "video", trimRange } = body;
 
 		// ── 1. Fetch existing video record (may not exist yet) ─────────────────
 		// Sort by created_at descending and get the most recent one to avoid maybeSingle() crash
@@ -171,8 +171,18 @@ export async function POST(request, context) {
 		const durationSeconds = typeof videoRow.duration === "string" 
 			? parseFloat(videoRow.duration) 
 			: videoRow.duration;
-		
-		let creditsCost = Math.max(1, Math.ceil(durationSeconds / 60));
+
+		// ── Credit cost uses trimRange if provided (matches frontend logic) ─────
+		// Frontend: trimDuration <= 300 → 5 credits, else ceil(trimDuration / 60)
+		let baseCost;
+		if (Array.isArray(trimRange) && trimRange.length === 2) {
+			const trimDuration = Math.max(0, trimRange[1] - trimRange[0]);
+			baseCost = trimDuration <= 300 ? 5 : Math.ceil(trimDuration / 60);
+		} else {
+			// Fallback: use full video duration
+			baseCost = Math.max(1, Math.ceil(durationSeconds / 60));
+		}
+		let creditsCost = Math.max(1, baseCost);
 		if (preferences?.prioritize) {
 			creditsCost += 2;
 		}
@@ -188,9 +198,11 @@ export async function POST(request, context) {
 			return NextResponse.json({ error: "Could not retrieve user credits" }, { status: 500 });
 		}
 
-		if (userCredits.balance < creditsCost) {
+		// Use a small float tolerance to avoid false negatives from double precision arithmetic
+		const roundedBalance = Math.floor(userCredits.balance * 100) / 100;
+		if (roundedBalance < creditsCost) {
 			return NextResponse.json(
-				{ error: `Insufficient credits. This video requires ${creditsCost} credits, but you only have ${userCredits.balance} available.` },
+				{ error: `Insufficient credits. This video requires ${creditsCost} credits, but you only have ${Math.floor(userCredits.balance)} available.` },
 				{ status: 402 }
 			);
 		}
@@ -282,33 +294,42 @@ export async function POST(request, context) {
 				} else {
 					let ai_response_raw;
 					try {
-						const videoUrlToProcess = videoRow.gemini_file_uri;
-
-						if (!videoUrlToProcess) {
-							throw new Error("Gemini File URI is missing. Cannot process AWS URL directly via fileData.");
+						if (processingMode === "audio") {
+							// ── Audio-Only Mode: download raw audio from S3, upload to Gemini File API ──
+							console.log(`[Audio Mode] Uploading audio for video ${videoId} to Gemini File API...`);
+							const { fileUri: audioUri, mimeType: audioMimeType } = await uploadAudioToGemini(videoId);
+							console.log(`[Audio Mode] Audio uploaded. URI: ${audioUri}`);
+							ai_response_raw = await SummarizeUsingAI(audioUri, audioMimeType, preferences);
+						} else {
+							// ── Video Mode (default): use existing Gemini video URI ─────────────────
+							const videoUrlToProcess = videoRow.gemini_file_uri;
+							if (!videoUrlToProcess) {
+								throw new Error("Gemini File URI is missing. Cannot process AWS URL directly via fileData.");
+							}
+							ai_response_raw = await SummarizeUsingAI(videoUrlToProcess, "video/mp4", preferences);
 						}
-
-						ai_response_raw = await SummarizeUsingAI(
-							videoUrlToProcess,
-							preferences
-						);
 					} catch (aiErr) {
-						console.error("Gemini processing failed (possibly expired URI or missing URI):", aiErr);
-						// "Touch" the S3 file to re-trigger the upload Lambda
-						const s3 = new S3Client({
-							region: process.env.AWS_REGION || "us-east-1",
-							credentials: {
-								accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-								secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-							},
-						});
-						await s3.send(new CopyObjectCommand({
-							Bucket: AWS_BUCKET_NAME,
-							CopySource: `${AWS_BUCKET_NAME}/raw_videos/${videoId}.mp4`,
-							Key: `raw_videos/${videoId}.mp4`,
-							MetadataDirective: "REPLACE"
-						}));
-						throw new Error("Video archive expired. Background re-upload started! Please try again in 1 minute.");
+						console.error("Gemini processing failed:", aiErr);
+						if (processingMode !== "audio") {
+							// For video mode only: "touch" the S3 file to re-trigger the upload Lambda
+							try {
+								const s3 = new S3Client({
+									region: process.env.AWS_REGION || "us-east-1",
+									credentials: {
+										accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+										secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+									},
+								});
+								await s3.send(new CopyObjectCommand({
+									Bucket: AWS_BUCKET_NAME,
+									CopySource: `${AWS_BUCKET_NAME}/raw_videos/${videoId}.mp4`,
+									Key: `raw_videos/${videoId}.mp4`,
+									MetadataDirective: "REPLACE"
+								}));
+							} catch (_) { /* ignore S3 touch error */ }
+							throw new Error("Video archive expired. Background re-upload started! Please try again in 1 minute.");
+						}
+						throw aiErr;
 					}
 
 					const new_raw_data = safeParseJSON(ai_response_raw);
@@ -437,7 +458,7 @@ export async function POST(request, context) {
 				try {
 					const protocol = request.headers.get("x-forwarded-proto") || "http";
 					const host = request.headers.get("host") || "localhost:3000";
-					await fetch(`${protocol}://${host}/api/webhook/clips`, {
+					await fetch(`${protocol}://${host}/api/webhooks/clips`, {
 						method: 'POST',
 						headers: { 'Content-Type': 'application/json' },
 						body: JSON.stringify({
@@ -462,7 +483,79 @@ export async function POST(request, context) {
 	}
 }
 
-// ─── Gemini AI helper (unchanged) ─────────────────────────────────────────
+// ─── Helper: Stream S3 audio → upload to Gemini File API ───────────────────
+async function uploadAudioToGemini(videoId) {
+	const s3 = new S3Client({
+		region: process.env.AWS_REGION || "us-east-1",
+		credentials: {
+			accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+			secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+		},
+	});
+
+	// Try common audio extensions in order
+	const audioExtensions = [
+		{ key: `raw_audio/${videoId}.mp3`, mimeType: "audio/mpeg" },
+		{ key: `raw_audio/${videoId}.m4a`, mimeType: "audio/mp4" },
+		{ key: `raw_audio/${videoId}.flac`, mimeType: "audio/flac" },
+		{ key: `raw_audio/${videoId}.aac`, mimeType: "audio/aac" },
+		{ key: `raw_audio/${videoId}.wav`, mimeType: "audio/wav" },
+		{ key: `raw_audio/${videoId}`, mimeType: "audio/mpeg" }, // fallback: no extension
+	];
+
+	let audioBuffer = null;
+	let audioMimeType = "audio/mpeg";
+
+	for (const { key, mimeType } of audioExtensions) {
+		try {
+			const cmd = new GetObjectCommand({ Bucket: AWS_BUCKET_NAME, Key: key });
+			const result = await s3.send(cmd);
+			// Stream → Buffer
+			const chunks = [];
+			for await (const chunk of result.Body) {
+				chunks.push(chunk);
+			}
+			audioBuffer = Buffer.concat(chunks);
+			audioMimeType = mimeType;
+			console.log(`[uploadAudioToGemini] Found audio at s3://${AWS_BUCKET_NAME}/${key} (${audioBuffer.length} bytes, ${mimeType})`);
+			break;
+		} catch (e) {
+			// Key not found — try next extension
+			if (e.name !== "NoSuchKey" && e.$metadata?.httpStatusCode !== 404) {
+				throw e; // Re-throw unexpected errors
+			}
+		}
+	}
+
+	if (!audioBuffer) {
+		throw new Error(`Audio file not found in S3 for video ${videoId}. Expected at raw_audio/${videoId}.[mp3|m4a|flac|aac|wav]`);
+	}
+
+	// Upload to Gemini File API
+	const blob = new Blob([audioBuffer], { type: audioMimeType });
+	const uploadResult = await ai.files.upload({
+		file: blob,
+		config: { mimeType: audioMimeType, displayName: `audio-${videoId}` },
+	});
+
+	// Poll until ACTIVE (Gemini processes the file)
+	let geminiFile = await ai.files.get({ name: uploadResult.name });
+	let pollAttempts = 0;
+	while (geminiFile.state === "PROCESSING" && pollAttempts < 30) {
+		await new Promise(r => setTimeout(r, 3000));
+		geminiFile = await ai.files.get({ name: uploadResult.name });
+		pollAttempts++;
+	}
+
+	if (geminiFile.state !== "ACTIVE") {
+		throw new Error(`Gemini file upload failed or timed out. State: ${geminiFile.state}`);
+	}
+
+	console.log(`[uploadAudioToGemini] File ACTIVE. URI: ${geminiFile.uri}`);
+	return { fileUri: geminiFile.uri, mimeType: audioMimeType };
+}
+
+// ─── Gemini AI helper ─────────────────────────────────────────────────────
 const ai = new GoogleGenAI({});
 
 const summaryJsonSchema = {
@@ -537,10 +630,11 @@ const summaryJsonSchema = {
 	required: ["recommended_shorts"],
 };
 
-export async function SummarizeUsingAI(videoUrl, preferences = {}) {
+export async function SummarizeUsingAI(fileUri, mimeType = "video/mp4", preferences = {}) {
 	try {
-		if (!videoUrl) throw new Error("Video URL is required");
+		if (!fileUri) throw new Error("File URI is required");
 
+		const isAudioMode = mimeType.startsWith("audio/");
 		const category = preferences?.category || "podcast";
 
 		// ── Category-specific editorial mindset ───────────────────────────────
@@ -661,30 +755,55 @@ Only output the JSON after passing this review.
 Output ONLY a raw valid JSON object. No markdown, no code fences, no explanation.
 `;
 
-		const userMessage = "You are a professional video editor. Watch this entire video from beginning to end — don't skip anything. Use your editorial instincts to identify the best 5 to 10 moments that would go viral as short-form content. If the video is too short, provide between 1 and 5 clips instead. Then build a precise, frame-accurate edit timeline for each clip. Before outputting, verify your timestamp math: the sum of your edits must exactly equal duration_seconds, and you should actively use Non-Linear Editing to jump-cut out boring pauses or reorder hooks.";
+		const userMessage = isAudioMode
+			? "You are a professional audio clip editor. Listen to this entire audio recording from beginning to end — don't skip anything. Use your editorial instincts to identify the best 5 to 10 moments that would go viral as short-form content. Identify clear start and end timestamps for each clip segment based on what was SAID. If the audio is too short, provide between 1 and 5 clips instead. Before outputting, verify your timestamp math: the sum of your edits must exactly equal duration_seconds."
+			: "You are a professional video editor. Watch this entire video from beginning to end — don't skip anything. Use your editorial instincts to identify the best 5 to 10 moments that would go viral as short-form content. If the video is too short, provide between 1 and 5 clips instead. Then build a precise, frame-accurate edit timeline for each clip. Before outputting, verify your timestamp math: the sum of your edits must exactly equal duration_seconds, and you should actively use Non-Linear Editing to jump-cut out boring pauses or reorder hooks.";
 
-		const response = await ai.models.generateContent({
-			model: "gemini-2.5-flash",
-			contents: [
-				{
-					role: "user",
-					parts: [
-						{ fileData: { fileUri: videoUrl, mimeType: "video/mp4" } },
-						{ text: userMessage },
+		// ── Retry loop for transient Gemini errors (503, 429) ─────────────────
+		const MAX_RETRIES = 3;
+		let lastError;
+		for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+			try {
+				const response = await ai.models.generateContent({
+					model: "gemini-2.5-flash",
+					contents: [
+						{
+							role: "user",
+							parts: [
+								{ fileData: { fileUri: fileUri, mimeType: mimeType } },
+								{ text: userMessage },
+							],
+						},
 					],
-				},
-			],
-			config: {
-				systemInstruction: prompt,
-				responseMimeType: "application/json",
-				responseSchema: summaryJsonSchema,
-				thinkingConfig: { thinkingBudget: -1 }, // -1 = let Gemini decide how much thinking this task needs
-			},
-		});
+					config: {
+						systemInstruction: prompt,
+						responseMimeType: "application/json",
+						responseSchema: summaryJsonSchema,
+						thinkingConfig: { thinkingBudget: -1 },
+					},
+				});
 
-		const text = response.text;
-		console.log(text);
-		return text;
+				const text = response.text;
+				console.log(text);
+				return text;
+			} catch (err) {
+				lastError = err;
+				const status = err?.status ?? err?.error?.code;
+				const isRetryable = status === 503 || status === 429 || status === 500;
+
+				if (isRetryable && attempt < MAX_RETRIES) {
+					const backoffMs = Math.pow(2, attempt) * 5000; // 10s, 20s
+					console.warn(`[SummarizeUsingAI] Gemini ${status} on attempt ${attempt}/${MAX_RETRIES}. Retrying in ${backoffMs / 1000}s...`);
+					await new Promise(r => setTimeout(r, backoffMs));
+				} else {
+					// Non-retryable or out of retries
+					break;
+				}
+			}
+		}
+
+		console.error("Gemini API Error (all retries exhausted):", lastError);
+		throw lastError;
 	} catch (error) {
 		console.error("Gemini API Error:", error);
 		throw error;

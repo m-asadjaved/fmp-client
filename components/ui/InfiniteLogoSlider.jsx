@@ -100,9 +100,6 @@ export function InfiniteLogoSlider() {
 
   return (
     <div className="py-12 bg-brand-surfaceBg">
-      <p className="text-center text-micro-label text-brand-subdued-heading mb-8 uppercase tracking-[0.1px]">
-        Trusted by teams at leading companies and institutions
-      </p>
       <div 
         className="w-full" 
         style={{ 

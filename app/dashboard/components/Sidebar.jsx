@@ -18,7 +18,7 @@ export function Sidebar() {
   const accountItem = { label: "Account", icon: Settings, href: "/dashboard/account" };
 
   return (
-    <aside className="w-[260px] bg-[var(--surface)] border-r border-[var(--border-subtle)] flex flex-col shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 relative">
+    <aside className="w-[260px] bg-[var(--surface)] border-r border-[#e2e8f0] flex flex-col shrink-0 shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 relative">
       {/* Brand */}
       <div className="flex items-center px-8 py-8">
         <Link href="/" className="block w-full transition-transform hover:scale-105 duration-300">
@@ -56,7 +56,7 @@ export function Sidebar() {
                 </div>
               </Link>
               {idx < NAV_ITEMS.length - 1 && (
-                <div className="h-px bg-[var(--border-subtle)]/40 mx-4 my-0.5" />
+                <div className="h-px bg-[#e2e8f0] my-1 mx-3" />
               )}
             </React.Fragment>
           );
