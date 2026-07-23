@@ -87,7 +87,7 @@ export function PricingClient({ paddle, country }) {
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+    <div id="pricing" className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="text-center max-w-3xl mx-auto mb-16">
 
         <h3 className="text-[26px] md:text-hero-heading md:text-[44px] font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#A855F7] to-[#ff6118] py-6 mb-2 tracking-[-0.26px] leading-[1.03]">
@@ -275,7 +275,7 @@ export function PricingClient({ paddle, country }) {
       </div>
 
       {/* Pay As You Go Section */}
-      <div className="max-w-4xl mx-auto mt-20 relative group">
+      <div id="pay-as-you-go" className="max-w-4xl mx-auto mt-20 relative group">
         <div className="absolute -inset-1 bg-gradient-to-r from-[#A855F7] to-[#ff6118] rounded-3xl blur opacity-25 group-hover:opacity-40 transition duration-500"></div>
         <div className="relative bg-gradient-to-r from-[#A855F7] to-[#ff6118] p-[1.5px] rounded-3xl shadow-xl">
           <div className="bg-brand-surface bg-dot-pattern rounded-[23px] p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 overflow-hidden h-full">
@@ -395,14 +395,24 @@ export function PricingClient({ paddle, country }) {
                     clerk.openSignIn();
                     return;
                   }
-                  paddle?.Checkout.open({
+                  const checkoutConfig = {
                     items: [{ priceId: process.env.NEXT_PUBLIC_PADDLE_PRICE_PAYG_SMALL, quantity: Math.max(5, paygQuantity || 5) }],
                     customData: { userId: user.id }
-                  });
+                  };
+
+                  if (user?.primaryEmailAddress?.emailAddress) {
+                    checkoutConfig.customer = { email: user.primaryEmailAddress.emailAddress };
+                  }
+
+                  paddle?.Checkout.open(checkoutConfig);
                 }}
                 className="w-full cursor-pointer bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white font-bold py-3.5 px-8 rounded-xl shadow-[0_4px_14px_0_rgba(168,85,247,0.39)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.23)] hover:-translate-y-[1px] transition-all duration-200 active:scale-[0.98]"
               >
-                Buy Now
+                {(activePlan && (activePlan.includes('payg') || activePlan === process.env.NEXT_PUBLIC_PADDLE_PRICE_PAYG_SMALL || activePlan === process.env.NEXT_PUBLIC_PADDLE_PRICE_PAYG_LARGE)) 
+                  ? 'Buy more credits' 
+                  : (activePlan && activePlan !== 'free' && activePlan !== 'free:month' && !activePlan.startsWith('pri_')) 
+                    ? 'Upgrade to Pay As You Go' 
+                    : 'Buy Now'}
               </button>
             </div>
           </div>

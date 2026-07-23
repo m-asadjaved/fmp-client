@@ -133,11 +133,24 @@ export default function SsembleCloneLanding({ country }) {
             </a>
 
             <div className="hidden md:flex items-center gap-1">
-              {['Pricing', 'API', 'MCP', 'Help', 'Blog'].map((item) => (
-                <a key={item} href={`#${item.toLowerCase()}`} className="px-4 py-2 text-[14px] font-[400] text-brand-on-surface-variant rounded-md hover:bg-brand-surfaceBg transition-colors">
-                  {item}
-                </a>
-              ))}
+              {['Pricing', 'API', 'MCP', 'Help', 'Blog'].map((item) => {
+                const targetId = item.toLowerCase();
+                return (
+                  <a 
+                    key={item} 
+                    href={`#${targetId}`} 
+                    onClick={(e) => {
+                      if (document.getElementById(targetId)) {
+                        e.preventDefault();
+                        document.getElementById(targetId).scrollIntoView({ behavior: 'smooth' });
+                      }
+                    }}
+                    className="px-4 py-2 text-[14px] font-[400] text-brand-on-surface-variant rounded-md hover:bg-brand-surfaceBg transition-colors"
+                  >
+                    {item}
+                  </a>
+                );
+              })}
             </div>
           </div>
 

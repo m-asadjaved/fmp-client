@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState, useRef } from "react";
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, Loader2 } from "lucide-react";
 
 export function YouTubePreview({ videoId, onRangeChange, onCancel }) {
   const containerRef = useRef(null);
@@ -16,6 +16,10 @@ export function YouTubePreview({ videoId, onRangeChange, onCancel }) {
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [publishDate, setPublishDate] = useState(null);
   const [subscribers, setSubscribers] = useState(null);
+  
+  const [downloading, setDownloading] = useState(false);
+  const [downloadStatus, setDownloadStatus] = useState("");
+  const [downloadProgress, setDownloadProgress] = useState(0);
 
   useEffect(() => {
     // Reset state on video ID change
@@ -267,8 +271,20 @@ export function YouTubePreview({ videoId, onRangeChange, onCancel }) {
           </div>
         </div>
         
-        <div style={{ display: "flex", gap: 12, marginTop: "auto", justifyContent: "flex-end", paddingBottom: "4px" }}>
-          {onCancel && (
+        <div style={{ display: "flex", gap: 12, marginTop: "auto", justifyContent: "flex-end", paddingBottom: "4px", alignItems: "center" }}>
+          
+          {downloading && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginRight: 16 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--primary)" }}>{downloadStatus}</span>
+                <div style={{ width: 120, height: 4, background: "var(--surface-bg)", borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{ height: "100%", width: `${Math.max(5, downloadProgress)}%`, background: "linear-gradient(to right, #A855F7, #ff6118)", transition: "width 0.3s ease-out" }} />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {onCancel && !downloading && (
             <button 
               onClick={onCancel}
               style={{ padding: "12px 20px", fontSize: "14px", fontWeight: 700, borderRadius: 12, background: "var(--surface-bg)", border: "1px solid #d1d5db", color: "var(--on-surface-variant)", cursor: "pointer", transition: "background 0.2s" }}
@@ -278,11 +294,95 @@ export function YouTubePreview({ videoId, onRangeChange, onCancel }) {
               Cancel
             </button>
           )}
+          
           <button 
-            className="bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white font-bold rounded-xl shadow-[0_4px_14px_0_rgba(168,85,247,0.39)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.23)] hover:-translate-y-[1px] transition-all duration-200 active:scale-[0.98]"
-            style={{ padding: "12px 24px", fontSize: "14px", border: "none", cursor: "pointer" }}
+            className="bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white font-bold rounded-xl shadow-[0_4px_14px_0_rgba(168,85,247,0.39)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.23)] hover:-translate-y-[1px] transition-all duration-200 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+            style={{ padding: "12px 24px", fontSize: "14px", border: "none", cursor: downloading ? "not-allowed" : "pointer", display: "flex", alignItems: "center", gap: 8 }}
+            onClick={async () => {
+              if (!videoId) return;
+              
+              setDownloading(true);
+              setDownloadStatus("Starting download task...");
+              setDownloadProgress(0);
+
+              try {
+                // 1. Trigger the download job
+                const res = await fetch("/api/youtube/download", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ url: `https://www.youtube.com/watch?v=${videoId}` }),
+                });
+                const data = await res.json();
+                
+                if (!res.ok) {
+                  throw new Error(data.error || "Failed to start download job");
+                }
+
+                const { jobId, info } = data;
+                setDownloadStatus("Downloading video from YouTube...");
+
+                // 2. Poll progress
+                let downloadUrl = null;
+                let polling = true;
+                
+                while (polling) {
+                  await new Promise((resolve) => setTimeout(resolve, 2000));
+                  
+                  const progressRes = await fetch(`/api/youtube/progress?jobId=${jobId}`);
+                  const progressData = await progressRes.json();
+                  
+                  if (progressData.success) {
+                    const currentProgress = (progressData.progress / 1000) * 100;
+                    setDownloadProgress(currentProgress);
+                    
+                    if (progressData.progress >= 1000 && progressData.download_url) {
+                      downloadUrl = progressData.download_url;
+                      polling = false;
+                    }
+                  } else if (progressData.text && progressData.text.toLowerCase().includes("error")) {
+                    throw new Error(`Download failed: ${progressData.text}`);
+                  }
+                }
+
+                // 3. Transfer to S3
+                setDownloadStatus("Transferring to Cloud Storage...");
+                setDownloadProgress(100); 
+                
+                const transferRes = await fetch("/api/youtube/transfer", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    downloadUrl,
+                    videoTitle: info?.title || videoTitle,
+                    duration,
+                    thumbnailUrl: info?.image || null
+                  }),
+                });
+                
+                const transferData = await transferRes.json();
+                if (!transferRes.ok) {
+                  throw new Error(transferData.error || "Failed to transfer video to cloud");
+                }
+
+                // 4. Redirect to the editor
+                if (transferData.dbRecord && transferData.dbRecord.video_id) {
+                  setDownloadStatus("Redirecting...");
+                  window.location.href = `/dashboard/clips/v2/${transferData.dbRecord.video_id}`;
+                } else {
+                  throw new Error("Invalid response from transfer API");
+                }
+
+              } catch (err) {
+                console.error(err);
+                alert(err.message);
+                setDownloading(false);
+                setDownloadStatus("");
+              }
+            }}
+            disabled={downloading}
           >
-            Generate Clips
+            {downloading && <Loader2 size={16} className="animate-spin" />}
+            {downloading ? (downloadProgress > 0 && downloadProgress < 100 ? `${Math.round(downloadProgress)}%` : 'Processing...') : 'Generate Clips'}
           </button>
         </div>
       </div>

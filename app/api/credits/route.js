@@ -10,6 +10,7 @@ const supabase = createClient(
 );
 
 import { PLAN_LIMITS } from "../../config/plan-limits";
+import { getPaddleInstance } from "../../utils/paddle/get-paddle-instance";
 
 /**
  * Attempt to fetch Clerk user metadata with a timeout.
@@ -83,7 +84,7 @@ const PRICE_ID_MAP = {
   "pri_01kxwfd4akckzngrdrb727c132": { name: "business", interval: "year" }
 };
 
-function getTierFromPriceId(priceId) {
+async function getTierFromPriceId(priceId) {
   if (!priceId || priceId === "free" || priceId === "free:month") return { name: "free", interval: "month" };
   const cleanId = priceId.trim();
   
@@ -101,6 +102,19 @@ function getTierFromPriceId(priceId) {
     return { name: tier, interval };
   }
   
+  if (cleanId.startsWith("pri_")) {
+    try {
+      const paddle = getPaddleInstance();
+      const price = await paddle.prices.get(cleanId, { include: ['product'] });
+      if (price) {
+        const desc = price.product?.description || price.description || price.product?.name || cleanId;
+        return { name: desc, interval: price.billingCycle?.interval || "month" };
+      }
+    } catch(err) {
+      console.error("Failed to fetch price from paddle", err);
+    }
+  }
+
   return { name: cleanId, interval: "month" };
 }
 
@@ -132,7 +146,7 @@ export async function GET() {
     if (existingUser?.plan && existingUser.plan.startsWith("pri_")) {
       // Paddle Price ID stored directly in database
       rawPlanKey = existingUser.plan;
-      const mapped = getTierFromPriceId(existingUser.plan);
+      const mapped = await getTierFromPriceId(existingUser.plan);
       currentPlan = mapped.name;
       interval = mapped.interval;
     } else if (clerkMeta?.plan) {

@@ -30,14 +30,15 @@ export async function GET(request, context) {
 
     const index = parseInt(clipIndex, 10);
 
-    const { data: clipData, error: fetchError } = await supabase
+    const { data, error: fetchError } = await supabase
       .from("generated_clips")
       .select("*")
       .eq("video_id", id)
       .eq("clip_index", index)
-      .maybeSingle();
+      .limit(1);
 
     if (fetchError) throw new Error(`DB fetch failed: ${fetchError.message}`);
+    const clipData = data && data.length > 0 ? data[0] : null;
     if (!clipData) {
       return NextResponse.json(
         { error: "Clip record not found in generated_clips." },
@@ -172,13 +173,14 @@ export async function POST(request, context) {
     const index = parseInt(clipIndex, 10);
 
     // Verify clip exists
-    const { data: clipData, error: fetchError } = await supabase
+    const { data, error: fetchError } = await supabase
       .from("generated_clips")
       .select("id, roman_subtitles")
       .eq("video_id", id)
       .eq("clip_index", index)
-      .maybeSingle();
+      .limit(1);
       
+    const clipData = data && data.length > 0 ? data[0] : null;
     if (fetchError || !clipData) {
       return NextResponse.json({ error: "Clip record not found." }, { status: 404 });
     }

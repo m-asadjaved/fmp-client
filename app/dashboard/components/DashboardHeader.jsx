@@ -6,11 +6,14 @@ import Link from "next/link";
 import { Bell, Database, Zap, Film, Loader2 } from "lucide-react";
 import { useUser } from "@clerk/nextjs";
 import { PLAN_LIMITS } from "../../config/plan-limits";
+import { createPortalSession } from "../../actions/portal";
 
 export function DashboardHeader() {
   const pathname = usePathname();
   const [notifications, setNotifications] = useState([]);
   const [showNotificationsDropdown, setShowNotificationsDropdown] = useState(false);
+  
+  const [loadingPortal, setLoadingPortal] = useState(false);
   
   const [metrics, setMetrics] = useState({ credits: 0, activeProjects: 0, storageGB: "0.00" });
   const [loadingMetrics, setLoadingMetrics] = useState(true);
@@ -45,13 +48,42 @@ export function DashboardHeader() {
       .then(res => res.json())
       .then(data => {
         if (data.currentPlan) {
-          const rawId = data.currentPlan.toLowerCase();
-          setCurrentPlanId(rawId.startsWith("pri_") ? "pro" : rawId);
-          setCurrentPlan(rawId.charAt(0).toUpperCase() + rawId.slice(1));
+          let rawId = data.currentPlan.toLowerCase();
+          let displayName = rawId.charAt(0).toUpperCase() + rawId.slice(1);
+          
+          if (rawId === process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO_MONTH?.toLowerCase() || rawId === process.env.NEXT_PUBLIC_PADDLE_PRICE_PRO_YEAR?.toLowerCase() || rawId.includes('pro')) {
+            rawId = 'pro';
+            displayName = 'Pro';
+          } else if (rawId === process.env.NEXT_PUBLIC_PADDLE_PRICE_EXPERT_MONTH?.toLowerCase() || rawId === process.env.NEXT_PUBLIC_PADDLE_PRICE_EXPERT_YEAR?.toLowerCase() || rawId.includes('expert')) {
+            rawId = 'expert';
+            displayName = 'Expert';
+          } else if (rawId === process.env.NEXT_PUBLIC_PADDLE_PRICE_BUSINESS_MONTH?.toLowerCase() || rawId === process.env.NEXT_PUBLIC_PADDLE_PRICE_BUSINESS_YEAR?.toLowerCase() || rawId.includes('business')) {
+            rawId = 'business';
+            displayName = 'Business';
+          } else if (rawId === process.env.NEXT_PUBLIC_PADDLE_PRICE_PAYG_SMALL?.toLowerCase() || rawId === process.env.NEXT_PUBLIC_PADDLE_PRICE_PAYG_LARGE?.toLowerCase() || rawId.includes('payg')) {
+            rawId = 'free'; 
+            displayName = 'Pay As You Go';
+          } else if (rawId.startsWith('pri_')) {
+             rawId = 'pro';
+             displayName = 'Premium';
+          } else if (rawId === 'free:month' || rawId === 'free') {
+             rawId = 'free';
+             displayName = 'Free';
+          }
+
+          setCurrentPlanId(rawId);
+          setCurrentPlan(displayName);
         }
       })
       .catch(console.error);
   }, []);
+
+  const { useRouter } = require('next/navigation');
+  const router = useRouter();
+  
+  const handleCreditsClick = () => {
+    router.push('/dashboard/credits');
+  };
 
   return (
     <header className="flex justify-between items-center px-10 py-4 bg-[#f8fafd]/95 backdrop-blur-md border-b border-[#e2e8f0] sticky top-0 z-30 shadow-sm">
@@ -98,9 +130,17 @@ export function DashboardHeader() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white border border-white/20 pl-1.5 pr-4 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-default">
+              <button 
+                onClick={handleCreditsClick}
+                disabled={loadingPortal}
+                className="flex items-center gap-2 bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white border border-white/20 pl-1.5 pr-4 py-1.5 rounded-full shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer disabled:opacity-80 disabled:cursor-wait"
+              >
                 <div className="flex items-center justify-center w-7 h-7 rounded-full bg-white/20 backdrop-blur-sm">
-                  <Zap size={13} className="text-white fill-white" />
+                  {loadingPortal ? (
+                    <Loader2 size={13} className="text-white animate-spin" />
+                  ) : (
+                    <Zap size={13} className="text-white fill-white" />
+                  )}
                 </div>
                 <div className="flex items-baseline gap-1.5 ml-1">
                   <span className="text-[13px] font-extrabold text-white leading-none">
@@ -108,7 +148,7 @@ export function DashboardHeader() {
                   </span>
                   <span className="text-[11px] text-white/90 font-semibold">Credits</span>
                 </div>
-              </div>
+              </button>
             </>
           )}
         </div>

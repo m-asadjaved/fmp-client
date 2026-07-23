@@ -163,7 +163,8 @@ async function handleTransactionCompleted(event) {
 
       if (isPAYG) {
         // For Pay-As-You-Go, we ADD to the existing balance and DO NOT change the plan.
-        const addedCredits = getCreditsFromPriceId(priceId);
+        const quantity = txn.items?.[0]?.quantity || 1;
+        const addedCredits = getCreditsFromPriceId(priceId) * quantity;
         const currentBalance = existingCredits ? (existingCredits.balance || 0) : 0;
         
         const { error } = await supabase.from("user_credits").upsert({
