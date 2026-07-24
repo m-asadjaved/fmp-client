@@ -26,7 +26,7 @@ export async function POST(request) {
 
     await Promise.all(
       fileKeys.map(async (key) => {
-        const compressedKey = `compressed_${key}`;
+        const compressedKey = key.startsWith("compressed_") ? key : `compressed_${key}`;
         try {
           await s3Client.send(
             new HeadObjectCommand({

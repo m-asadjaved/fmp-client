@@ -45,7 +45,7 @@ def main():
     audio_key = payload.get("s3_audio_key")
     webhook_url = payload.get("webhook_url")
     youtube_url = payload.get("youtube_url")
-    youtube_api_key = payload.get("youtube_api_key")
+    api_key = payload.get("video_download_api_key") or os.environ.get("VIDEO_DOWNLOAD_API_KEY")
     
     # Send an initial 'processing' webhook if needed
     send_status_webhook(webhook_url, "processing", req_id=req_id)
@@ -55,49 +55,60 @@ def main():
     local_audio_path = f"/tmp/audio_{req_id}.mp3"
 
     try:
-        # 2. Download the raw video
+        # 2. Download the raw video from S3 OR YouTube
         if youtube_url:
-            print(f"📥 Downloading YouTube video via external API...")
-            if not youtube_api_key:
-                raise ValueError("❌ Missing youtube_api_key for YouTube download.")
+            print(f"📥 Downloading YouTube video: {youtube_url}...")
+            if not api_key:
+                raise ValueError("❌ Missing video_download_api_key for YouTube download.")
             
-            import urllib.parse
-            api_url = f"https://p.savenow.to/ajax/download.php?url={urllib.parse.quote(youtube_url)}&format=1080&apikey={youtube_api_key}&add_info=1&no_merge=0"
-            r = requests.get(api_url)
-            r.raise_for_status()
+            download_api_url = "https://p.savenow.to/ajax/download.php"
+            params = {
+                "url": youtube_url,
+                "format": "1080",
+                "apikey": api_key,
+                "add_info": "1",
+                "no_merge": "0"
+            }
+            print("🚀 Calling external download API...")
+            r = requests.get(download_api_url, params=params)
             data = r.json()
             if not data.get("success"):
-                raise Exception(f"YouTube Download API failed to initiate: {data}")
+                raise Exception(f"Failed to start YouTube download: {data}")
             
             job_id = data["id"]
-            print(f"✅ Job initiated. Job ID: {job_id}. Polling progress...")
-            
+            progress_api_url = "https://p.savenow.to/ajax/progress.php"
             download_url = None
-            for _ in range(60): # Max 10 minutes
-                time.sleep(10)
-                prog_r = requests.get(f"https://p.savenow.to/ajax/progress.php?id={job_id}")
-                prog_r.raise_for_status()
-                prog_data = prog_r.json()
-                
-                if prog_data.get("success") == 1 and prog_data.get("download_url"):
-                    download_url = prog_data["download_url"]
-                    break
-                elif prog_data.get("progress_status") == 100 and prog_data.get("download_url"):
-                    download_url = prog_data["download_url"]
-                    break
-                
-                print(f"⏳ Progress: {prog_data.get('progress_status', 0)}%")
-                
-            if not download_url:
-                raise Exception("YouTube download polling timed out.")
             
-            print(f"📥 Downloading from {download_url} to {local_input_path}...")
-            with requests.get(download_url, stream=True) as r_dl:
-                r_dl.raise_for_status()
+            print(f"⏳ Polling progress for job {job_id}...")
+            while True:
+                time.sleep(2)
+                pr = requests.get(progress_api_url, params={"id": job_id})
+                pdata = pr.json()
+                
+                if pdata.get("success"):
+                    progress = pdata.get("progress", 0)
+                    if progress >= 1000 and pdata.get("download_url"):
+                        download_url = pdata["download_url"]
+                        break
+                else:
+                    text = pdata.get("text", "").lower()
+                    if "error" in text:
+                        raise Exception(f"Download failed: {pdata.get('text')}")
+            
+            print(f"📥 Fetching file from {download_url} to {local_input_path}...")
+            with requests.get(download_url, stream=True) as vr:
+                vr.raise_for_status()
                 with open(local_input_path, 'wb') as f:
-                    for chunk in r_dl.iter_content(chunk_size=8192):
+                    for chunk in vr.iter_content(chunk_size=8192):
                         f.write(chunk)
-            print("✅ YouTube video downloaded.")
+            
+            import shutil
+            shutil.copy2(local_input_path, local_compressed_path)
+
+            if input_key:
+                print(f"📤 Uploading raw YouTube video to S3: {input_key}")
+                s3_client.upload_file(local_input_path, bucket, input_key)
+
         else:
             print(f"📥 Downloading s3://{bucket}/{input_key} to {local_input_path}...")
             s3_client.download_file(bucket, input_key, local_input_path)
@@ -114,12 +125,10 @@ def main():
                 print(f"📤 Uploading audio to S3: {audio_key}")
                 s3_client.upload_file(local_audio_path, bucket, audio_key)
         
+        # 3. Compress and Convert to MP4 using FFmpeg
         if youtube_url:
-            print("⚙️ Skipping FFmpeg compression for YouTube download...")
-            import shutil
-            shutil.copy(local_input_path, local_compressed_path)
+            print("⚙️ Skipping FFmpeg compression for YouTube video...")
         else:
-            # 3. Compress and Convert to MP4 using FFmpeg
             print("⚙️ Starting FFmpeg compression...")
             
             # Build the base command

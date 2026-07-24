@@ -39,8 +39,14 @@ export async function GET(request, context) {
       return NextResponse.json({ error: "Video not found or unauthorized" }, { status: 404 });
     }
 
-    // Fixed the trailing '}' typo at the end of the URL string
-    const redirectUrl = `${AWS_BUCKET_URL}/raw_videos/${videoId}.mp4`;
+    let targetKey = data.file_key;
+    if (targetKey && targetKey.startsWith("raw_videos/")) {
+      targetKey = targetKey.replace("raw_videos/", "compressed_raw_videos/");
+    } else if (!targetKey) {
+      targetKey = `compressed_raw_videos/${videoId}.mp4`;
+    }
+    
+    const redirectUrl = `${AWS_BUCKET_URL}/${targetKey}`;
     
     return NextResponse.redirect(redirectUrl);
 

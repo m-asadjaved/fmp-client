@@ -325,6 +325,16 @@ export default function AIClipsPage({ params }) {
 
 					intentionallyClosed.current = true;
 					eventSource.close();
+				} else if (data.status === "PARTIAL_COMPLETED") {
+					setLogs((prev) => [
+						...prev,
+						`SUCCESS: Clip ${data.clip_index !== undefined ? data.clip_index + 1 : ''} finished rendering!`,
+					]);
+				} else if (data.status === "PARTIAL_FAILED") {
+					setLogs((prev) => [
+						...prev,
+						`ERROR: Clip ${data.clip_index !== undefined ? data.clip_index + 1 : ''} failed to render.`,
+					]);
 				} else if (data.status === "FAILED") {
 					setPhase("done");
 					setLogs((prev) => [

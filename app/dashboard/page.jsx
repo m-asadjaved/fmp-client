@@ -228,6 +228,20 @@ export default function Dashboard() {
   const [youtubeStartTime, setYoutubeStartTime] = useState(0);
   const [youtubeEndTime, setYoutubeEndTime] = useState(0);
 
+  useEffect(() => {
+    // Auto-restore processing YouTube video if page refreshes
+    const processingState = localStorage.getItem('youtube_processing');
+    if (processingState) {
+      try {
+        const data = JSON.parse(processingState);
+        if (data.videoId && !youtubeEmbedId) {
+          setYoutubeEmbedId(data.videoId);
+          setVideoLink(`https://www.youtube.com/watch?v=${data.videoId}`);
+        }
+      } catch (e) {}
+    }
+  }, []);
+
   // S3 Core Pipeline Upload & Media Tracking States
   const [isDragActive, setIsDragActive] = useState(false);
   const [file, setFile] = useState(null);
@@ -392,43 +406,6 @@ export default function Dashboard() {
       setPendingFile(null);
     }
   }, [pendingFile, uploading, file]);
-
-  const handleYouTubeProcess = async () => {
-    if (!youtubeEmbedId) return;
-
-    try {
-      setUploading(true);
-      
-      const response = await fetch('/api/youtube/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          youtubeUrl: videoLink,
-          title: "YouTube Video Import",
-          duration: youtubeEndTime > 0 ? (youtubeEndTime - youtubeStartTime) : 0,
-        }),
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok) throw new Error(data.error || 'Failed to process YouTube video');
-
-      showAlert('Processing Started', 'Your video is being downloaded and processed!', 'success');
-
-      if (data.dbRecord) {
-        setHistory((prev) => [data.dbRecord, ...prev]);
-        fetchUploadHistory();
-      }
-
-      setVideoLink('');
-      setYoutubeEmbedId(null);
-      
-    } catch (error) {
-      showAlert('Error', error.message, 'error');
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const handleUpload = async () => {
     if (!file) return;
@@ -642,31 +619,14 @@ export default function Dashboard() {
         <section className="stagger-1 shadow-sm hover:shadow-md transition-shadow duration-300" style={{ display: "grid", gridTemplateColumns: youtubeEmbedId ? "1fr" : "2fr 1fr", gap: 32, background: "var(--surface)", border: "1px solid #d1d5db", borderRadius: 16, padding: 32, marginBottom: 32, alignItems: youtubeEmbedId ? "start" : "center" }}>
 
           {youtubeEmbedId ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center', width: '100%' }}>
-              <YouTubePreview 
-                videoId={youtubeEmbedId} 
-                onRangeChange={({ startTime, endTime }) => {
-                  setYoutubeStartTime(startTime);
-                  setYoutubeEndTime(endTime);
-                }}
-                onCancel={() => setYoutubeEmbedId(null)}
-              />
-              <button
-                className="bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white font-bold rounded-xl shadow-[0_4px_14px_0_rgba(168,85,247,0.39)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.23)] hover:-translate-y-[1px] transition-all duration-200 active:scale-[0.98]"
-                style={{ padding: "12px 24px", fontSize: "16px", cursor: "pointer", width: "100%", maxWidth: "600px" }}
-                onClick={handleYouTubeProcess}
-                disabled={uploading}
-              >
-                {uploading ? (
-                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />
-                    Initializing Processing...
-                  </span>
-                ) : (
-                  "Start Processing"
-                )}
-              </button>
-            </div>
+            <YouTubePreview 
+              videoId={youtubeEmbedId} 
+              onRangeChange={({ startTime, endTime }) => {
+                setYoutubeStartTime(startTime);
+                setYoutubeEndTime(endTime);
+              }}
+              onCancel={() => setYoutubeEmbedId(null)}
+            />
           ) : (
             <>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -896,13 +856,19 @@ export default function Dashboard() {
               {history.map((item, index) => {
                 const isReady = compressionStatuses[item.file_key] === 'ready';
                 const isProcessing = compressionStatuses[item.file_key] === 'processing';
+                
+                const getCompressedVideoUrl = (url) => {
+                  if (!url) return null;
+                  if (url.includes('compressed_raw_videos')) return url;
+                  return url.replace('raw_videos/', 'compressed_raw_videos/');
+                };
 
                 return (
                   <div key={item.id || item.video_id} className={`stagger-${(index % 3) + 1} group shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-400`} style={{ background: "var(--surface)", border: "1px solid var(--border-subtle)", borderRadius: 16, overflow: "hidden", display: "flex", flexDirection: "column" }}>
 
                     {/* Aspect Previews Area box */}
                     <div
-                      onClick={() => { if (isReady) setActiveVideoUrl(item.video_url) }}
+                      onClick={() => { if (isReady) setActiveVideoUrl(getCompressedVideoUrl(item.video_url)) }}
                       style={{ position: "relative", aspectRatio: "16/9", background: "#000", cursor: isReady ? "pointer" : "default", overflow: "hidden" }}
                     >
                       {item.thumbnail_url ? (
@@ -939,7 +905,7 @@ export default function Dashboard() {
                     <div style={{ padding: 16, flex: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
                       <div style={{ marginBottom: 16 }}>
                         <h4
-                          onClick={() => setActiveVideoUrl(item.video_url)}
+                          onClick={() => setActiveVideoUrl(getCompressedVideoUrl(item.video_url))}
                           style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 800, color: "var(--on-surface)", cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
                         >
                           {item.original_name || 'Untitled Clip Asset'}

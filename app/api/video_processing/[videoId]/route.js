@@ -158,7 +158,7 @@ export async function POST(request, context) {
 		// ── 4. Calculate Credits Cost ───────────────────────────────────────────
 		const { data: videoRow, error: videoError } = await supabase
 			.from("videos")
-			.select("duration, gemini_file_uri")
+			.select("duration, gemini_file_uri, file_key")
 			.eq("video_id", videoId)
 			.eq("user_id", userId)
 			.single();
@@ -322,8 +322,8 @@ export async function POST(request, context) {
 								});
 								await s3.send(new CopyObjectCommand({
 									Bucket: AWS_BUCKET_NAME,
-									CopySource: `${AWS_BUCKET_NAME}/raw_videos/${videoId}.mp4`,
-									Key: `raw_videos/${videoId}.mp4`,
+									CopySource: `${AWS_BUCKET_NAME}/${videoRow.file_key}`,
+									Key: videoRow.file_key,
 									MetadataDirective: "REPLACE"
 								}));
 							} catch (_) { /* ignore S3 touch error */ }
@@ -414,10 +414,10 @@ export async function POST(request, context) {
 						req_id: videoReqData.id,
 						user_id: userId,
 						s3_bucket: AWS_BUCKET_NAME,
-						s3_input_key: `raw_videos/${videoId}.mp4`,
+						s3_input_key: videoRow.file_key,
 						s3_output_key: `processed_videos/output-${videoId}-${globalIndex}.mp4`,
 						s3_audio_output_key: `processed_audio/${videoId}-${globalIndex}.flac`,
-						webhook_url: WEBHOOK_URL_VIDEO_STATUS,
+						webhook_url: `${process.env.NEXT_PUBLIC_WEBSITE_URL}/api/webhooks/clips?clip_index=${globalIndex}`,
 						clip_info,
 						full_subtitles: '',
 						preferences: {

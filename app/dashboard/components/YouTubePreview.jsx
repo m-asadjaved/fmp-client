@@ -21,6 +21,69 @@ export function YouTubePreview({ videoId, onRangeChange, onCancel }) {
   const [downloadStatus, setDownloadStatus] = useState("");
   const [downloadProgress, setDownloadProgress] = useState(0);
 
+  const pollStatus = async (dbFileKey, dbVideoId, initialElapsedSecs = 0) => {
+    let polling = true;
+    let elapsedSecs = initialElapsedSecs;
+    
+    try {
+      while (polling) {
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        elapsedSecs += 4;
+        
+        if (elapsedSecs < 120) {
+           setDownloadProgress(25 + (elapsedSecs / 120) * 65);
+        }
+        
+        const statusRes = await fetch(`/api/upload/compression-status`, {
+          method: 'POST',
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ fileKeys: [dbFileKey] })
+        });
+        
+        if (statusRes.ok) {
+          const statusData = await statusRes.json();
+          if (statusData.statuses && statusData.statuses[dbFileKey] === 'ready') {
+            polling = false;
+            setDownloadProgress(100);
+            setDownloadStatus("Redirecting...");
+            localStorage.removeItem('youtube_processing');
+            window.location.href = `/dashboard/clips/v2/${dbVideoId}`;
+            return;
+          }
+        }
+        
+        if (elapsedSecs > 900) {
+           throw new Error("Download task timed out after 15 minutes.");
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+      setDownloading(false);
+      setDownloadStatus("");
+      localStorage.removeItem('youtube_processing');
+    }
+  };
+
+  useEffect(() => {
+    // Check if we are currently processing THIS videoId
+    const processingState = localStorage.getItem('youtube_processing');
+    if (processingState) {
+      try {
+        const data = JSON.parse(processingState);
+        if (data.videoId === videoId) {
+          setDownloading(true);
+          setDownloadStatus("Downloading and processing video via Fargate...");
+          const elapsedSecs = (Date.now() - data.startTime) / 1000;
+          setDownloadProgress(Math.min(90, 25 + (elapsedSecs / 120) * 65));
+          pollStatus(data.dbFileKey, data.dbVideoId, elapsedSecs);
+        }
+      } catch (e) {
+        // invalid JSON
+      }
+    }
+  }, [videoId]);
+
   useEffect(() => {
     // Reset state on video ID change
     setDuration(0);
@@ -302,75 +365,42 @@ export function YouTubePreview({ videoId, onRangeChange, onCancel }) {
               if (!videoId) return;
               
               setDownloading(true);
-              setDownloadStatus("Starting download task...");
+              setDownloadStatus("Starting Fargate download task...");
               setDownloadProgress(0);
 
               try {
                 // 1. Trigger the download job
-                const res = await fetch("/api/youtube/download", {
+                const res = await fetch("/api/youtube/process", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ url: `https://www.youtube.com/watch?v=${videoId}` }),
+                  body: JSON.stringify({ 
+                    youtubeUrl: `https://www.youtube.com/watch?v=${videoId}`,
+                    title: videoTitle,
+                    duration,
+                    thumbnailUrl: avatarUrl || null
+                  }),
                 });
                 const data = await res.json();
                 
                 if (!res.ok) {
-                  throw new Error(data.error || "Failed to start download job");
+                  throw new Error(data.error || "Failed to start processing job");
                 }
 
-                const { jobId, info } = data;
-                setDownloadStatus("Downloading video from YouTube...");
+                setDownloadStatus("Downloading and processing video via Fargate...");
+                setDownloadProgress(25);
 
-                // 2. Poll progress
-                let downloadUrl = null;
-                let polling = true;
+                // 2. Poll progress via compression-status
+                const dbFileKey = data.dbRecord.file_key;
+                const dbVideoId = data.dbRecord.video_id;
+
+                localStorage.setItem('youtube_processing', JSON.stringify({
+                  videoId,
+                  dbFileKey,
+                  dbVideoId,
+                  startTime: Date.now()
+                }));
                 
-                while (polling) {
-                  await new Promise((resolve) => setTimeout(resolve, 2000));
-                  
-                  const progressRes = await fetch(`/api/youtube/progress?jobId=${jobId}`);
-                  const progressData = await progressRes.json();
-                  
-                  if (progressData.success) {
-                    const currentProgress = (progressData.progress / 1000) * 100;
-                    setDownloadProgress(currentProgress);
-                    
-                    if (progressData.progress >= 1000 && progressData.download_url) {
-                      downloadUrl = progressData.download_url;
-                      polling = false;
-                    }
-                  } else if (progressData.text && progressData.text.toLowerCase().includes("error")) {
-                    throw new Error(`Download failed: ${progressData.text}`);
-                  }
-                }
-
-                // 3. Transfer to S3
-                setDownloadStatus("Transferring to Cloud Storage...");
-                setDownloadProgress(100); 
-                
-                const transferRes = await fetch("/api/youtube/transfer", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    downloadUrl,
-                    videoTitle: info?.title || videoTitle,
-                    duration,
-                    thumbnailUrl: info?.image || null
-                  }),
-                });
-                
-                const transferData = await transferRes.json();
-                if (!transferRes.ok) {
-                  throw new Error(transferData.error || "Failed to transfer video to cloud");
-                }
-
-                // 4. Redirect to the editor
-                if (transferData.dbRecord && transferData.dbRecord.video_id) {
-                  setDownloadStatus("Redirecting...");
-                  window.location.href = `/dashboard/clips/v2/${transferData.dbRecord.video_id}`;
-                } else {
-                  throw new Error("Invalid response from transfer API");
-                }
+                pollStatus(dbFileKey, dbVideoId, 0);
 
               } catch (err) {
                 console.error(err);

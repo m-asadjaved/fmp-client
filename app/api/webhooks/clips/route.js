@@ -89,10 +89,12 @@ export async function GET(request) {
 // 2. THE EXTERNAL PROGRAM CALLS THIS (POST Request webhook)
 export async function POST(request) {
   try {
-    const body = await request.json();
+    const { searchParams } = new URL(request.url);
+    const clipIndexParam = searchParams.get('clip_index');
+    const clip_index = clipIndexParam ? parseInt(clipIndexParam, 10) : 0;
 
+    const body = await request.json();
     const reqId = body.req_id || body.ref;
-    // Normalize status to uppercase to handle 'completed' or 'COMPLETED'
     const status = body.status?.toUpperCase(); 
 
     if (!reqId || !status) {
@@ -102,54 +104,84 @@ export async function POST(request) {
       );
     }
 
-    const { data, error } = await supabase
+    // 1. Fetch the request to get ai_analysis and current status
+    const { data: reqData } = await supabase
       .from('video_processing_req')
-      .update({ status: 'completed' })
-      .eq('id', reqId) // Target the specific record
-      .select('video_id, ai_analysis')
+      .select('video_id, ai_analysis, status')
+      .eq('id', reqId)
+      .single();
+      
+    const listenerId = reqData?.video_id || reqId;
+
+    // 2. Fetch the user_id
+    const { data: videoData } = await supabase
+      .from('videos')
+      .select('user_id')
+      .eq('video_id', listenerId)
       .single();
 
-    const listenerId = data?.video_id || reqId;
+    // 3. Log the clip's specific finish
+    await supabase.from("video_processing_logs").insert([{
+      video_id: listenerId,
+      current_process: status === 'FAILED' ? `Clip ${clip_index} Failed: ${body.error || body.reason || 'Unknown error'}` : `Clip ${clip_index} Edited Successfully`,
+      status: status === 'FAILED' ? 'clip_failed' : 'clip_completed'
+    }]);
 
-    if (status === 'COMPLETED' && listenerId) {
-      // Get user_id
-      const { data: videoData } = await supabase
-        .from('videos')
-        .select('user_id')
-        .eq('video_id', listenerId)
-        .single();
-        
-      if (videoData?.user_id && process.env.AWS_BUCKET_URL) {
-        let analysis = body.ai_analysis || data?.ai_analysis;
-        if (typeof analysis === 'string') {
-          try { analysis = JSON.parse(analysis); } catch(e){}
-        }
-        
-        const numClips = analysis?.recommended_shorts?.length || 1;
-        const rows = Array.from({ length: numClips }).map((_, i) => ({
+    // 4. Insert into generated_clips ONLY if this specific clip succeeded
+    if (status === 'COMPLETED' && videoData?.user_id && process.env.AWS_BUCKET_URL) {
+        await supabase.from('generated_clips').insert([{
           user_id: videoData.user_id,
           video_id: listenerId,
-          clip_index: i,
-          clip_url: `${process.env.AWS_BUCKET_URL}/processed_videos/output-${listenerId}-${i}.mp4`
-        }));
-        
-        await supabase.from('generated_clips').insert(rows).select();
-      }
+          clip_index: clip_index,
+          clip_url: `${process.env.AWS_BUCKET_URL}/processed_videos/output-${listenerId}-${clip_index}.mp4`
+        }]);
     }
 
-    await supabase
-      .from("video_processing_logs")
-      .insert([
-        {
-          video_id: listenerId,
-          current_process: 'Video Edited Successfully',
-          status: 'completed'
-        },
-      ])
-      .select()
-      .single();
+    // 5. Determine if this is the FINAL clip finishing
+    const { count: finishedClipsCount } = await supabase
+      .from('video_processing_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('video_id', listenerId)
+      .in('status', ['clip_completed', 'clip_failed']);
 
+    let analysis = reqData?.ai_analysis;
+    if (typeof analysis === 'string') {
+      try { analysis = JSON.parse(analysis); } catch(e){}
+    }
 
+    let expectedClips = 1;
+    if (analysis && Array.isArray(analysis.recommended_shorts)) {
+       const newClips = analysis.recommended_shorts.filter(c => c.is_new !== false);
+       expectedClips = newClips.length > 0 ? newClips.length : analysis.recommended_shorts.length;
+       expectedClips = Math.min(expectedClips, 5); // Matches backend limit
+    }
+
+    const isFinalEvent = finishedClipsCount >= expectedClips;
+    let sseStatus = status;
+
+    if (isFinalEvent) {
+       // Determine if at least one clip succeeded
+       const { count: successCount } = await supabase
+         .from('generated_clips')
+         .select('id', { count: 'exact', head: true })
+         .eq('video_id', listenerId);
+       
+       sseStatus = successCount > 0 ? 'COMPLETED' : 'FAILED';
+       
+       await supabase.from('video_processing_req').update({ 
+           status: sseStatus.toLowerCase() 
+       }).eq('id', reqId);
+       
+       await supabase.from("video_processing_logs").insert([{
+         video_id: listenerId,
+         current_process: sseStatus === 'FAILED' ? 'All clips failed processing.' : 'Pipeline finished successfully.',
+         status: sseStatus.toLowerCase()
+       }]);
+    } else {
+       sseStatus = status === 'COMPLETED' ? 'PARTIAL_COMPLETED' : 'PARTIAL_FAILED';
+    }
+
+    // 6. Broadcast to frontend
     const listeners = global.clipListeners[listenerId];
 
     if (!listeners || listeners.length === 0) {
@@ -160,17 +192,14 @@ export async function POST(request) {
     }
 
     const encoder = new TextEncoder();
-    
-    // FIX: Forward the entire body (including video_url) so the frontend can use it
-    const dataPayload = encoder.encode(`data: ${JSON.stringify(body)}\n\n`);
+    const dataPayload = encoder.encode(`data: ${JSON.stringify({ ...body, status: sseStatus, clip_index })}\n\n`);
 
-    // Write to every connected tab; skip any whose stream already closed
     await Promise.allSettled(
       listeners.map((client) => {
         try {
           client.write(dataPayload);
-          // Safely catches 'COMPLETED' now
-          if (status === 'COMPLETED' || status === 'FAILED') {
+          // Only close stream on the absolute final event
+          if (isFinalEvent) {
             client.close();
           }
         } catch (err) {
@@ -179,14 +208,13 @@ export async function POST(request) {
       })
     );
 
-    // Remove dead clients after a terminal event
-    if (status === 'COMPLETED' || status === 'FAILED') {
+    if (isFinalEvent) {
       delete global.clipListeners[listenerId];
     }
 
     return NextResponse.json({
       success: true,
-      message: `Dispatched "${status}" to ${listeners.length} active client(s).`,
+      message: `Dispatched "${sseStatus}" to ${listeners.length} active client(s). (${finishedClipsCount}/${expectedClips} clips finished)`,
     });
   } catch (error) {
     console.error('[Webhook] Unexpected error:', error);

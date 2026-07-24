@@ -48,6 +48,8 @@ def lambda_handler(event, context):
                 "-c:a", "aac", 
                 "-b:a", "64k" 
             ]
+            youtube_url = None
+            video_download_api_key = None
         else:
             # --- TRIGGERED MANUALLY BY API GATEWAY ---
             body = event.get("body", "{}")
@@ -63,21 +65,14 @@ def lambda_handler(event, context):
             audio_key = body.get("s3_audio_key", f"raw_audio/{req_id}.mp3")
             ffmpeg_commands = body.get("ffmpeg_commands", [])
             youtube_url = body.get("youtube_url")
-            youtube_api_key = body.get("youtube_api_key")
+            video_download_api_key = body.get("video_download_api_key")
 
         # 2. Validate extracted variables
-        if not bucket or not output_key:
+        if not bucket or (not input_key and not youtube_url) or not output_key:
             return {
                 "statusCode": 400,
                 "headers": headers,
-                "body": json.dumps({"error": "Missing required fields: s3_bucket, and s3_output_key are required."})
-            }
-        
-        if not input_key and not body.get("youtube_url"):
-             return {
-                "statusCode": 400,
-                "headers": headers,
-                "body": json.dumps({"error": "Missing required fields: Either s3_input_key or youtube_url is required."})
+                "body": json.dumps({"error": "Missing required fields: s3_bucket, (s3_input_key or youtube_url), and s3_output_key are required."})
             }
         
         # 3. Create the payload string your Fargate script expects
@@ -90,8 +85,8 @@ def lambda_handler(event, context):
             "s3_output_key": output_key,
             "s3_audio_key": audio_key,
             "ffmpeg_commands": ffmpeg_commands,
-            "youtube_url": body.get("youtube_url") if isinstance(body, dict) else None,
-            "youtube_api_key": body.get("youtube_api_key") if isinstance(body, dict) else None,
+            "youtube_url": youtube_url,
+            "video_download_api_key": video_download_api_key
         }
         
         # Save payload to S3 to bypass 8KB environment variable limit

@@ -49,7 +49,9 @@ LABEL_COLORS = [
 api_key = os.environ.get("GEMINI_API_KEY")
 if not api_key:
     print("⚠️ GEMINI_API_KEY environment variable not set!")
-client = genai.Client(api_key=api_key)
+    client = None
+else:
+    client = genai.Client(api_key=api_key)
 
 
 # ─── MODEL DOWNLOAD ──────────────────────────────────────────────────────────
@@ -235,19 +237,19 @@ class SmoothedBox:
         self.kalman.processNoiseCov = np.eye(8, dtype=np.float32) * 0.03
         self.kalman.measurementNoiseCov = np.eye(4, dtype=np.float32) * 1.0
         x, y, w, h = box
-        self.kalman.statePre = np.array([x, y, w, h, 0, 0, 0, 0], dtype=np.float32)
+        self.kalman.statePre = np.array([x, y, w, h, 0, 0, 0, 0], dtype=np.float32).reshape(8, 1)
         self.kalman.statePost = self.kalman.statePre.copy()
 
     def update(self, box):
         x, y, w, h = box
-        measurement = np.array([x, y, w, h], dtype=np.float32)
+        measurement = np.array([x, y, w, h], dtype=np.float32).reshape(4, 1)
         self.kalman.correct(measurement)
         pred = self.kalman.predict()
-        return tuple(max(0, int(round(v))) for v in pred[:4])
+        return tuple(max(0, int(round(v))) for v in pred.flatten()[:4])
 
     def predict_only(self):
         pred = self.kalman.predict()
-        return tuple(max(0, int(round(v))) for v in pred[:4])
+        return tuple(max(0, int(round(v))) for v in pred.flatten()[:4])
 
 
 # ─── APPEARANCE MODEL ─────────────────────────────────────────────────────────
@@ -490,6 +492,10 @@ def ask_gemini_zoom_target(frame_bgr, tracks):
       mode: "single_character" or "wide" (defaults to "wide" on failure/no faces)
       track_id_or_None: only set when mode == "single_character"
     """
+    if client is None:
+        print("⚠️ Gemini client not initialized (missing API key).")
+        return "wide", None, None
+
     if not tracks:
         return "wide", None, None
 
@@ -524,7 +530,7 @@ def ask_gemini_zoom_target(frame_bgr, tracks):
         return "wide", None, result
     except Exception as e:
         print(f"⚠️ Gemini zoom decision failed: {e}")
-        return "wide", None, None
+        raise RuntimeError(f"Gemini zoom decision failed: {e}")
 
 
 def ask_gemini_multiple_people(frame_bgr):
@@ -532,6 +538,10 @@ def ask_gemini_multiple_people(frame_bgr):
     Fast check: ask Gemini if there are 2 or more people in the frame.
     Used when the local detector finds 1 strong face and 1 weak face to be absolutely sure.
     """
+    if client is None:
+        print("⚠️ Gemini client not initialized (missing API key).")
+        return False
+
     part = frame_to_gemini_part(frame_bgr)
     try:
         response = client.models.generate_content(
@@ -546,7 +556,7 @@ def ask_gemini_multiple_people(frame_bgr):
         return "YES" in ans
     except Exception as e:
         print(f"⚠️ Gemini multiple people check failed: {e}")
-        return False
+        raise RuntimeError(f"Gemini multiple people check failed: {e}")
 
 
 
