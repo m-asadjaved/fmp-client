@@ -62,13 +62,22 @@ def lambda_handler(event, context):
             output_key = body.get("s3_output_key")
             audio_key = body.get("s3_audio_key", f"raw_audio/{req_id}.mp3")
             ffmpeg_commands = body.get("ffmpeg_commands", [])
+            youtube_url = body.get("youtube_url")
+            youtube_api_key = body.get("youtube_api_key")
 
         # 2. Validate extracted variables
-        if not bucket or not input_key or not output_key:
+        if not bucket or not output_key:
             return {
                 "statusCode": 400,
                 "headers": headers,
-                "body": json.dumps({"error": "Missing required fields: s3_bucket, s3_input_key, and s3_output_key are required."})
+                "body": json.dumps({"error": "Missing required fields: s3_bucket, and s3_output_key are required."})
+            }
+        
+        if not input_key and not body.get("youtube_url"):
+             return {
+                "statusCode": 400,
+                "headers": headers,
+                "body": json.dumps({"error": "Missing required fields: Either s3_input_key or youtube_url is required."})
             }
         
         # 3. Create the payload string your Fargate script expects
@@ -80,7 +89,9 @@ def lambda_handler(event, context):
             "s3_input_key": input_key,
             "s3_output_key": output_key,
             "s3_audio_key": audio_key,
-            "ffmpeg_commands": ffmpeg_commands
+            "ffmpeg_commands": ffmpeg_commands,
+            "youtube_url": body.get("youtube_url") if isinstance(body, dict) else None,
+            "youtube_api_key": body.get("youtube_api_key") if isinstance(body, dict) else None,
         }
         
         # Save payload to S3 to bypass 8KB environment variable limit

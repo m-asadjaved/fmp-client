@@ -393,6 +393,43 @@ export default function Dashboard() {
     }
   }, [pendingFile, uploading, file]);
 
+  const handleYouTubeProcess = async () => {
+    if (!youtubeEmbedId) return;
+
+    try {
+      setUploading(true);
+      
+      const response = await fetch('/api/youtube/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          youtubeUrl: videoLink,
+          title: "YouTube Video Import",
+          duration: youtubeEndTime > 0 ? (youtubeEndTime - youtubeStartTime) : 0,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) throw new Error(data.error || 'Failed to process YouTube video');
+
+      showAlert('Processing Started', 'Your video is being downloaded and processed!', 'success');
+
+      if (data.dbRecord) {
+        setHistory((prev) => [data.dbRecord, ...prev]);
+        fetchUploadHistory();
+      }
+
+      setVideoLink('');
+      setYoutubeEmbedId(null);
+      
+    } catch (error) {
+      showAlert('Error', error.message, 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleUpload = async () => {
     if (!file) return;
 
@@ -605,14 +642,31 @@ export default function Dashboard() {
         <section className="stagger-1 shadow-sm hover:shadow-md transition-shadow duration-300" style={{ display: "grid", gridTemplateColumns: youtubeEmbedId ? "1fr" : "2fr 1fr", gap: 32, background: "var(--surface)", border: "1px solid #d1d5db", borderRadius: 16, padding: 32, marginBottom: 32, alignItems: youtubeEmbedId ? "start" : "center" }}>
 
           {youtubeEmbedId ? (
-            <YouTubePreview 
-              videoId={youtubeEmbedId} 
-              onRangeChange={({ startTime, endTime }) => {
-                setYoutubeStartTime(startTime);
-                setYoutubeEndTime(endTime);
-              }}
-              onCancel={() => setYoutubeEmbedId(null)}
-            />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center', width: '100%' }}>
+              <YouTubePreview 
+                videoId={youtubeEmbedId} 
+                onRangeChange={({ startTime, endTime }) => {
+                  setYoutubeStartTime(startTime);
+                  setYoutubeEndTime(endTime);
+                }}
+                onCancel={() => setYoutubeEmbedId(null)}
+              />
+              <button
+                className="bg-gradient-to-r from-[#A855F7] to-[#ff6118] text-white font-bold rounded-xl shadow-[0_4px_14px_0_rgba(168,85,247,0.39)] hover:shadow-[0_6px_20px_rgba(168,85,247,0.23)] hover:-translate-y-[1px] transition-all duration-200 active:scale-[0.98]"
+                style={{ padding: "12px 24px", fontSize: "16px", cursor: "pointer", width: "100%", maxWidth: "600px" }}
+                onClick={handleYouTubeProcess}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                    <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />
+                    Initializing Processing...
+                  </span>
+                ) : (
+                  "Start Processing"
+                )}
+              </button>
+            </div>
           ) : (
             <>
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
